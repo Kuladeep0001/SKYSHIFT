@@ -1,101 +1,142 @@
-# SkyShift 🌌
+# SkyShift 🌌 — watch the infrared sky move
 
-**Watch the infrared sky move.** SkyShift is a public web tool for NASA's **SPHEREx** mission.
-Type a star's name or sky coordinates, and SkyShift collects every SPHEREx picture of that spot,
-lines them up, and plays them like a flipbook. Anything that **moves** (nearby stars, brown dwarfs,
-asteroids) or **changes brightness** (variable stars) jumps out.
+**SkyShift** is a public website for NASA's **SPHEREx** mission. Type a star's name or sky coordinates and
+SkyShift gathers every SPHEREx picture of that spot, lines them up, and plays them like a **flipbook**.
+Anything that **moves** (nearby stars, brown dwarfs, asteroids) or **changes brightness** (variable stars)
+jumps out — the same trick that found Pluto.
+
+It is built for **everyone first**: a *Simple* mode explains every picture in plain English, and an
+*Expert* mode adds the science tools (all 6 detectors, all 102 infrared colours, spectra, flags…).
 
 Built for the **NASA Space Apps Challenge 2026**.
 
 ```
- Browser (flipbook player, spectra, overlays, Aladin sky map)
-    │   /?q=Barnard's Star   or   /?ra=133.76&dec=-7.24&fov=8   ← shareable, embeddable
-    ▼
- FastAPI backend (Python + astropy)
-    │   finds images → downloads small cutouts in parallel → aligns them north-up → caches
-    ▼
- NASA/IPAC IRSA (SPHEREx DR1 + newest Quick Release, detected automatically)
- + ESA Gaia DR3 · NASA AllWISE · IMCCE SkyBoT · CDS Sesame
+ Frontend (React)       search · flipbook · before/after · explanations · expert tools
+        │  REST API  (see API_DOCUMENTATION.md)
+        ▼
+ Backend (FastAPI)      SPHEREx data · image processing · detection · verification
+        │
+        ▼
+ External data          NASA IRSA (SPHEREx DR1 + newest Quick Release) · ESA Gaia DR3 · NASA AllWISE
+                        · IMCCE SkyBoT (asteroids) · CDS Sesame (names) & Aladin (sky map)
 ```
 
-## Features
+## Checklist (from the team plan)
 
-| Feature | What it does |
+**Must have**
+- [x] Accept RA and declination coordinates (any format) — or a star's name
+- [x] Retrieve SPHEREx images for the selected sky region
+- [x] Display images from different observation times
+- [x] Play through the images like a video
+
+**Good to have**
+- [x] Selectable field of view (2′–20′)
+- [x] Compare or subtract images from different epochs (before/after slider, − first, − previous, add all)
+- [x] Explore the 102 infrared bands (grid of all 102 + "same colour over time")
+- [x] Combine data from the six detector arrays (stacked per visit, 6-panel wall, infrared colour)
+- [x] Gaia and WISE overlays (Gaia moved to each picture's date)
+- [x] Metadata and contamination flags
+- [x] URL-based coordinate queries + embed mode
+- [x] Detection and analysis: finds movers/brightness changes, checks them against Gaia/WISE/asteroids
+
+**Results on the challenge targets** (SPHEREx only, then checked against Gaia):
+
+| Target | SkyShift measured | Known |
+|---|---|---|
+| Barnard's Star | 10.36″/yr toward 352° | 10.39″/yr toward 356° (Gaia) |
+| Epsilon Indi B | 4.45″/yr toward 128° | 4.68″/yr toward 122° |
+| RW Aurigae | brightness changed ×2.0 between visits | known variable (young star) |
+| R Draconis | brightness changed ×1.8 (4.4–5 µm) | known variable (Mira) |
+| WISE 0855 | visible in detector D6; too faint in the first visit to measure motion | 8.1″/yr |
+
+## Tech stack
+
+| Part | Tools |
 |---|---|
-| **Search** | Object name or RA/Dec in any format. Fast-moving stars are centred where they are *today* (Barnard's Star has moved 4.5′ since 2000). |
-| **Blink player** | Play / pause / step / speed, with the date on every frame and a timeline of every exposure. |
-| **Each visit / every exposure** | Stacked picture per visit (6 months apart, for stars) or every single exposure (minutes to days apart, for asteroids). |
-| **6 detectors** | Six synced players, one per detector array (0.75–5 µm). Each is stacked for better signal-to-noise. |
-| **Infrared colour** | Red = 3.8–5 µm, green = 1.6–3.8 µm, blue = 0.75–1.6 µm. |
-| **102 planes** | Every one of the 102 spectral channels for a visit. Click one to blink that exact wavelength over time. |
-| **Add / subtract** | Each frame minus the first or previous one (movers become dark/bright pairs), or add everything up. |
-| **Spectrum on the fly** | Click any pixel to get its brightness at every wavelength and date, plus a light curve. |
-| **Overlays** | Gaia DR3 stars moved to each frame's date (fast movers labelled), AllWISE (2010), known asteroids (SkyBoT), contamination flags. |
-| **Field of view** | 2′ to 20′. Bigger views catch faster movers but take longer to download. |
-| **Share & embed** | Every view has its own URL. `?embed=1` gives a bare player for iframes. |
-| **Always current** | Data releases are discovered from IRSA at runtime (`spherex_dr1`, `spherex_qr3`, and future `dr2`, …). |
+| Frontend | React 18 + Vite, Chart.js, Aladin Lite v3 (CDS) |
+| Backend | Python 3.12+, FastAPI, astropy, numpy, Pillow |
+| Data | NASA IRSA SIA + cutout service (SPHEREx), ESA Gaia TAP, IRSA Gator (AllWISE), IMCCE SkyBoT, CDS Sesame |
+| Deploy | Docker (one container serves the API and the built website) |
 
 ## Run it locally
 
+**Backend** (Python 3.11+):
 ```bash
 git clone https://github.com/Kuladeep0001/SKYSHIFT.git
 cd SKYSHIFT
 python -m venv .venv
-.venv\Scripts\activate          # Windows   (macOS/Linux: source .venv/bin/activate)
-pip install -r requirements.txt
-uvicorn backend.app:app --reload --port 8000
+.venv\Scripts\activate            # Windows   (macOS/Linux: source .venv/bin/activate)
+pip install -r requirements-dev.txt
+uvicorn backend.main:app --reload --port 8000      # API docs: http://localhost:8000/docs
 ```
 
-Open http://localhost:8000. API docs: http://localhost:8000/docs
-
-The first load of a new spot downloads ~100–360 small images from NASA (1–4 minutes).
-After that it is cached in `data/cache/` and loads instantly. To pre-load the 5 challenge targets:
-
+**Frontend** (Node 18+), in a second terminal:
 ```bash
-python -m scripts.prewarm
+cd frontend
+npm install
+npm run dev          # http://localhost:5173  (forwards /api to port 8000)
 ```
+No backend yet? Open **http://localhost:5173/?mock=1** — the site runs on saved sample responses.
 
-## Run with Docker
-
+**Everything in one** (what we deploy): `cd frontend && npm run build`, then the backend serves the site at
+http://localhost:8000. Or with Docker:
 ```bash
 docker build -t skyshift .
 docker run -p 7860:7860 skyshift
 ```
 
-## Project layout
+The first load of a new spot downloads 100–450 small images from NASA (1–4 minutes); after that it is cached in
+`data/cache/`. Before a demo: `python -m scripts.prewarm` (caches the 5 challenge targets).
+
+**Tests:** `python -m pytest tests`
+
+## Project structure
 
 ```
 backend/
-  app.py        web server + API routes
-  sphx.py       SPHEREx at IRSA: release discovery, image search, cutout download
-  imaging.py    align cutouts to one grid, flags, 102-channel mapping, stacking
-  jobs.py       background download jobs, frames, spectra
-  catalogs.py   name lookup, Gaia DR3, AllWISE, SkyBoT asteroids
+  main.py                   app, routers, serves the built website
+  routes/
+    images.py               /api/images/*      query, frames, PNGs, spectrum, compare
+    analysis.py             /api/detections/*  moving-object detection
+    verification.py         /api/verification/*, /api/catalog/*   Gaia/WISE/asteroid checks + overlays
+    metadata.py             /api/metadata/*, /api/releases, /api/resolve, /api/health
+  services/
+    spherex.py              IRSA: release discovery, image search, cutout download + cache
+    image_processing.py     alignment, background removal, stacking, 102 channels, frames, spectra, compare, PNG
+    jobs.py                 background download jobs + cache
+    detection.py            movers / brightness changes / transients
+    gaia.py                 Gaia DR3 + AllWISE queries, cross-matching
+    solar_system.py         known asteroids (SkyBoT)
+    resolver.py             names & coordinates → RA/Dec (proper-motion corrected)
+  models/schemas.py         request/response models (the API contract)
 frontend/
-  index.html, style.css, app.js   the whole website (no build step)
-scripts/
-  prewarm.py    cache the challenge targets before a demo
+  src/App.jsx               header, Simple/Expert switch, pages
+  src/pages/                Explorer (main dashboard), About (how it works)
+  src/components/           ImageViewer, Timeline, CoordinateInput, Controls, BeforeAfter, Explainer,
+                            CandidatesPanel, DetectorWall, PlanesGrid, SpectrumPanel, MetadataPanel, SkyMap…
+  src/lib/                  api.js (all API calls + mock mode), frames.js, render.js, targets.js
+  public/mock/              saved API responses for ?mock=1
+tests/                      pytest: resolver, image processing, detection, API contract
+sample_data/                real SPHEREx cutouts (one per detector) for backend experiments
+scripts/                    prewarm.py (cache demo targets), make_mocks.py (refresh mock JSON)
+API_DOCUMENTATION.md        every endpoint, inputs, outputs, errors
+INTEGRATION_PLAN.md         who owns what, dependencies, milestones
 ```
 
-## API
+## Team
 
-| Endpoint | Purpose |
-|---|---|
-| `GET /api/releases` | SPHEREx releases available at IRSA |
-| `GET /api/resolve?q=` | name or coordinates → RA/Dec (proper-motion corrected) |
-| `GET /api/load?ra=&dec=&fov=&rel=` | start or reuse a job → `id` |
-| `GET /api/job/{id}` | progress |
-| `GET /api/job/{id}/summary` | exposures, visits, the 102 channels, flag definitions |
-| `GET /api/job/{id}/frames?mode=visit\|exposure\|channel\|visitdet\|planes&det=&channel=&visit=` | aligned frames (base64 float32) |
-| `GET /api/job/{id}/spectrum?x=&y=` | spectrum + light curve at a pixel |
-| `GET /api/catalog/{gaia\|allwise\|skybot}?ra=&dec=&radius=&mjd=` | overlays |
+| Role | Name | Owns |
+|---|---|---|
+| UI 1 — dashboard, layout, coordinate input | _add name_ | `App.jsx`, `pages/`, `CoordinateInput.jsx` |
+| UI 2 — image viewer, timeline, playback | _add name_ | `components/` |
+| Verification — Gaia/WISE cross-matching | _add name_ | `services/gaia.py`, `routes/verification.py` |
+| Feature dev 1 — SPHEREx retrieval, processing, comparison | _add name_ | `services/spherex.py`, `routes/images.py`, `services/image_processing.py` |
+| Feature dev 2 — detection and analysis | _add name_ | `services/detection.py`, `routes/analysis.py` |
+| Integration lead — API, integration, tests, deployment | _add name_ | `main.py`, `models/`, `tests/`, Docker |
 
-## Team workflow
-
-1. `git pull` before you start.
-2. Make a branch: `git checkout -b feature/my-thing`
-3. Commit small, push, and open a Pull Request into `main`.
-4. Don't commit `data/` (it's in `.gitignore`).
+Git workflow: one branch per role (`frontend-dashboard`, `frontend-viewer`, `feature-spherex-retrieval`,
+`feature-image-processing`, `feature-detection`, `feature-gaia-verification`) → Pull Request → integration lead
+merges into `main`. Never commit `data/`. See INTEGRATION_PLAN.md.
 
 ## Credits
 

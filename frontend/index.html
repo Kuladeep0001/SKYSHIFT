@@ -1,155 +1,17 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SkyShift · SPHEREx time-lapse</title>
-  <meta name="description" content="Watch the infrared sky change over time with NASA's SPHEREx mission. Spot moving stars, brown dwarfs and asteroids.">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%230b1426'/%3E%3Ccircle cx='11' cy='18' r='3' fill='%2353d8c4' opacity='.45'/%3E%3Ccircle cx='20' cy='13' r='4' fill='%23ffb547'/%3E%3C/svg%3E">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-<header class="top">
-  <a class="brand" href="./" title="SkyShift home">
-    <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#0b1426" stroke="#26385c"/><circle cx="11" cy="18" r="3" fill="#53d8c4" opacity=".45"/><circle cx="20" cy="13" r="4" fill="#ffb547"/></svg>
-    <span>Sky<b>Shift</b></span>
-  </a>
-  <form id="searchForm" class="search" autocomplete="off">
-    <input id="q" type="text" placeholder="Object name or RA Dec  e.g.  Barnard's Star  ·  08h55m10.8s -7d14m42s  ·  269.45 4.77" aria-label="Object name or coordinates">
-    <label class="fov" title="Field of view. Bigger shows faster movers, but downloads take longer.">
-      <span>View <b id="fovVal">6′</b></span>
-      <input id="fov" type="range" min="2" max="20" step="1" value="6">
-    </label>
-    <select id="rel" title="SPHEREx data release (auto-detected from NASA IRSA)"><option value="">Best available</option></select>
-    <button id="go" type="submit" class="primary">Load</button>
-  </form>
-</header>
-
-<nav class="chips" id="chips" aria-label="Challenge test targets"></nav>
-
-<main class="layout">
-  <section class="stage card">
-    <div class="tabs" role="tablist">
-      <button data-view="blink" class="on">Blink</button>
-      <button data-view="wall">6 Detectors</button>
-      <button data-view="color">Infrared colour</button>
-      <button data-view="planes">102 Planes</button>
-    </div>
-
-    <div id="welcome" class="welcome">
-      <h1>Watch the infrared sky move.</h1>
-      <p>Since 2025, NASA's <b>SPHEREx</b> has photographed the whole sky every six months in 102 infrared colours.
-        Enter a name or coordinates, and SkyShift lines up every SPHEREx picture of that spot and plays them like a flipbook.
-        Anything that <b>moves</b> or <b>changes brightness</b> jumps out.</p>
-      <p class="hint">Try a challenge target above. Barnard's Star moves fastest.</p>
-    </div>
-
-    <div id="progress" class="progress hidden">
-      <div class="bar"><i id="progBar"></i></div>
-      <p id="progText">Starting…</p>
-    </div>
-
-    <div id="views" class="hidden">
-      <div class="controls-row" id="blinkControls">
-        <div class="seg" id="modeSeg" title="How to turn exposures into frames">
-          <button data-mode="visit" class="on" title="One clear stacked picture per visit (every ~6 months)">Each visit</button>
-          <button data-mode="exposure" title="Every single exposure (minutes to days apart). Best for asteroids">Every exposure</button>
-          <button data-mode="channel" title="Only one of the 102 colours, so every frame is the same wavelength">Same colour</button>
-        </div>
-        <div class="seg" id="detSeg" title="Detector (each one covers a range of infrared colours)">
-          <button data-det="0" class="on" title="All 6 detectors stacked together: deepest image">All</button>
-          <button data-det="1">D1</button><button data-det="2">D2</button><button data-det="3">D3</button>
-          <button data-det="4">D4</button><button data-det="5">D5</button><button data-det="6">D6</button>
-        </div>
-        <label class="plane hidden" id="planeBox">Plane <b id="planeVal">40</b>
-          <input id="plane" type="range" min="1" max="102" value="40"><span id="planeWave" class="mono"></span>
-        </label>
-        <label class="visitPick hidden" id="visitBox">Visit <select id="visitSel"></select></label>
-      </div>
-
-      <div class="canvasWrap" id="mainWrap">
-        <canvas id="main" width="720" height="720" aria-label="SPHEREx frame"></canvas>
-        <div class="compass" aria-hidden="true"><span class="n">N</span><span class="e">E</span></div>
-        <div class="scalebar" id="scalebar"><i></i><span></span></div>
-        <div class="stamp mono" id="stamp"></div>
-      </div>
-      <div class="wall hidden" id="wall"></div>
-      <div class="planesGrid hidden" id="planesGrid"></div>
-
-      <div class="player" id="player">
-        <button id="prev" title="Previous frame (←)">⏮</button>
-        <button id="play" class="primary" title="Play / pause (space)">⏸</button>
-        <button id="next" title="Next frame (→)">⏭</button>
-        <input id="scrub" type="range" min="0" max="0" value="0" aria-label="Frame">
-        <span id="frameLbl" class="mono">0/0</span>
-        <label title="Frames per second">Speed <input id="fps" type="range" min="0.5" max="8" step="0.5" value="2"></label>
-      </div>
-      <svg id="timeline" class="timeline" aria-label="Timeline of exposures"></svg>
-
-      <div class="controls-row display">
-        <label title="Brighten faint things">Contrast <input id="contrast" type="range" min="0" max="1" step="0.01" value="0.55"></label>
-        <label title="Clip bright stars">Brightness <input id="bright" type="range" min="0" max="1" step="0.01" value="0.5"></label>
-        <select id="cmap" title="Colour map"><option value="gray">Grey</option><option value="inferno">Heat</option><option value="invert">Inverted</option></select>
-        <div class="seg" id="mathSeg" title="Add or subtract frames">
-          <button data-math="none" class="on">Normal</button>
-          <button data-math="first" title="Each frame minus the first one: movers show as dark/bright pairs">− first</button>
-          <button data-math="prev" title="Each frame minus the previous one">− previous</button>
-          <button data-math="sum" title="All frames added together: deepest, faintest things show up">Σ add all</button>
-        </div>
-      </div>
-      <div class="controls-row display">
-        <span class="lbl">Overlays</span>
-        <label class="tog"><input type="checkbox" id="ovGaia" checked> <i class="dot gaia"></i>Gaia DR3 <small>(moved to each date)</small></label>
-        <label class="tog"><input type="checkbox" id="ovWise"> <i class="dot wise"></i>AllWISE <small>(2010)</small></label>
-        <label class="tog"><input type="checkbox" id="ovAst"> <i class="dot ast"></i>Known asteroids</label>
-        <label class="tog"><input type="checkbox" id="ovFlags"> <i class="dot flag"></i>Flagged pixels</label>
-        <label class="tog"><input type="checkbox" id="ovCross" checked> Crosshair</label>
-        <span class="spacer"></span>
-        <button id="copyLink" title="Copy a link to exactly this view">🔗 Link</button>
-        <button id="copyEmbed" title="Copy HTML to embed this viewer on another website">&lt;/&gt; Embed</button>
-        <button id="savePng" title="Save this frame as a picture">⤓ PNG</button>
-      </div>
-    </div>
-  </section>
-
-  <aside class="side">
-    <section class="card">
-      <h2>This frame</h2>
-      <dl id="meta" class="meta"><dt>Target</dt><dd>—</dd></dl>
-    </section>
-    <section class="card">
-      <h2>Spectrum <small id="specHint">click any pixel</small></h2>
-      <div class="chartBox"><canvas id="specChart"></canvas></div>
-      <h2 class="mt">Light curve <small>same pixel over time</small></h2>
-      <div class="chartBox"><canvas id="lcChart"></canvas></div>
-      <p id="specNote" class="note"></p>
-    </section>
-    <section class="card">
-      <h2>Sky map <small>Aladin · CDS</small>
-        <select id="hips"><option value="P/allWISE/color">AllWISE colour</option><option value="P/2MASS/color">2MASS colour</option><option value="P/DSS2/color">DSS optical</option><option value="P/PanSTARRS/DR1/color-z-zg-g">Pan-STARRS</option></select>
-      </h2>
-      <div id="aladin" class="aladin"></div>
-      <button id="aladinGo" class="full">Load the spot at the centre of this map</button>
-    </section>
-  </aside>
-</main>
-
-<footer class="foot">
-  Data: NASA/IPAC Infrared Science Archive (SPHEREx), ESA Gaia DR3, NASA WISE, IMCCE SkyBoT, CDS Aladin &amp; Sesame.
-  Built for the NASA Space Apps Challenge 2026. <a href="/docs" target="_blank" rel="noopener">API</a>
-</footer>
-<div id="toast" class="toast"></div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="app.js"></script>
-<script type="module">
-  // Aladin Lite (CDS) sky atlas, pinned version from jsDelivr
-  import A from "https://cdn.jsdelivr.net/npm/aladin-lite@3.8.2/dist/aladin.js";
-  window.A = A;
-  window.dispatchEvent(new Event("aladin-ready"));
-</script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SkyShift · Watch the sky move</title>
+    <meta name="description" content="See how the sky changes over time with NASA's SPHEREx infrared telescope. Spot moving stars, brown dwarfs and asteroids." />
+    <link rel="icon" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>

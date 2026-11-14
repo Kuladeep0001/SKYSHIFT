@@ -32,15 +32,22 @@ def _mjd(c: Candidate) -> float:
 
 def verify_one(c: Candidate, radius_arcsec: float = 12.0) -> VerificationResult:
     year = _year(c)
+    # Query a generous cone (fast stars may be far from their 2016 catalogue position), cached per area.
+    # Each archive is checked on its own, so one slow service doesn't block the other.
+    gm = wm = None
+    errors = []
     try:
-        # Query a generous cone (fast stars may be far from their 2016 catalogue position), cached per area.
-        g = cat.gaia(round(c.ra, 2), round(c.dec, 2), 0.06)
-        w = cat.allwise(round(c.ra, 2), round(c.dec, 2), 0.06)
+        gm = cat.crossmatch(c.ra, c.dec, year, cat.gaia(round(c.ra, 2), round(c.dec, 2), 0.06), radius_arcsec)
     except Exception as e:
+        errors.append(f"Gaia: {e}")
+    try:
+        wm = cat.crossmatch(c.ra, c.dec, year, cat.allwise(round(c.ra, 2), round(c.dec, 2), 0.06), radius_arcsec * 1.5)
+    except Exception as e:
+        errors.append(f"WISE: {e}")
+    if gm is None and wm is None:
         return VerificationResult(candidate_id=c.candidate_id, matches=[], verification_status="pending",
-                                  plain_english=f"Couldn't reach the Gaia/WISE archives right now ({e}). Try again.")
-    gm = cat.crossmatch(c.ra, c.dec, year, g, radius_arcsec)
-    wm = cat.crossmatch(c.ra, c.dec, year, w, radius_arcsec * 1.5)
+                                  plain_english="Couldn't reach the Gaia/WISE archives right now. Try again in a minute.")
+    gm, wm = gm or [], wm or []
     matches = [{k: m[k] for k in ("catalog", "id", "ra", "dec", "mag", "sep_arcsec", "pm_total") if k in m}
                for m in gm[:3] + wm[:2]]
 

@@ -6,7 +6,7 @@ import io
 import math
 from functools import lru_cache
 
-from .spherex import SESSION, tap
+from .spherex import SESSION
 
 GAIA_TAP = "https://gea.esac.esa.int/tap-server/tap/sync"
 VIZIER_TAP = "https://tapvizier.cds.unistra.fr/TAPVizieR/tap/sync"
@@ -51,21 +51,36 @@ def gaia(ra: float, dec: float, radius: float, gmax: float = 19.0) -> dict:
     return {"catalog": "Gaia DR3", "epoch": 2016.0, "source": src, "band": "G", "stars": out}
 
 
+GATOR = "https://irsa.ipac.caltech.edu/cgi-bin/Gator/nph-query"
+
+
 @lru_cache(maxsize=256)
 def allwise(ra: float, dec: float, radius: float) -> dict:
-    """AllWISE sources (positions measured around 2010.5; no proper-motion correction)."""
-    rows = tap("SELECT TOP 3000 designation, ra, dec, w1mpro, w2mpro FROM allwise_p3as_psd "
-               f"WHERE CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', {ra:.6f}, {dec:.6f}, {radius:.5f})) = 1",
-               timeout=60)
-    out = []
-    for x in rows:
+    """AllWISE sources (positions measured around 2010.5; no proper-motion correction).
+
+    Uses IRSA's Gator cone search, which is much faster than a general TAP query.
+    """
+    r = SESSION.get(GATOR, params={"catalog": "allwise_p3as_psd", "spatial": "cone", "radius": f"{radius * 3600:.1f}",
+                                   "radunits": "arcsec", "objstr": f"{ra:.6f} {dec:+.6f}", "outfmt": "1",
+                                   "selcols": "designation,ra,dec,w1mpro,w2mpro"}, timeout=60)
+    r.raise_for_status()
+    cols, out = None, []
+    for line in r.text.splitlines():
+        if line.startswith("\\"):
+            continue
+        if line.startswith("|"):
+            cols = cols or [c.strip() for c in line.strip("|").split("|")]
+            continue
+        if not cols or not line.strip():
+            continue
+        x = dict(zip(cols, line.split()))
         try:
+            num = lambda k: None if x.get(k) in (None, "null") else round(float(x[k]), 2)
             out.append({"id": x["designation"], "ra": float(x["ra"]), "dec": float(x["dec"]), "pmra": 0, "pmdec": 0,
-                        "mag": round(float(x["w1mpro"]), 2) if x["w1mpro"] else None,
-                        "w2": round(float(x["w2mpro"]), 2) if x["w2mpro"] else None})
+                        "mag": num("w1mpro"), "w2": num("w2mpro")})
         except (ValueError, KeyError):
             continue
-    return {"catalog": "AllWISE", "epoch": 2010.5, "source": "NASA IRSA", "band": "W1", "stars": out}
+    return {"catalog": "AllWISE", "epoch": ALLWISE_EPOCH, "source": "NASA IRSA", "band": "W1", "stars": out}
 
 
 def mjd_to_year(mjd: float) -> float:
