@@ -1,141 +1,416 @@
-"""Other telescopes: Gaia DR3 (ESA) and AllWISE (NASA), for overlays and for checking candidates."""
-from __future__ import annotations
 
 import csv
 import io
 import math
-from functools import lru_cache
+from datetime import timezone
 
-from .spherex import SESSION
+import httpx
+import astropy.units as u
+from astropy.coordinates import SkyCoord
+from astropy.time import Time
+
 
 GAIA_TAP = "https://gea.esac.esa.int/tap-server/tap/sync"
-VIZIER_TAP = "https://tapvizier.cds.unistra.fr/TAPVizieR/tap/sync"
+
 GAIA_EPOCH = 2016.0
-_GAIA = {"table": "gaiadr3.gaia_source", "release": "Gaia DR3", "epoch": 2016.0, "t": 0.0}
-_NEWER = [("gaiadr4.gaia_source", "Gaia DR4")]  # tried in order; used as soon as ESA publishes them
+GAIA_QUERY_RADIUS_DEG = 0.04
 
 
-def gaia_release(force: bool = False) -> dict:
-    """Which Gaia release to use. Re-checked once a day, so a new release is picked up automatically."""
-    import time as _t
-    if not force and _t.time() - _GAIA["t"] < 86400:
-        return _GAIA
-    for table, name in _NEWER:
-        try:
-            r = SESSION.post(GAIA_TAP, data={"REQUEST": "doQuery", "LANG": "ADQL", "FORMAT": "csv",
-                                             "QUERY": f"SELECT TOP 1 source_id, ref_epoch FROM {table}"}, timeout=20)
-            lines = r.text.strip().splitlines()
-            if r.ok and lines and lines[0].startswith("source_id") and len(lines) > 1:
-                _GAIA.update(table=table, release=name, epoch=float(lines[1].split(",")[1]))
-                break
-        except Exception:
-            pass
-    _GAIA["t"] = _t.time()
-    return _GAIA
-ALLWISE_EPOCH = 2010.5
-
-
-def _csv(text: str) -> list[dict]:
-    return list(csv.DictReader(io.StringIO(text)))
-
-
-def gaia(ra: float, dec: float, radius: float, gmax: float = 19.0) -> dict:
-    """Gaia stars with proper motions, from the newest release that is online."""
-    rel = gaia_release()
-    return _gaia(rel["table"], rel["release"], rel["epoch"], ra, dec, radius, gmax)
-
-
-@lru_cache(maxsize=256)
-def _gaia(table: str, release: str, epoch: float, ra: float, dec: float, radius: float, gmax: float) -> dict:
-    q = ("SELECT TOP 3000 source_id, ra, dec, pmra, pmdec, parallax, phot_g_mean_mag "
-         f"FROM {table} WHERE 1=CONTAINS(POINT('ICRS', ra, dec), "
-         f"CIRCLE('ICRS', {ra:.6f}, {dec:.6f}, {radius:.5f})) AND phot_g_mean_mag < {gmax} "
-         "ORDER BY phot_g_mean_mag")
+def safe_float(value):
     try:
-        r = SESSION.post(GAIA_TAP, data={"REQUEST": "doQuery", "LANG": "ADQL", "FORMAT": "csv", "QUERY": q},
-                         timeout=60)
-        r.raise_for_status()
-        rows = _csv(r.text)
-        src = "ESA Gaia archive"
-        used, used_epoch = release, epoch
-    except Exception:  # fall back to the CDS copy of Gaia DR3
-        q2 = ('SELECT TOP 3000 Source AS source_id, RA_ICRS AS ra, DE_ICRS AS dec, pmRA AS pmra, pmDE AS pmdec, '
-              'Plx AS parallax, Gmag AS phot_g_mean_mag FROM "I/355/gaiadr3" WHERE 1=CONTAINS(POINT(\'ICRS\', '
-              f"RA_ICRS, DE_ICRS), CIRCLE('ICRS', {ra:.6f}, {dec:.6f}, {radius:.5f})) AND Gmag < {gmax}")
-        r = SESSION.post(VIZIER_TAP, data={"REQUEST": "doQuery", "LANG": "ADQL", "FORMAT": "csv", "QUERY": q2},
-                         timeout=60)
-        r.raise_for_status()
-        rows = _csv(r.text)
-        src = "CDS VizieR (Gaia DR3)"
-        used, used_epoch = "Gaia DR3", 2016.0
-    out = []
-    for x in rows:
-        try:
-            out.append({"id": x["source_id"], "ra": float(x["ra"]), "dec": float(x["dec"]),
-                        "pmra": float(x["pmra"] or 0), "pmdec": float(x["pmdec"] or 0),
-                        "plx": float(x["parallax"] or 0), "mag": round(float(x["phot_g_mean_mag"]), 2)})
-        except (ValueError, KeyError):
-            continue
-    return {"catalog": used, "epoch": used_epoch, "source": src, "band": "G", "stars": out}
+        number = float(value)
+        return number if math.isfinite(number) else None
+    except (TypeError, ValueError):
+        return None
 
 
-GATOR = "https://irsa.ipac.caltech.edu/cgi-bin/Gator/nph-query"
+# Gaia DR3 AB magnitude zero points.
+GAIA_AB_ZERO_POINTS = {
+    "G": 25.8010,
+    "BP": 25.3540,
+    "RP": 25.1040,
+}
 
 
-@lru_cache(maxsize=256)
-def allwise(ra: float, dec: float, radius: float) -> dict:
-    """AllWISE sources (positions measured around 2010.5; no proper-motion correction).
-
-    Uses IRSA's Gator cone search, which is much faster than a general TAP query.
+def gaia_flux_to_mjy(flux_e_s, band):
     """
-    r = SESSION.get(GATOR, params={"catalog": "allwise_p3as_psd", "spatial": "cone", "radius": f"{radius * 3600:.1f}",
-                                   "radunits": "arcsec", "objstr": f"{ra:.6f} {dec:+.6f}", "outfmt": "1",
-                                   "selcols": "designation,ra,dec,w1mpro,w2mpro"}, timeout=60)
-    r.raise_for_status()
-    cols, out = None, []
-    for line in r.text.splitlines():
-        if line.startswith("\\"):
+    Convert Gaia DR3 mean flux (electrons/second) into
+    an AB-equivalent flux density in mJy.
+    """
+
+    if flux_e_s is None or flux_e_s <= 0:
+        return None
+
+    ab_magnitude = (
+        GAIA_AB_ZERO_POINTS[band]
+        - 2.5 * math.log10(flux_e_s)
+    )
+
+    return 3631.0 * (10 ** (-0.4 * ab_magnitude)) * 1000.0
+
+
+
+def observation_year(observation_time):
+    if observation_time.tzinfo is None:
+        observation_time = observation_time.replace(
+            tzinfo=timezone.utc
+        )
+
+    return Time(observation_time).jyear
+
+
+def propagate_position(source, target_year):
+
+    ra = source["ra"]
+    dec = source["dec"]
+
+    pmra = source["pmra"]
+    pmdec = source["pmdec"]
+
+    if pmra is None or pmdec is None:
+        return ra, dec, False
+
+    coordinate = SkyCoord(
+        ra=ra * u.deg,
+        dec=dec * u.deg,
+        pm_ra_cosdec=pmra * u.mas / u.yr,
+        pm_dec=pmdec * u.mas / u.yr,
+        obstime=Time(GAIA_EPOCH, format="jyear")
+    )
+
+    moved = coordinate.apply_space_motion(
+        new_obstime=Time(target_year, format="jyear")
+    )
+
+    return moved.ra.deg, moved.dec.deg, True
+
+
+def angular_separation(ra1, dec1, ra2, dec2):
+
+    first = SkyCoord(ra=ra1 * u.deg, dec=dec1 * u.deg)
+    second = SkyCoord(ra=ra2 * u.deg, dec=dec2 * u.deg)
+
+    return first.separation(second).arcsecond
+
+
+async def query_gaia(ra, dec):
+
+    adql = f"""
+        SELECT
+            source_id,
+            ra,
+            dec,
+            ra_error,
+            dec_error,
+            parallax,
+            parallax_error,
+            pmra,
+            pmdec,
+            pmra_error,
+            pmdec_error,
+            phot_g_mean_mag,
+            bp_rp,
+            teff_gspphot,
+            ruwe,
+            radial_velocity,
+            phot_g_mean_flux,
+            phot_g_mean_flux_error,
+            phot_bp_mean_flux,
+            phot_bp_mean_flux_error,
+            phot_rp_mean_flux,
+            phot_rp_mean_flux_error,
+            phot_bp_mean_mag,
+            phot_rp_mean_mag
+        FROM gaiadr3.gaia_source
+        WHERE 1 = CONTAINS(
+            POINT('ICRS', ra, dec),
+            CIRCLE(
+                'ICRS',
+                {ra},
+                {dec},
+                {GAIA_QUERY_RADIUS_DEG}
+            )
+        )
+    """
+
+    try:
+        async with httpx.AsyncClient() as client:
+
+            response = await client.post(
+                GAIA_TAP,
+                data={
+                    "REQUEST": "doQuery",
+                    "LANG": "ADQL",
+                    "FORMAT": "csv",
+                    "QUERY": adql
+                },
+                timeout=90
+            )
+
+            response.raise_for_status()
+
+            return list(
+                csv.DictReader(io.StringIO(response.text))
+            )
+
+    except httpx.HTTPError as error:
+        print("Gaia query failed:", error)
+        return None
+
+
+def calculate_distance(source):
+
+    parallax = source["parallax"]
+    error = source["parallax_error"]
+
+    if (
+        parallax is None
+        or error is None
+        or parallax <= 0
+        or error <= 0
+        or parallax / error <= 5
+    ):
+        return None
+
+    distance_pc = 1000.0 / parallax
+
+    return {
+        "parsecs": round(distance_pc, 3),
+        "light_years": round(distance_pc * 3.26156, 2),
+        "method": "inverse_parallax",
+        "parallax_mas": parallax,
+        "parallax_error_mas": error
+    }
+
+
+def format_source(source, separation, target_year, propagated):
+
+    pmra = source["pmra"]
+    pmdec = source["pmdec"]
+
+    proper_motion = None
+
+    if pmra is not None and pmdec is not None:
+        proper_motion = math.hypot(pmra, pmdec)
+
+    return {
+        "source_id": source["source_id"],
+        "separation_arcsec": round(separation, 3),
+
+        "catalogue_position": {
+            "ra": source["ra"],
+            "dec": source["dec"],
+            "reference_epoch": GAIA_EPOCH
+        },
+
+        "propagated_position": {
+            "ra": source["propagated_ra"],
+            "dec": source["propagated_dec"],
+            "observation_epoch": round(target_year, 5),
+            "proper_motion_applied": propagated
+        },
+
+        "proper_motion": {
+            "pmra_mas_yr": pmra,
+            "pmdec_mas_yr": pmdec,
+            "total_mas_yr": (
+                round(proper_motion, 3)
+                if proper_motion is not None else None
+            )
+        },
+
+        
+
+        "photometry": {
+            "g_magnitude": source["g_mag"],
+            "bp_rp": source["bp_rp"],
+            "temperature_k": source["teff"],
+
+            "bp_magnitude": source["bp_mag"],
+            "rp_magnitude": source["rp_mag"],
+
+            "g_flux_mjy": gaia_flux_to_mjy(source["g_flux"], "G"),
+            "g_flux_error_mjy": (
+                gaia_flux_to_mjy(source["g_flux_error"], "G")
+                if source["g_flux_error"] is not None
+                else None
+            ),
+
+            "bp_flux_mjy": gaia_flux_to_mjy(source["bp_flux"], "BP"),
+            "bp_flux_error_mjy": (
+                gaia_flux_to_mjy(source["bp_flux_error"], "BP")
+                if source["bp_flux_error"] is not None
+                else None
+            ),
+
+            "rp_flux_mjy": gaia_flux_to_mjy(source["rp_flux"], "RP"),
+            "rp_flux_error_mjy": (
+                gaia_flux_to_mjy(source["rp_flux_error"], "RP")
+                if source["rp_flux_error"] is not None
+                else None
+            ),
+        },
+
+
+        "astrometry": {
+            "parallax_mas": source["parallax"],
+            "parallax_error_mas": source["parallax_error"],
+            "ruwe": source["ruwe"],
+            "radial_velocity_km_s": source["radial_velocity"]
+        },
+
+        "astrometric_uncertainties": {
+            "ra_error_mas": source["ra_error"],
+            "dec_error_mas": source["dec_error"],
+            "pmra_error_mas_yr": source["pmra_error"],
+            "pmdec_error_mas_yr": source["pmdec_error"],
+            "parallax_error_mas": source["parallax_error"]
+        },
+
+        "distance": calculate_distance(source)
+    }
+
+
+async def gaia_match(
+    ra,
+    dec,
+    observation_time,
+    search_radius_arcsec=6.0
+):
+
+    year = observation_year(observation_time)
+
+    rows = await query_gaia(ra, dec)
+
+    if rows is None:
+        return {
+            "status": "inconclusive",
+            "message": "Gaia DR3 could not be reached.",
+            "nearest_source": None
+        }
+
+    if not rows:
+        return {
+            "status": "no_match",
+            "message": (
+                "No Gaia sources were returned in the wider search region."
+            ),
+            "nearest_source": None
+        }
+
+    nearest_source = None
+    nearest_separation = float("inf")
+    nearest_propagated = False
+
+    for row in rows:
+
+        source = {
+            "source_id": row.get("source_id"),
+            "ra": safe_float(row.get("ra")),
+            "dec": safe_float(row.get("dec")),
+            "ra_error": safe_float(row.get("ra_error")),
+            "dec_error": safe_float(row.get("dec_error")),
+            "parallax": safe_float(row.get("parallax")),
+            "parallax_error": safe_float(row.get("parallax_error")),
+            "pmra": safe_float(row.get("pmra")),
+            "pmdec": safe_float(row.get("pmdec")),
+            "pmra_error": safe_float(row.get("pmra_error")),
+            "pmdec_error": safe_float(row.get("pmdec_error")),
+            "g_mag": safe_float(row.get("phot_g_mean_mag")),
+            "bp_rp": safe_float(row.get("bp_rp")),
+            "teff": safe_float(row.get("teff_gspphot")),
+            "ruwe": safe_float(row.get("ruwe")),
+            "radial_velocity": safe_float(row.get("radial_velocity")),
+            "g_flux": safe_float(row.get("phot_g_mean_flux")),
+            "g_flux_error": safe_float(row.get("phot_g_mean_flux_error")),
+            "bp_flux": safe_float(row.get("phot_bp_mean_flux")),
+            "bp_flux_error": safe_float(row.get("phot_bp_mean_flux_error")),
+            "rp_flux": safe_float(row.get("phot_rp_mean_flux")),
+            "rp_flux_error": safe_float(row.get("phot_rp_mean_flux_error")),
+            "bp_mag": safe_float(row.get("phot_bp_mean_mag")),
+            "rp_mag": safe_float(row.get("phot_rp_mean_mag"))
+
+        }
+
+        if source["ra"] is None or source["dec"] is None:
             continue
-        if line.startswith("|"):
-            cols = cols or [c.strip() for c in line.strip("|").split("|")]
-            continue
-        if not cols or not line.strip():
-            continue
-        x = dict(zip(cols, line.split()))
+
         try:
-            num = lambda k: None if x.get(k) in (None, "null") else round(float(x[k]), 2)
-            out.append({"id": x["designation"], "ra": float(x["ra"]), "dec": float(x["dec"]), "pmra": 0, "pmdec": 0,
-                        "mag": num("w1mpro"), "w2": num("w2mpro")})
-        except (ValueError, KeyError):
+            moved_ra, moved_dec, propagated = propagate_position(
+                source,
+                year
+            )
+
+            separation = angular_separation(
+                ra,
+                dec,
+                moved_ra,
+                moved_dec
+            )
+
+        except (ValueError, TypeError, u.UnitConversionError):
             continue
-    return {"catalog": "AllWISE", "epoch": ALLWISE_EPOCH, "source": "NASA IRSA", "band": "W1", "stars": out}
 
+        if separation < nearest_separation:
 
-def mjd_to_year(mjd: float) -> float:
-    return 2000.0 + (mjd - 51544.5) / 365.25
+            nearest_separation = separation
+            nearest_source = source.copy()
 
+            nearest_source["propagated_ra"] = moved_ra
+            nearest_source["propagated_dec"] = moved_dec
 
-def move_to_epoch(star: dict, year: float, from_epoch: float) -> tuple[float, float]:
-    """Apply proper motion (mas/yr) to get a star's position at another date."""
-    dt = year - from_epoch
-    dec = star["dec"] + star.get("pmdec", 0) * dt / 3.6e6
-    ra = star["ra"] + star.get("pmra", 0) * dt / 3.6e6 / max(1e-6, math.cos(math.radians(star["dec"])))
-    return ra, dec
+            nearest_propagated = propagated
 
+    if nearest_source is None:
+        return {
+            "status": "inconclusive",
+            "message": (
+                "Gaia returned rows, but no valid source positions "
+                "could be evaluated."
+            ),
+            "nearest_source": None
+        }
 
-def sep_arcsec(ra1: float, dec1: float, ra2: float, dec2: float) -> float:
-    """Angular distance (small-angle approximation, fine for arcsecond scales)."""
-    dra = (ra1 - ra2 + 180) % 360 - 180
-    return 3600 * math.hypot(dra * math.cos(math.radians((dec1 + dec2) / 2)), dec1 - dec2)
+    nearest_result = format_source(
+        nearest_source,
+        nearest_separation,
+        year,
+        nearest_propagated
+    )
 
+    borderline_margin_arcsec = 1.0
 
-def crossmatch(ra: float, dec: float, year: float, catalog: dict, radius_arcsec: float) -> list[dict]:
-    """Catalogue stars within radius of (ra, dec) at a given date, nearest first."""
-    out = []
-    for st in catalog["stars"]:
-        sra, sdec = move_to_epoch(st, year, catalog["epoch"])
-        d = sep_arcsec(ra, dec, sra, sdec)
-        if d <= radius_arcsec:
-            out.append({**st, "catalog": catalog["catalog"], "sep_arcsec": round(d, 2),
-                        "pm_total": round(math.hypot(st.get("pmra", 0), st.get("pmdec", 0)), 1)})
-    return sorted(out, key=lambda m: m["sep_arcsec"])
+    if nearest_separation <= search_radius_arcsec:
+
+        status = "match_found"
+        match_quality = "within_radius"
+        message = (
+            "A Gaia source was found within the matching radius."
+        )
+
+    elif nearest_separation <= (
+        search_radius_arcsec + borderline_margin_arcsec
+    ):
+
+        status = "no_match"
+        match_quality = "borderline"
+        message = (
+            "The nearest Gaia source is just outside the matching radius. "
+            "Manual review is recommended."
+        )
+
+    else:
+
+        status = "no_match"
+        match_quality = "outside_radius"
+        message = (
+            "The nearest Gaia source is outside the matching radius."
+        )
+
+    return {
+        "status": status,
+        "match_quality": match_quality,
+        "matching_radius_arcsec": search_radius_arcsec,
+        "nearest_source": nearest_result,
+        "message": message
+    }

@@ -6,16 +6,8 @@ import math
 import httpx
 from astropy.time import Time
 
-from backend.services.irsa_gator import gator_rows
-
 
 IRSA_TAP = "https://irsa.ipac.caltech.edu/TAP/sync"
-
-GATOR_COLUMNS = [
-    "designation", "ra", "dec", "jdate", "err_maj", "err_min",
-    "j_m", "j_msigcom", "h_m", "h_msigcom", "k_m", "k_msigcom",
-    "ph_qual", "rd_flg", "bl_flg", "cc_flg",
-]
 
 # 2MASS photometric zero points in Jy
 ZERO_POINTS_JY = {
@@ -141,24 +133,6 @@ def magnitude_to_mjy(magnitude, band):
 
 
 async def query_2mass(ra, dec, radius_arcsec):
-    """Query IRSA TAP; IRSA is sometimes slow, so a timeout or dropped connection is tried once more."""
-
-    # Fast path: IRSA Gator cone search on the same table (TAP can take a minute when busy).
-    rows = await gator_rows("fp_psc", ra, dec, radius_arcsec, GATOR_COLUMNS)
-
-    if rows is not None:
-        return rows
-
-    for attempt in range(2):
-        rows = await _query_2mass_once(ra, dec, radius_arcsec)
-
-        if rows != "retry":
-            return rows
-
-    return None
-
-
-async def _query_2mass_once(ra, dec, radius_arcsec):
     """Query the 2MASS Point Source Catalog through IRSA TAP."""
 
     radius_deg = radius_arcsec / 3600.0
@@ -199,7 +173,7 @@ async def _query_2mass_once(ra, dec, radius_arcsec):
     }
 
     try:
-        async with httpx.AsyncClient(timeout=45.0) as client:
+        async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.get(
                 IRSA_TAP,
                 params=params,
@@ -218,11 +192,11 @@ async def _query_2mass_once(ra, dec, radius_arcsec):
 
     except httpx.TimeoutException as error:
         print("2MASS TIMEOUT ERROR:", repr(error))
-        return "retry"
+        return None
 
     except httpx.RequestError as error:
         print("2MASS CONNECTION ERROR:", repr(error))
-        return "retry"
+        return None
 
     except csv.Error as error:
         print("2MASS CSV ERROR:", repr(error))
