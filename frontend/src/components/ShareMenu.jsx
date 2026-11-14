@@ -3,6 +3,7 @@ import { useState } from "react";
 import { applyPalette, GIFEncoder, quantize } from "gifenc";
 import { monthYear, percentile } from "../lib/frames.js";
 import { LUTS, makeScaler, paint, paintRGBLight } from "../lib/render.js";
+import { startTask } from "../lib/tasks.js";
 
 const SIZE = 480;
 
@@ -53,6 +54,8 @@ export default function ShareMenu({ F, disp, target, story, facts, shareURL, say
   async function gif() {
     if (!F || !F.data.length) return say("Open the Flipbook first.");
     setBusy("Making GIF…");
+    let stopped = false;
+    const task = startTask({ label: "Making the animated GIF", kind: "🎞", total: F.data.length, unit: "frames", onCancel: () => { stopped = true; } });
     try {
       const [lo, hi] = percentile(F.data, [3, 99.8]);
       const sets = rgb ? F.list.map((f) => rgb[f.visit]) : [];
@@ -62,6 +65,8 @@ export default function ShareMenu({ F, disp, target, story, facts, shareURL, say
       const ctx = c.getContext("2d");
       const enc = GIFEncoder();
       for (let k = 0; k < F.data.length; k++) {
+        if (stopped) { task.cancelled(); say("GIF cancelled."); return; }
+        task.update({ done: k });
         if (rl) paintRGBLight(c, sets[k][0], sets[k][1], sets[k][2], F.n, rl, disp.contrast, disp.bright);
         else paint(c, F.data[k], F.n, sc, (LUTS[disp.cmap] || LUTS.gray));
         const f = F.list[k];
@@ -72,9 +77,11 @@ export default function ShareMenu({ F, disp, target, story, facts, shareURL, say
         await new Promise((r) => setTimeout(r, 0));
       }
       enc.finish();
+      task.update({ done: F.data.length });
+      task.finish();
       await shareOrDownload(new Blob([enc.bytes()], { type: "image/gif" }), `skyshift_${name}.gif`,
         `${target?.name || "The sky"} moving, seen by NASA SPHEREx`, "Made with SkyShift", shareURL(), say);
-    } finally { setBusy(""); }
+    } catch (e) { task.fail(e.message); throw e; } finally { setBusy(""); }
   }
 
   async function card() {

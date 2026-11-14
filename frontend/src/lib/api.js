@@ -3,9 +3,16 @@
  * Mock mode: open the site with ?mock=1 (or set VITE_MOCK=1) and it reads saved responses from
  * /public/mock instead of the real backend. UI developers can build without the Python server.
  */
+import { trackRequest } from "./tasks.js";
+
 const MOCK = new URLSearchParams(location.search).get("mock") === "1" || import.meta.env.VITE_MOCK === "1";
 
-async function request(path, opts = {}) {
+/* Every backend download gets its own bar (and Cancel button) in the task bar: see lib/tasks.js. */
+function request(path, opts = {}) {
+  return trackRequest(path, opts, (o) => fetchJSON(path, o));
+}
+
+async function fetchJSON(path, opts) {
   const r = await fetch(path, opts);
   if (!r.ok) {
     let msg = r.statusText;

@@ -323,6 +323,17 @@ h2.center { justify-content: center; margin-top: 8px; }
 .task { display: flex; align-items: center; gap: 12px; background: #101b31; border: 1px solid #33476e; border-radius: 12px; padding: 10px 14px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, .5); }
 .taskIcon { font-size: 20px; }
+.taskHead { display: flex; align-items: center; gap: 8px; justify-content: flex-end; background: #0c1527; border: 1px solid #33476e;
+  border-radius: 12px; padding: 6px 10px; box-shadow: 0 8px 30px rgba(0, 0, 0, .5); }
+.taskHead b { margin-right: auto; font-size: 14px; }
+.taskBar { max-height: 70vh; overflow-y: auto; }
+.taskCount { color: var(--accent); font-weight: 700; }
+.task.done { border-color: #2f8f76; }
+.task.done .bar i { background: #3fbf9b; }
+.task.failed { border-color: #ff6b8b; }
+.task.failed .bar i { background: #ff6b8b; }
+.task.cancelled { opacity: .7; }
+.taskMore { align-self: center; }
 .taskBody { flex: 1; min-width: 0; }
 .taskTop { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
 .task .bar { height: 8px; background: var(--panel2); border-radius: 99px; overflow: hidden; }

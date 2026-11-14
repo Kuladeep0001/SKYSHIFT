@@ -5,6 +5,7 @@ import About from "./pages/About.jsx";
 import Board from "./pages/Board.jsx";
 import { setColourSafe } from "./lib/render.js";
 import Explorer from "./pages/Explorer.jsx";
+import TaskBar from "./components/TaskBar.jsx";
 
 const params = new URLSearchParams(location.search);
 const embed = params.get("embed") === "1" || location.pathname.endsWith("/embed");
@@ -61,6 +62,7 @@ export default function App() {
       <main style={{ display: page === "explore" ? "block" : "none" }}><Explorer safe={safe} expert={expert} listenMode={listen} tourStep={tourStep} setTourStep={setTourStep} /></main>
       {page === "about" && <main><About /></main>}
       {page === "board" && <main><Board /></main>}
+      {page !== "explore" && <TaskBar />}
       <footer className="foot">
         Real data from NASA's SPHEREx (via IRSA), ESA Gaia and NASA WISE. Built for the NASA Space Apps Challenge 2026 ·{" "}
         <a href="https://github.com/Kuladeep0001/SKYSHIFT" target="_blank" rel="noreferrer">GitHub</a> · <a href="/docs">API</a>
