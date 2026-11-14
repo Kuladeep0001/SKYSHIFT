@@ -1,0 +1,44 @@
+"""SkyShift API + website.
+
+Run locally:   uvicorn backend.main:app --reload --port 8000
+API docs:      http://localhost:8000/docs
+"""
+from __future__ import annotations
+
+from pathlib import Path
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+
+from .routes import analysis, images, metadata, verification
+
+ROOT = Path(__file__).resolve().parent.parent
+DIST = ROOT / "frontend" / "dist"  # built React app (npm run build)
+
+app = FastAPI(title="SkyShift API", version="0.2",
+              description="Watch the SPHEREx infrared sky change over time. See API_DOCUMENTATION.md.")
+app.add_middleware(GZipMiddleware, minimum_size=2000)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET", "POST"], allow_headers=["*"])
+
+for r in (images.router, analysis.router, verification.router, metadata.router):
+    app.include_router(r)
+
+if DIST.exists():
+    app.mount("/assets", StaticFiles(directory=DIST / "assets"), name="assets")
+
+    @app.get("/{path:path}", include_in_schema=False)
+    def spa(path: str):
+        """Serve the React app; unknown paths fall back to index.html (so /embed?... works)."""
+        f = DIST / path
+        if path and f.is_file() and DIST in f.resolve().parents:
+            return FileResponse(f)
+        return FileResponse(DIST / "index.html")
+else:
+    @app.get("/", include_in_schema=False)
+    def no_frontend():
+        return JSONResponse({"message": "API is running. Build the website with: cd frontend && npm install && "
+                                        "npm run build  (or run `npm run dev` and open http://localhost:5173)",
+                             "docs": "/docs"})

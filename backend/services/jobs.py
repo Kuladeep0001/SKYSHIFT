@@ -12,8 +12,8 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from . import imaging as im
-from . import sphx
+from . import image_processing as im
+from . import spherex as sphx
 
 JOBDIR = sphx.CACHE / "jobs"
 JOBDIR.mkdir(parents=True, exist_ok=True)
@@ -187,98 +187,26 @@ def summary(job: Job) -> dict:
 
 
 def frames(job: Job, mode: str, det: int = 0, channel: int = 0, visit: int = -1) -> dict:
-    """Build the frames for the player.
-
-    mode = exposure : every single exposure (optionally one detector or one channel)
-           visit    : one stacked frame per visit (one detector, or det=0 for all detectors combined)
-           visitdet : one stacked frame per visit per detector (for the 6-detector wall and colour)
-           channel  : one stacked frame per visit using only one of the 102 channels (same wavelength)
-           planes   : all 102 channels for one visit
-    """
-    flux, var, flags = job.arrays["flux"], job.arrays["var"], job.arrays["flags"]
-    meta = job.meta
-    idx = list(range(len(meta)))
-    if det:
-        idx = [i for i in idx if meta[i]["det"] == det]
-    if channel and mode in ("exposure", "channel"):
-        idx = [i for i in idx if meta[i]["channel"] == channel]
-    if visit >= 0:
-        idx = [i for i in idx if meta[i]["visit"] == visit]
-
-    groups: list[tuple[dict, list[int]]] = []
-    if mode == "exposure":
-        groups = [({"det": meta[i]["det"], "channel": meta[i]["channel"], "wave": meta[i]["wave"],
-                    "obs_id": meta[i]["obs_id"], "visit": meta[i]["visit"]}, [i]) for i in idx]
-    elif mode in ("visit", "channel"):
-        for v in sorted({meta[i]["visit"] for i in idx}):
-            groups.append(({"visit": v, "det": det, "channel": channel}, [i for i in idx if meta[i]["visit"] == v]))
-    elif mode == "visitdet":
-        for v in sorted({meta[i]["visit"] for i in idx}):
-            for d in range(1, 7):
-                g = [i for i in idx if meta[i]["visit"] == v and meta[i]["det"] == d]
-                if g:
-                    groups.append(({"visit": v, "det": d}, g))
-    elif mode == "planes":
-        for ch in range(1, 103):
-            g = [i for i in idx if meta[i]["channel"] == ch]
-            if g:
-                groups.append(({"channel": ch, "det": (ch - 1) // 17 + 1, "visit": visit}, g))
-    else:
-        raise ValueError(f"unknown mode {mode}")
-
-    imgs, warns, out = [], [], []
-    for info, g in groups:
-        if len(g) == 1:
-            img = flux[g[0]]
-            warn = (flags[g[0]] & im.WARN_MASK) != 0
-        else:
-            img, warn = im.weighted_stack(flux[g], var[g], flags[g])
-        mj = [meta[i]["mjd"] for i in g]
-        waves = [meta[i]["wave"] for i in g if meta[i]["wave"] == meta[i]["wave"]]
-        info.update(n_exp=len(g), mjd=float(np.mean(mj)), date=im.mjd_to_iso(float(np.mean(mj))),
-                    date_range=[im.mjd_to_iso(min(mj))[:10], im.mjd_to_iso(max(mj))[:10]],
-                    wave=round(float(np.median(waves)), 4) if waves else None, members=g)
-        imgs.append(img.astype(np.float32))
-        warns.append(warn.astype(np.uint8))
-        out.append(info)
-    n = int(flux.shape[-1])
+    """Frames for the player, encoded for JSON (float32 pixels as base64)."""
+    infos, imgs, warns = im.group_frames(job.arrays, job.meta, mode, det, channel, visit)
     return {
-        "mode": mode, "n": n, "count": len(out), "frames": out,
-        "data": _b64(np.stack(imgs)) if imgs else "", "warn": _b64(np.stack(warns)) if warns else "",
+        "mode": mode, "n": int(job.arrays["flux"].shape[-1]), "count": len(infos), "frames": infos,
+        "data": _b64(imgs) if len(infos) else "", "warn": _b64(warns) if len(infos) else "",
     }
 
 
 def spectrum(job: Job, x: int, y: int, r: int = 1) -> dict:
-    """Brightness of a small box at pixel (x, y) in every exposure: a spectrum + light curve."""
-    flux, var, flags, wave = (job.arrays[k] for k in ("flux", "var", "flags", "wave"))
-    n = flux.shape[-1]
-    x, y, r = int(x), int(y), int(min(max(r, 0), 4))
-    if not (0 <= x < n and 0 <= y < n):
-        raise ValueError("pixel outside the image")
-    y0, y1, x0, x1 = max(0, y - r), min(n, y + r + 1), max(0, x - r), min(n, x + r + 1)
-    # Local background ring a few pixels out from the box.
-    R = r + 4
-    by0, by1, bx0, bx1 = max(0, y - R), min(n, y + R + 1), max(0, x - R), min(n, x + R + 1)
-    ring = np.ones((by1 - by0, bx1 - bx0), bool)
-    ring[(y0 - by0):(y1 - by0), (x0 - bx0):(x1 - bx0)] = False
-    ranges = im.det_ranges(job.meta)
-    pts = []
-    for i, m in enumerate(job.meta):
-        box = flux[i, y0:y1, x0:x1]
-        good = np.isfinite(box)
-        if good.mean() < 0.6:
-            continue
-        bg = np.nanmedian(flux[i, by0:by1, bx0:bx1][ring])
-        bg = 0.0 if not np.isfinite(bg) else bg
-        s = (np.nansum(box - bg) / good.mean()) * im.MJYSR_TO_UJY
-        e = np.sqrt(np.nansum(var[i, y0:y1, x0:x1])) * im.MJYSR_TO_UJY
-        w = float(wave[i, y, x])
-        if not np.isfinite(w):
-            continue
-        fl = int(np.bitwise_or.reduce(flags[i, y0:y1, x0:x1].ravel()))
-        names = [k for k, b in im.FLAG_BITS.items() if fl & (1 << b)]
-        saturated = bool(fl & im.SAT_MASK)
-        pts.append({"i": i, "wave": round(w, 4), "flux": round(float(s), 3), "err": round(float(e), 3),
-                    "mjd": m["mjd"], "date": m["date"][:10], "visit": m["visit"], "det": m["det"],
-                    "channel": im.channel_of(m["det"], w, ranges), "flags": names, "saturated": saturated})
-    return {"x": x, "y": y, "r": r, "unit": "uJy", "points": pts}
+    return im.measure_spectrum(job.arrays, job.meta, x, y, r)
+
+
+def visit_members(job: Job, visit: int, det: int = 0) -> list[int]:
+    return [m["i"] for m in job.meta if m["visit"] == visit and (not det or m["det"] == det)]
+
+
+def main_visits(job: Job, min_exposures: int = 20) -> list[int]:
+    """Visits with enough exposures to make a clean stack (the twice-a-year all-sky passes)."""
+    counts: dict[int, int] = {}
+    for m in job.meta:
+        counts[m["visit"]] = counts.get(m["visit"], 0) + 1
+    big = [v for v, c in sorted(counts.items()) if c >= min_exposures]
+    return big or sorted(counts)

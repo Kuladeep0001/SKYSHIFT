@@ -25,7 +25,7 @@ warnings.filterwarnings("ignore", module="astropy")  # SPHEREx headers trigger h
 
 IRSA_TAP = "https://irsa.ipac.caltech.edu/TAP/sync"
 IRSA_SIA = "https://irsa.ipac.caltech.edu/SIA"
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]  # project root
 CACHE = Path(os.environ.get("SKYSHIFT_CACHE", ROOT / "data" / "cache"))
 CUTS = CACHE / "cutouts"
 CUTS.mkdir(parents=True, exist_ok=True)

@@ -10,4 +10,4 @@ COPY scripts scripts
 # Hugging Face Spaces and Render both pass $PORT; default 7860 (HF Spaces).
 ENV PORT=7860
 EXPOSE 7860
-CMD ["sh", "-c", "uvicorn backend.app:app --host 0.0.0.0 --port ${PORT}"]
+CMD ["sh", "-c", "uvicorn backend.main:app --host 0.0.0.0 --port ${PORT}"]

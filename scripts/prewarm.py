@@ -6,7 +6,7 @@
 import argparse
 import time
 
-from backend import catalogs, jobs
+from backend.services import jobs, resolver
 
 TARGETS = ["Barnard's Star", "eps Ind B", "WISE J085510.83-071442.5", "RW Aur", "R Dra"]
 
@@ -15,7 +15,7 @@ if __name__ == "__main__":
     ap.add_argument("--fov", type=float, default=6.0)
     args = ap.parse_args()
     for name in TARGETS:
-        t = catalogs.resolve(name)
+        t = resolver.resolve(name)
         t0 = time.time()
         job = jobs.start(t["ra"], t["dec"], args.fov, None)
         while job.state not in ("done", "error"):
