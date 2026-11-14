@@ -38,8 +38,8 @@ Built for the **NASA Space Apps Challenge 2026**.
 ## Run it locally
 
 ```bash
-git clone https://github.com/<owner>/spherex-skyshift.git
-cd spherex-skyshift
+git clone https://github.com/Kuladeep0001/SKYSHIFT.git
+cd SKYSHIFT
 python -m venv .venv
 .venv\Scripts\activate          # Windows   (macOS/Linux: source .venv/bin/activate)
 pip install -r requirements.txt
