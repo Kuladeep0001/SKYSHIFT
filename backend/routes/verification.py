@@ -1,170 +1,523 @@
-"""Check candidates against other telescopes (Gaia, WISE, known asteroids), plus overlay catalogues.
 
-Owner: Verification developer.
-"""
-from __future__ import annotations
+from fastapi import APIRouter
 
-from datetime import date
+from backend.models.verification import (
+    VerificationRequest,
+    VerificationResponse,
+    CandidateVerificationResult,
+)
 
-from fastapi import APIRouter, HTTPException, Query
+from backend.services.gaia import gaia_match
+from backend.services.simbad import simbad_match
+from backend.services.twomass import twomass_match
+from backend.services.allwise import allwise_match
+from backend.services.crossmatch import crossmatch_catalogues
 
-from ..models.schemas import Candidate, VerificationRequest, VerificationResult
-from ..services import gaia as cat
-from ..services import object_info, solar_system
-
-router = APIRouter(tags=["verification"])
-
-FAST_PM_MAS_YR = 100  # faster than this = clearly a nearby/fast-moving object
-
-
-def _year(c: Candidate) -> float:
-    if c.mjd:
-        return cat.mjd_to_year(c.mjd)
-    if c.epoch:
-        d = date.fromisoformat(c.epoch[:10])
-        return d.year + (d.timetuple().tm_yday - 0.5) / 365.25
-    return 2026.0
+router = APIRouter(
+    prefix="/api/verification",
+    tags=["Catalogue Verification"],
+)
 
 
-def _mjd(c: Candidate) -> float:
-    return c.mjd or (_year(c) - 2000.0) * 365.25 + 51544.5
+def get_source_identifier(catalogue, nearest_source):
+    """Get the most useful source identifier for a catalogue."""
+
+    if not nearest_source:
+        return None
+
+    if catalogue == "gaia":
+        return nearest_source.get("source_id")
+
+    if catalogue == "2mass":
+        return (
+            nearest_source.get("designation")
+            or nearest_source.get("id")
+        )
+
+    if catalogue == "allwise":
+        return (
+            nearest_source.get("source_id")
+            or nearest_source.get("designation")
+        )
+
+    if catalogue == "simbad":
+        return (
+            nearest_source.get("main_id")
+            or nearest_source.get("oid")
+        )
+
+    return (
+        nearest_source.get("source_id")
+        or nearest_source.get("designation")
+        or nearest_source.get("main_id")
+    )
 
 
-def verify_one(c: Candidate, radius_arcsec: float = 12.0) -> VerificationResult:
-    year = _year(c)
-    # Query a generous cone (fast stars may be far from their 2016 catalogue position), cached per area.
-    # Each archive is checked on its own, so one slow service doesn't block the other.
-    gm = wm = None
-    errors = []
-    try:
-        gm = cat.crossmatch(c.ra, c.dec, year, cat.gaia(round(c.ra, 2), round(c.dec, 2), 0.06), radius_arcsec)
-    except Exception as e:
-        errors.append(f"Gaia: {e}")
-    try:
-        wm = cat.crossmatch(c.ra, c.dec, year, cat.allwise(round(c.ra, 2), round(c.dec, 2), 0.06), radius_arcsec * 1.5)
-    except Exception as e:
-        errors.append(f"WISE: {e}")
-    if gm is None and wm is None:
-        return VerificationResult(candidate_id=c.candidate_id, matches=[], verification_status="pending",
-                                  plain_english="Couldn't reach the Gaia/WISE archives right now. Try again in a minute.")
-    gm, wm = gm or [], wm or []
-    matches = [{k: m[k] for k in ("catalog", "id", "ra", "dec", "mag", "sep_arcsec", "pm_total") if k in m}
-               for m in gm[:3] + wm[:2]]
 
-    if c.kind in ("transient", "appeared"):
-        try:
-            sb = solar_system.skybot(round(c.ra, 4), round(c.dec, 4), 0.02, round(_mjd(c), 3))
-            near = [o for o in sb["objects"] if cat.sep_arcsec(c.ra, c.dec, o["ra"], o["dec"]) < 30]
-            if near:
-                o = near[0]
-                matches.insert(0, {"catalog": "SkyBoT", "id": o["name"], "ra": o["ra"], "dec": o["dec"],
-                                   "mag": o["mag"], "class": o["class"],
-                                   "sep_arcsec": round(cat.sep_arcsec(c.ra, c.dec, o["ra"], o["dec"]), 1)})
-                return VerificationResult(candidate_id=c.candidate_id, matches=matches,
-                                          verification_status="known_asteroid",
-                                          plain_english=f"That's the known asteroid {o['name']} ({o['class']}) passing by.")
-        except Exception:
-            pass
+def get_separation(result, nearest_source):
+    """Return the best available separation for display."""
 
-    measured = (c.motion or {}).get("total_arcsec_yr")
-    if c.kind == "mover":
-        # SIMBAD knows fast movers that Gaia can't see (cold brown dwarfs like WISE 0855 are invisible to Gaia).
-        try:
-            sim = object_info.simbad_near(round(c.ra, 5), round(c.dec, 5), round(year, 2), radius_arcsec)
-        except Exception:
-            sim = None
-        if sim and sim["pm_mas_yr"] > FAST_PM_MAS_YR:
-            matches.insert(0, {"catalog": "SIMBAD", "id": sim["main_id"], "type": sim["type"],
-                               "sep_arcsec": sim["separation_arcsec"], "pm_total": sim["pm_mas_yr"], "url": sim["url"]})
-            extra = f" SkyShift measured {measured:.2f}″ per year from SPHEREx alone." if measured else ""
-            return VerificationResult(candidate_id=c.candidate_id, matches=matches, verification_status="known_mover",
-                                      plain_english=f"✓ Confirmed: {sim['name']}, a known {sim['type']} moving "
-                                                    f"{sim['pm_mas_yr'] / 1000:.2f}″ per year (SIMBAD).{extra}")
-        # A Gaia star a few arcseconds away is a different object, not the mover itself.
-        gm = [m for m in gm if m["sep_arcsec"] <= 6]
-        if not gm and measured and measured > 1.0:
-            return VerificationResult(
-                candidate_id=c.candidate_id, matches=matches, verification_status="unmatched",
-                plain_english=f"? A fast mover ({measured:.1f}″ per year) that Gaia and SIMBAD don't list at this "
-                              "spot. Could be a new nearby star or brown dwarf, or an artefact. Worth a human look!")
-    if gm and c.kind in ("variable", "appeared", "vanished") and c.saturated:
-        return VerificationResult(
-            candidate_id=c.candidate_id, matches=matches, verification_status="likely_artefact",
-            plain_english="A known star, but it's so bright it overloads the camera, so this 'change' is most "
-                          "likely a processing effect, not a real brightness change.")
-    if gm:
-        best = gm[0]
-        if best["pm_total"] > FAST_PM_MAS_YR:
-            measured = (c.motion or {}).get("total_arcsec_yr")
-            extra = (f" Gaia says it moves {best['pm_total'] / 1000:.2f}″ per year; SkyShift measured "
-                     f"{measured:.2f}″ per year from SPHEREx alone.") if measured else ""
-            return VerificationResult(candidate_id=c.candidate_id, matches=matches, verification_status="known_mover",
-                                      plain_english="✓ Confirmed: a known fast-moving star in Gaia." + extra)
-        return VerificationResult(
-            candidate_id=c.candidate_id, matches=matches, verification_status="known_star",
-            plain_english="✓ A known star (in Gaia). If it changed brightness, it may be a variable star."
-            if c.kind != "mover" else "A known star that Gaia says barely moves, so this 'motion' is probably "
-                                      "a processing artefact.")
-    if wm:
-        try:
-            bright = [s for s in cat.crossmatch(c.ra, c.dec, year, cat.gaia(round(c.ra, 2), round(c.dec, 2), 0.06), 45)
-                      if (s.get("mag") or 99) < 10]
-        except Exception:
-            bright = []
-        if bright or c.saturated:
-            return VerificationResult(
-                candidate_id=c.candidate_id, matches=matches, verification_status="likely_artefact",
-                plain_english="Only WISE lists something here, but it's right next to a very bright star, "
-                              "so this is most likely glare from that star, not a new object.")
-        return VerificationResult(
-            candidate_id=c.candidate_id, matches=matches, verification_status="known_star",
-            plain_english="Seen by WISE but not by Gaia: it's very red or cold. Brown dwarfs look like this!")
-    return VerificationResult(
-        candidate_id=c.candidate_id, matches=matches, verification_status="unmatched",
-        plain_english="? Not in Gaia or WISE. Could be something new, or an artefact. Worth a human look!")
+    separation = nearest_source.get("separation_arcsec")
 
+    if separation is None:
+        separation = nearest_source.get(
+            "epoch_corrected_separation_arcsec"
+        )
 
-@router.post("/api/verification/gaia")
-def verify(req: VerificationRequest):
-    """Cross-match candidates with Gaia DR3 and AllWISE (and SkyBoT for one-off spots).
+    if separation is None:
+        separation = result.get("separation_arcsec")
 
-    Send one candidate ({candidate_id, ra, dec, epoch}) to get one result, or {"candidates": [...]}
-    to get a list.
+    if separation is None:
+        separation = nearest_source.get(
+            "uncorrected_separation_arcsec"
+        )
+
+    return separation
+
+def get_photometry_caveats(catalogue, nearest_source):
     """
-    if req.candidates:
-        return [verify_one(c, req.radius_arcsec) for c in req.candidates]
-    if req.ra is None or req.dec is None:
-        raise HTTPException(422, {"status": "error", "error": "missing_position",
-                                  "message": "Send ra and dec, or a list of candidates."})
-    c = Candidate(candidate_id=req.candidate_id or "C000", ra=req.ra, dec=req.dec, epoch=req.epoch, kind=req.kind,
-                  motion=req.motion)
-    return verify_one(c, req.radius_arcsec)
+    Extract photometric warnings without treating them as
+    positional-match failures.
+    """
+
+    caveats = []
+
+    if catalogue != "allwise":
+        return caveats
+
+    photometry = nearest_source.get("photometry", {})
+
+    for band, measurement in photometry.items():
+
+        contamination = measurement.get("contamination_flag", {})
+        contamination_assessment = contamination.get("assessment")
+
+        if contamination_assessment == "possibly_spurious":
+            caveats.append(
+                f"{band} may be a spurious detection "
+                "because of an image artifact."
+            )
+
+        elif contamination_assessment == (
+            "real_detection_potentially_contaminated"
+        ):
+            caveats.append(
+                f"{band} is considered a real detection, "
+                "but its measurement may be contaminated."
+            )
+
+    return caveats
 
 
-@router.get("/api/catalog/{name}")
-def catalog(name: str, ra: float, dec: float, radius: float = Query(0.1, gt=0, le=0.5), mjd: float = 0):
-    """Overlay data: gaia (Gaia DR3, epoch 2016), allwise (epoch ~2010.5), skybot (asteroids at mjd)."""
-    ra, dec, radius = round(ra, 4), round(dec, 4), round(radius, 3)
-    try:
-        if name == "gaia":
-            return cat.gaia(ra, dec, radius)
-        if name == "allwise":
-            return cat.allwise(ra, dec, radius)
-        if name == "skybot":
-            if not mjd:
-                raise HTTPException(400, {"status": "error", "error": "missing_mjd", "message": "mjd is required"})
-            return solar_system.skybot(ra, dec, radius, round(mjd, 3))
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(502, {"status": "error", "error": "upstream", "message": f"{name} lookup failed: {e}"})
-    raise HTTPException(404, {"status": "error", "error": "unknown_catalog",
-                              "message": "catalog must be gaia, allwise or skybot"})
+def classify_catalogue_evidence(catalogue, result):
+    """
+    Apply catalogue-specific criteria to a catalogue result.
+
+    Returns:
+        evidence classification
+        reasons explaining the classification
+        photometric caveats
+    """
+
+    status = result.get("status")
+    match_quality = result.get("match_quality")
+
+    nearest_source = result.get("nearest_source") or {}
+
+    separation = get_separation(result, nearest_source)
+    matching_radius = result.get("matching_radius_arcsec")
+
+    reasons = []
+    caveats = get_photometry_caveats(
+        catalogue,
+        nearest_source,
+    )
+
+    # A borderline result is never a confirmed association.
+    if match_quality == "borderline":
+        return (
+            "potential_association",
+            [
+                "The nearest source is outside the accepted "
+                "matching radius but close enough to warrant review."
+            ],
+            caveats,
+        )
+
+    # No source was accepted by the catalogue service.
+    if status == "no_match":
+        return (
+            "no_association",
+            [
+                "The catalogue did not find a source satisfying "
+                "its matching criteria."
+            ],
+            caveats,
+        )
+
+    # The catalogue could not make a reliable comparison.
+    if status == "inconclusive":
+
+        if nearest_source:
+            reasons.append(
+                "A nearby source was found, but the catalogue "
+                "could not establish a reliable association."
+            )
+
+            if (
+                result.get("epoch_correction_available") is False
+                or match_quality == "epoch_correction_unavailable"
+            ):
+                reasons.append(
+                    "A reliable common-epoch positional comparison "
+                    "was unavailable."
+                )
+
+            return (
+                "potential_association",
+                reasons,
+                caveats,
+            )
+
+        return (
+            "insufficient_evidence",
+            [
+                "The catalogue could not determine whether "
+                "a matching source exists."
+            ],
+            caveats,
+        )
+
+    # A service must explicitly return match_found.
+    if status != "match_found":
+        return (
+            "insufficient_evidence",
+            [
+                f"Catalogue returned status '{status}', "
+                "which is not sufficient to establish an association."
+            ],
+            caveats,
+        )
+
+    # All accepted matches must have an accepted positional quality.
+    if match_quality != "within_radius":
+        return (
+            "potential_association",
+            [
+                "The service returned match_found, but the "
+                "match quality is not within_radius."
+            ],
+            caveats,
+        )
+
+    # Check the actual separation where the service provides it.
+    if separation is not None and matching_radius is not None:
+        if separation > matching_radius:
+            return (
+                "potential_association",
+                [
+                    "The reported separation exceeds the "
+                    "matching radius."
+                ],
+                caveats,
+            )
+
+    # 2MASS and AllWISE require an epoch-compatible comparison.
+    if catalogue in ("2mass", "allwise"):
+
+        epoch_correction_available = result.get(
+            "epoch_correction_available"
+        )
+
+        if epoch_correction_available is not True:
+            return (
+                "potential_association",
+                [
+                    "The catalogue returned a possible match, "
+                    "but a reliable common-epoch comparison "
+                    "was not confirmed."
+                ],
+                caveats,
+            )
+
+        if separation is None:
+            return (
+                "potential_association",
+                [
+                    "The catalogue did not provide a usable "
+                    "common-epoch separation."
+                ],
+                caveats,
+            )
+    #____
+
+    
+    if catalogue in ("2mass", "allwise"):
+
+        epoch_correction_available = result.get(
+            "epoch_correction_available"
+        )
+
+        if epoch_correction_available is not True:
+            return (
+                "potential_association",
+                [
+                    "The catalogue returned a possible match, "
+                    "but a reliable common-epoch comparison "
+                    "was not confirmed."
+                ],
+                caveats,
+            )
+
+        common_epoch_separation = (
+            nearest_source.get("epoch_corrected_separation_arcsec")
+            or nearest_source.get("separation_arcsec")
+            or result.get("separation_arcsec")
+        )
+
+        if common_epoch_separation is None:
+            return (
+                "potential_association",
+                [
+                    "The catalogue did not provide a usable "
+                    "common-epoch separation."
+                ],
+                caveats,
+            )
+
+        if matching_radius is not None:
+            if common_epoch_separation > matching_radius:
+                return (
+                    "potential_association",
+                    [
+                        "The common-epoch separation exceeds "
+                        "the matching radius."
+                    ],
+                    caveats,
+                )
 
 
-@router.get("/api/object")
-def object_details(ra: float = Query(..., ge=0, lt=360), dec: float = Query(..., ge=-90, le=90), mjd: float = 0,
-                   name: str | None = None):
-    """Details card for whatever is at (ra, dec): SIMBAD type/distance/papers, Gaia, WISE, Wikipedia, links."""
-    year = cat.mjd_to_year(mjd) if mjd else 2026.0
-    return object_info.details(round(ra, 6), round(dec, 6), year, name)
+
+
+    reasons.append(
+        "The catalogue returned match_found with an accepted "
+        "positional match quality."
+    )
+
+    if catalogue in ("2mass", "allwise"):
+        reasons.append(
+            "The positional comparison was made using "
+            "epoch-corrected coordinates."
+        )
+
+    return (
+        "confirmed_association",
+        reasons,
+        caveats,
+    )
+
+
+def build_evidence_summary(catalogue_results):
+    """Combine catalogue evidence into an overall assessment."""
+
+    catalogue_evidence = {}
+
+    for catalogue, result in catalogue_results.items():
+
+        evidence, reasons, caveats = classify_catalogue_evidence(
+            catalogue,
+            result,
+        )
+
+        nearest_source = result.get("nearest_source") or {}
+
+        catalogue_evidence[catalogue] = {
+            "evidence": evidence,
+            "status": result.get("status"),
+            "match_quality": result.get("match_quality"),
+            "source_identifier": get_source_identifier(
+                catalogue,
+                nearest_source,
+            ),
+            "separation_arcsec": get_separation(
+                result,
+                nearest_source,
+            ),
+            "reasons": reasons,
+            "photometric_caveats": caveats,
+        }
+
+    evidence_types = [
+        item["evidence"]
+        for item in catalogue_evidence.values()
+    ]
+
+    confirmed_count = evidence_types.count(
+        "confirmed_association"
+    )
+
+    potential_count = evidence_types.count(
+        "potential_association"
+    )
+
+    no_association_count = evidence_types.count(
+        "no_association"
+    )
+
+    insufficient_count = evidence_types.count(
+        "insufficient_evidence"
+    )
+
+    # Only report a conflict if a catalogue service explicitly
+    # provides evidence of an association conflict.
+    conflicts = [
+        catalogue
+        for catalogue, result in catalogue_results.items()
+        if result.get("association_conflict") is True
+    ]
+
+    if conflicts:
+        assessment = "conflicting_evidence"
+        explanation = (
+            "One or more catalogue services explicitly reported "
+            "conflicting association evidence. Manual investigation "
+            "is required."
+        )
+
+    elif confirmed_count > 0:
+        assessment = "confirmed_association"
+        explanation = (
+            "At least one catalogue returned an accepted positional "
+            "association. Review the individual catalogue results "
+            "and photometric caveats before treating the source "
+            "identification as definitive."
+        )
+
+    elif potential_count > 0:
+        assessment = "potential_association"
+        explanation = (
+            "One or more catalogues found a potentially relevant "
+            "source, but the available evidence is insufficient "
+            "to confirm the association."
+        )
+
+    elif (
+        evidence_types
+        and no_association_count == len(evidence_types)
+    ):
+        assessment = "no_association"
+        explanation = (
+            "None of the queried catalogues found a source "
+            "satisfying the applied matching criteria."
+        )
+
+    else:
+        assessment = "insufficient_evidence"
+        explanation = (
+            "The available catalogue results are insufficient "
+            "to determine whether the candidate is a known source."
+        )
+
+    return assessment, {
+        "assessment": assessment,
+        "explanation": explanation,
+        "catalogues_checked": len(catalogue_evidence),
+        "confirmed_associations": confirmed_count,
+        "potential_associations": potential_count,
+        "no_associations": no_association_count,
+        "insufficient_evidence": insufficient_count,
+        "conflicts_detected": conflicts,
+        "conflict_assessment_available": False,
+        "catalogues": catalogue_evidence,
+    }
+
+
+@router.post("/", response_model=VerificationResponse)
+async def verify_candidates(request: VerificationRequest):
+
+    results = []
+
+    for candidate in request.candidates:
+
+        catalogue_results = {}
+
+        # Gaia runs first because the infrared services may use
+        # its confirmed proper motion for epoch-aware matching.
+        catalogue_order = sorted(
+            request.catalogues,
+            key=lambda name: name != "gaia",
+        )
+
+        for catalogue in catalogue_order:
+
+            if catalogue == "gaia":
+
+                result = await gaia_match(
+                    ra=candidate.ra,
+                    dec=candidate.dec,
+                    observation_time=candidate.observation_time,
+                    search_radius_arcsec=request.search_radius_arcsec,
+                )
+
+                catalogue_results["gaia"] = result
+
+            elif catalogue == "2mass":
+
+                result = await twomass_match(
+                    ra=candidate.ra,
+                    dec=candidate.dec,
+                    observation_time=candidate.observation_time,
+                    search_radius_arcsec=request.search_radius_arcsec,
+                    gaia_result=catalogue_results.get("gaia"),
+                )
+
+                catalogue_results["2mass"] = result
+
+            elif catalogue == "allwise":
+
+                result = await allwise_match(
+                    ra=candidate.ra,
+                    dec=candidate.dec,
+                    observation_time=candidate.observation_time,
+                    search_radius_arcsec=request.search_radius_arcsec,
+                    gaia_result=catalogue_results.get("gaia"),
+                )
+
+                catalogue_results["allwise"] = result
+
+            elif catalogue == "simbad":
+
+                result = await simbad_match(
+                    ra=candidate.ra,
+                    dec=candidate.dec,
+                    observation_time=candidate.observation_time,
+                    search_radius_arcsec=request.search_radius_arcsec,
+                )
+
+                catalogue_results["simbad"] = result
+
+        assessment, evidence_summary = build_evidence_summary(
+            catalogue_results
+        )
+
+
+        cross_catalogue_association = crossmatch_catalogues(
+            catalogue_results=catalogue_results,
+            matching_radius_arcsec=request.search_radius_arcsec,
+        )
+
+        assessment, evidence_summary = build_evidence_summary(
+            catalogue_results
+        )
+
+        results.append(
+            CandidateVerificationResult(
+                candidate_id=candidate.candidate_id,
+                catalogue_results=catalogue_results,
+                assessment=assessment,
+                evidence_summary=evidence_summary,
+                cross_catalogue_association=cross_catalogue_association,
+            )
+        )
+
+    return VerificationResponse(results=results)
