@@ -219,6 +219,35 @@ def asteroids(query_id: str):
     return _asteroids_v(query_id, job.version)
 
 
+@lru_cache(maxsize=16)
+def _movers_v(query_id: str, version: int, det: int):
+    from ..services import registration
+    job = ready_or_409(query_id)
+    infos, imgs, _ = im.group_frames(job.arrays, job.meta, "visit", det, 0, -1)
+    big = max((f["n_exp"] for f in infos), default=0)
+    keep = [k for k, f in enumerate(infos) if f["n_exp"] >= max(3, 0.25 * big)]  # the clean twice-a-year visits
+    if len(keep) < 2:
+        raise HTTPException(400, {"status": "error", "error": "too_few_visits", "message": "Need at least two visits."})
+    res = registration.movers_only([imgs[k] for k in keep], [infos[k]["mjd"] for k in keep])
+    return [infos[k] for k in keep], res
+
+
+@router.get("/{query_id}/movers")
+def movers(query_id: str, det: int = Query(0, ge=0, le=7)):
+    """Movers only: visits registered to each other (star-pattern matching, like background-oriented
+    schlieren), a stable background (median of the visits) subtracted, so only what moved or changed is left.
+    Also returns a motion vector for every star between the first and last visit."""
+    job = ready_or_409(query_id)
+    infos, r = _movers_v(query_id, job.version, det)
+    enc = lambda a: base64.b64encode(np.ascontiguousarray(a, dtype=np.float32).tobytes()).decode()
+    return {"n": int(r["background"].shape[-1]), "count": len(infos), "det": det, "years": r["years"], "note": r["note"],
+            "frames": [{"visit": f["visit"], "date": f["date"][:10], "date_range": f["date_range"], "mjd": f["mjd"],
+                        "n_exp": f["n_exp"], "shift": s, "sigma": round(float(sg), 5)}
+                       for f, s, sg in zip(infos, r["shifts"], r["sigma"])],
+            "vectors": r["vectors"], "background": enc(r["background"]), "residuals": enc(r["residuals"]),
+            "aligned": enc(r["aligned"])}
+
+
 @router.get("/{query_id}/frames")
 def frames(query_id: str, mode: str = "visit", det: int = Query(0, ge=0, le=7),
            channel: int = Query(0, ge=0, le=102), visit: int = -1):

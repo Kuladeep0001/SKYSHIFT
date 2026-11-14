@@ -39,6 +39,17 @@ Built for the **NASA Space Apps Challenge 2026**.
 - [x] URL-based coordinate queries + embed mode
 - [x] Detection and analysis: finds movers/brightness changes, checks them against Gaia/WISE/asteroids
 
+**Extra features**
+- [x] 👻 **Movers only**: register the visits, subtract a still background (like background-oriented schlieren), BOS-style motion arrows
+- [x] ⏳ **Time machine**: 1950 and 1991 photographic plates, 2MASS (2000), WISE (2010), SPHEREx, with the predicted path
+- [x] 🧊 Spectral cube, 💧 molecule/mineral finder, 🃏 details card (SIMBAD, Gaia, WISE, Wikipedia)
+- [x] ☄️ **Asteroid hunter**: where each known asteroid was in every snapshot
+- [x] 🔭 **Discovery board**: report finds, vote (citizen science)
+- [x] 💬 **Ask about this object** (Qwen or any OpenAI-compatible model; built-in answers otherwise)
+- [x] ✨ **Guided tour**, 🔊 **Listen mode** (sonification + narration), 👁 **colour-blind-safe mode**
+- [x] 📤 Share as animated GIF, picture card, link or embed
+- [x] 🛰 Stays up to date with new NASA releases automatically; download task bar with Cancel
+
 **Results on the challenge targets** (SPHEREx only, then checked against Gaia):
 
 | Target | SkyShift measured | Known |
@@ -47,7 +58,7 @@ Built for the **NASA Space Apps Challenge 2026**.
 | Epsilon Indi B | 4.52″/yr toward 129° (D5+D6) | 4.68″/yr toward 122° |
 | RW Aurigae | brightness changed ×2.0 between visits | known variable (young star) |
 | R Draconis | brightness changed ×1.8 (4.4–5 µm) | known variable (Mira) |
-| WISE 0855 | 5.87″/yr toward 269° (reddest detectors D5+D6) | 8.15″/yr toward 275° |
+| WISE 0855 | 6.32″/yr toward 274° (Movers-only tracking, D5+D6) | 8.15″/yr toward 275° |
 
 ## How SkyShift stays up to date
 
@@ -70,6 +81,17 @@ So SkyShift **asks**, cheaply and often:
 - Settings: `SKYSHIFT_WATCH_HOURS` (default 6, 0 = off), `SKYSHIFT_CHECK_MINUTES` (default 60).
 - A **task bar** shows every download/update with progress, time left and a **Cancel** button; cancelling keeps
   what was already downloaded.
+
+## Optional: AI answers with Qwen
+
+```bash
+# Hugging Face (needs a free token): 
+set HF_TOKEN=hf_...                         # macOS/Linux: export HF_TOKEN=hf_...
+# or a local model with Ollama:
+set SKYSHIFT_LLM_URL=http://localhost:11434/v1
+set SKYSHIFT_LLM_MODEL=qwen2.5:7b
+```
+Without either, "Ask about this object" uses built-in answers from SkyShift's own data.
 
 ## Tech stack
 

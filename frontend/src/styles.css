@@ -369,3 +369,10 @@ table.features tr.ambiguous td:last-child { color: var(--muted); font-style: ita
 
 @media (max-width: 1600px) { .tagline { display: none; } }
 @media (max-width: 1300px) { .top nav a { padding: 6px 8px; } .listenToggle { padding: 6px 10px; } }
+
+/* --- movers only --- */
+.moverResult { background: #10283a; border-left: 3px solid var(--accent2); border-radius: 8px; padding: 6px 12px; margin: 8px 0; }
+.moverResult p { margin: 6px 0; font-size: 14.5px; }
+.howBos { margin-top: 8px; font-size: 14px; color: #c4d0e6; }
+.howBos summary { cursor: pointer; color: var(--accent2); font-weight: 600; }
+.howBos li { margin: 5px 0; }

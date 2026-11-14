@@ -38,6 +38,7 @@ export const api = {
   compare: (body) => (MOCK ? mock("compare") : post("/api/images/compare", body)),
   detect: (body) => (MOCK ? mock("detections") : post("/api/detections/run", body)),
   history: (id, ra, dec, fov) => (MOCK ? mock("history") : request(`/api/images/${id}/history?ra=${ra.toFixed(5)}&dec=${dec.toFixed(5)}&fov=${fov}`)),
+  movers: (id, det = 0) => (MOCK ? mock("movers") : request(`/api/images/${id}/movers?det=${det}`)),
   asteroids: (id) => (MOCK ? mock("asteroids") : request(`/api/images/${id}/asteroids`)),
   finds: (sort = "top") => (MOCK ? Promise.resolve({ total: 0, finds: [] }) : request(`/api/finds?sort=${sort}&voter=${voterId()}`)),
   report: (find) => post("/api/finds", { ...find, voter: voterId() }),

@@ -22,6 +22,7 @@ import TaskBar from "../components/TaskBar.jsx";
 import AskPanel from "../components/AskPanel.jsx";
 import AsteroidHunter from "../components/AsteroidHunter.jsx";
 import TimeMachine from "../components/TimeMachine.jsx";
+import MoversOnly from "../components/MoversOnly.jsx";
 import Tour, { TOUR } from "../components/Tour.jsx";
 import Timeline from "../components/Timeline.jsx";
 import { api, loadImages } from "../lib/api.js";
@@ -85,7 +86,7 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
   const say = (m) => { setToast(m); setTimeout(() => setToast(""), 2600); };
 
   // Simple mode only has the flipbook and before/after views.
-  useEffect(() => { if (simple && !["blink", "compare", "timecolours", "planes", "timemachine", "asteroids"].includes(view)) setView("blink"); if (simple) setMode("visit"); }, [simple]);
+  useEffect(() => { if (simple && !["blink", "movers", "compare", "timecolours", "planes", "timemachine", "asteroids"].includes(view)) setView("blink"); if (simple) setMode("visit"); }, [simple]);
 
   /* ---------------------------------------------------------- loading */
   const startLoad = useCallback(async (t, fovNow, rel) => {
@@ -368,8 +369,8 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
   const chInfo = meta && meta.channels[ch - 1];
   const chWave = chInfo && chInfo.wave ? `${chInfo.wave[0].toFixed(2)}–${chInfo.wave[1].toFixed(2)} µm` : "";
   const tabs = simple
-    ? [["blink", "▶ Flipbook"], ["timecolours", "🎨 Colour by date"], ["compare", "⇔ Before / after"], ["timemachine", "⏳ Time machine"], ["planes", "🌈 102 colours"], ["asteroids", "☄️ Asteroids"]]
-    : [["blink", "Blink"], ["timecolours", "Colour by date"], ["compare", "Before / after"], ["timemachine", "⏳ Time machine"], ["wall", "6 Detectors"], ["color", "Infrared colour"], ["planes", "🧊 Spectral cube (102)"], ["asteroids", "☄️ Asteroids"]];
+    ? [["blink", "▶ Flipbook"], ["movers", "👻 Movers only"], ["timecolours", "🎨 Colour by date"], ["compare", "⇔ Before / after"], ["timemachine", "⏳ Time machine"], ["planes", "🌈 102 colours"], ["asteroids", "☄️ Asteroids"]]
+    : [["blink", "Blink"], ["movers", "👻 Movers only"], ["timecolours", "Colour by date"], ["compare", "Before / after"], ["timemachine", "⏳ Time machine"], ["wall", "6 Detectors"], ["color", "Infrared colour"], ["planes", "🧊 Spectral cube (102)"], ["asteroids", "☄️ Asteroids"]];
 
   return (
     <div className="explorer">
@@ -428,9 +429,9 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
               </div>
             )}
 
-            {view === "blink" && (
+            {(view === "blink" || view === "movers") && (
               <div className="row">
-                {expert && (
+                {expert && view === "blink" && (
                   <div className="seg" role="group" aria-label="How to build each picture">
                     {[["visit", "Each visit", "One stacked picture per visit (~6 months apart)"], ["exposure", "Every snapshot", "Every single exposure: best for asteroids"], ["channel", "One colour", "Only one of the 102 infrared colours"]].map(([k, l, t]) => (
                       <button key={k} title={t} className={mode === k ? "on" : ""} onClick={() => setMode(k)}>{l}</button>
@@ -469,8 +470,9 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
             {view === "planes" && <SpectralCube qid={qid} visits={meta.visits} disp={disp} version={dataVersion} />}
             {view === "timemachine" && <TimeMachine qid={qid} target={target} fov={fov} disp={disp} onTask={setTmTask} />}
             {view === "asteroids" && <AsteroidHunter qid={qid} disp={disp} />}
+            {view === "movers" && <MoversOnly qid={qid} det={det} version={dataVersion} onPixel={onPixel} />}
 
-            {!["planes", "compare", "timecolours", "timemachine", "asteroids"].includes(view) && (
+            {!["planes", "compare", "timecolours", "timemachine", "asteroids", "movers"].includes(view) && (
               <Controls playing={playing} setPlaying={setPlaying} idx={idx} count={count} setIdx={setIdx} fps={fps} setFps={setFps} disabled={!count} />
             )}
             {view === "blink" && <Timeline meta={meta} frame={frame} mode={F?.mode} simple={simple}
