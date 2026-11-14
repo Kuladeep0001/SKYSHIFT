@@ -27,6 +27,7 @@ import Tour, { TOUR } from "../components/Tour.jsx";
 import Timeline from "../components/Timeline.jsx";
 import { api, loadImages } from "../lib/api.js";
 import { decodeFrames, mainVisitsOnly } from "../lib/frames.js";
+import { rgbByVisit } from "../lib/render.js";
 import { findTarget, TARGETS } from "../lib/targets.js";
 
 const params = new URLSearchParams(location.search);
@@ -56,7 +57,7 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
   const [idx, setIdx] = useState(0);
   const [playing, setPlaying] = useState(true);
   const [fps, setFps] = useState(1.5);
-  const [disp, setDisp] = useState({ contrast: 0.55, bright: 0.5, cmap: "gray", math: params.get("math") || "none" });
+  const [disp, setDisp] = useState({ contrast: 0.55, bright: 0.5, cmap: "rgb", math: params.get("math") || "none" });
   const [ov, setOv] = useState({ gaia: true, wise: false, ast: false, flags: false, cross: true });
   const [cats, setCats] = useState({});
   const [asteroids, setAsteroids] = useState({});
@@ -179,6 +180,11 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
           if (simple || view !== "blink") dec = mainVisitsOnly(dec); // the clean twice-a-year visits
           setF(dec); setIdx(0);
           if (!dec.data.length) say(m === "channel" ? `No snapshot caught this spot in colour plane ${ch}. Try a neighbouring one.` : "No pictures for this choice.");
+          // RGB colour grading needs every detector of every visit
+          if (disp.cmap === "rgb" && !wallF && view !== "timecolours") {
+            const all = await api.frames(qid, { mode: "visitdet" });
+            if (alive) setWallF(decodeFrames(all));
+          }
         } else if (view === "wall" || view === "color") {
           if (!wallF) { const res = await api.frames(qid, { mode: "visitdet" }); if (alive) setWallF(decodeFrames(res)); }
           setIdx(0);
@@ -186,7 +192,9 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
       } catch (e) { say(e.message); }
     })();
     return () => { alive = false; };
-  }, [qid, view, mode, det, ch, simple, dataVersion]);
+  }, [qid, view, mode, det, ch, simple, dataVersion, disp.cmap]);
+  const rgbSets = useMemo(() => (disp.cmap === "rgb" ? rgbByVisit(wallF) : null), [wallF, disp.cmap]);
+  const useRGB = disp.cmap === "rgb" && det === 0 && F?.mode === "visit" && rgbSets && Object.keys(rgbSets).length > 0;
 
   const count = view === "wall" || view === "color" ? wallVisitCount(wallF) : F ? F.data.length : 0;
 
@@ -381,6 +389,13 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
 
       {load.phase === "idle" && !embed && (
         <section className="welcome">
+          <figure className="hero">
+            <img src="/spherex_allsky.jpg" alt="The whole sky in infrared as seen by NASA's SPHEREx, in false colour" />
+            <figcaption>
+              <b>The whole sky as SPHEREx sees it.</b> Infrared light is invisible, so SkyShift turns it into colours:{" "}
+              <span style={{ color: "#ffa36b" }}>orange = glowing dust</span>, <span style={{ color: "#7fe8ff" }}>cyan = hot hydrogen gas</span>, white = stars. The Milky Way runs across the middle.
+            </figcaption>
+          </figure>
           <h1>Watch the sky <span className="hl">move</span>.</h1>
           <p className="lead">NASA's <b>SPHEREx</b> telescope photographs the whole sky every six months. SkyShift lines up its pictures of any spot and plays them like a <b>flipbook</b>, so anything that moves or changes brightness jumps out. That's how Pluto was found!</p>
           <ol className="steps">
@@ -463,8 +478,8 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
 
             {view === "blink" && <ImageViewer F={F} idx={idx} disp={disp} ov={ov} target={target} cats={cats}
               asteroids={asteroids} onNeedAsteroids={needAsteroids} sel={sel} candidates={candidates} focus={focus}
-              onPixel={onPixel} simple={simple} fov={fov} />}
-            {view === "compare" && <BeforeAfter F={F} disp={disp} />}
+              onPixel={onPixel} simple={simple} fov={fov} rgb={useRGB ? rgbSets : null} />}
+            {view === "compare" && <BeforeAfter F={F} disp={disp} rgb={useRGB ? rgbSets : null} />}
             {view === "timecolours" && <TimeColours F={F} disp={disp} onPixel={onPixel} focusXY={sel} />}
             {(view === "wall" || view === "color") && <DetectorWall F={wallF} idx={idx} disp={disp} detectors={meta.detectors} colour={view === "color"} onPixel={onPixel} />}
             {view === "planes" && <SpectralCube qid={qid} visits={meta.visits} disp={disp} version={dataVersion} />}
@@ -479,7 +494,7 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
               onPick={(v) => { const k = F?.list.findIndex((f) => f.visit === v); if (k >= 0) setIdx(k); }} />}
             {!embed && (
               <DisplaySettings disp={disp} setDisp={setDisp} ov={ov} setOv={setOv} simple={simple}
-                share={{ F, disp, target, story, facts: shareFacts, shareURL, say }} />
+                share={{ F, disp, target, story, facts: shareFacts, shareURL, say, rgb: useRGB ? rgbSets : null }} />
             )}
           </section>
 

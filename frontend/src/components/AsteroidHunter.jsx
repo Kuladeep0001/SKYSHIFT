@@ -44,7 +44,7 @@ export default function AsteroidHunter({ qid, disp, onReport }) {
     if (!seq.length || !canvas.current) return;
     const a = seq[Math.min(k, seq.length - 1)], img = frames.data[a.j];
     const [lo, hi] = percentile([img], [3, 99.7]);
-    paint(canvas.current, img, frames.n, makeScaler(lo, hi, disp.contrast, disp.bright), LUTS[disp.cmap]);
+    paint(canvas.current, img, frames.n, makeScaler(lo, hi, disp.contrast, disp.bright), (LUTS[disp.cmap] || LUTS.gray));
     const ctx = canvas.current.getContext("2d");
     // the whole predicted track (faint) and where it is now (bright)
     ctx.strokeStyle = "rgba(255,107,139,.45)"; ctx.lineWidth = 1.5; ctx.beginPath();

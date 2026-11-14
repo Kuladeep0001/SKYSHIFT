@@ -22,7 +22,7 @@ export default function TimeColours({ F, disp, onPixel, focusXY }) {
   useEffect(() => {
     if (!F || use.length < 2) return;
     const n = F.n, nn = n * n;
-    const [lo, hi] = percentile(use.map((k) => F.data[k]), [5, 99.6]);
+    const [lo, hi] = percentile(use.map((k) => F.data[k]), [55, 99.6]);  // keep empty sky dark so only stars get colour
     const beta = Math.pow(10, disp.contrast * 3) - 0.999, norm = Math.asinh(beta) || 1;
     const hiEff = lo + (hi - lo) * Math.pow(10, (0.5 - disp.bright) * 1.6);
     const st = (v) => { if (!Number.isFinite(v)) return 0; const t = (v - lo) / (hiEff - lo || 1); return t <= 0 ? 0 : t >= 1 ? 1 : Math.asinh(t * beta) / norm; };

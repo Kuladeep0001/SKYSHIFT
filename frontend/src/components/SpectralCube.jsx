@@ -122,7 +122,7 @@ export default function SpectralCube({ qid, visits, disp, version }) {
   useEffect(() => {
     if (!cube || !lims || !canvas.current) return;
     const det = cube.channels[k].det, [lo, hi] = lims[det];
-    paint(canvas.current, cube.data[k], cube.n, makeScaler(lo, hi, disp.contrast, disp.bright), LUTS[disp.cmap]);
+    paint(canvas.current, cube.data[k], cube.n, makeScaler(lo, hi, disp.contrast, disp.bright), (LUTS[disp.cmap] || LUTS.gray));
     const b = drag || box;
     if (b) {
       const ctx = canvas.current.getContext("2d"), s = W / cube.n;
@@ -255,7 +255,7 @@ function CubeTile({ cube, i, lims, disp, on, onPick }) {
   const ch = cube.channels[i];
   useEffect(() => {
     const [lo, hi] = lims[ch.det];
-    paint(ref.current, cube.data[i], cube.n, makeScaler(lo, hi, disp.contrast, disp.bright), LUTS[disp.cmap]);
+    paint(ref.current, cube.data[i], cube.n, makeScaler(lo, hi, disp.contrast, disp.bright), (LUTS[disp.cmap] || LUTS.gray));
   }, [cube, i, lims, disp.contrast, disp.bright, disp.cmap]);
   return (
     <figure className={on ? "on" : ""} onClick={onPick} title={`Plane ${i + 1}: ${ch.wave_lo}–${ch.wave_hi} µm`}>
@@ -270,7 +270,7 @@ function StackLayer({ cube, i, lims, disp, box, on, z, onPick }) {
   const ch = cube.channels[i];
   useEffect(() => {
     const [lo, hi] = lims[ch.det];
-    paint(ref.current, cube.data[i], cube.n, makeScaler(lo, hi, disp.contrast, disp.bright), LUTS[disp.cmap]);
+    paint(ref.current, cube.data[i], cube.n, makeScaler(lo, hi, disp.contrast, disp.bright), (LUTS[disp.cmap] || LUTS.gray));
     if (box) {
       const ctx = ref.current.getContext("2d"), s = ref.current.width / cube.n;
       const x0 = Math.min(box.x0, box.x1), x1 = Math.max(box.x0, box.x1), y0 = Math.min(box.y0, box.y1), y1 = Math.max(box.y0, box.y1);

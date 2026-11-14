@@ -17,11 +17,10 @@ export default function DisplaySettings({ disp, setDisp, ov, setOv, simple, shar
         </div>
         <label title="Brighten faint things">Contrast <input type="range" min="0" max="1" step="0.01" value={disp.contrast} onChange={(e) => set("contrast", +e.target.value)} /></label>
         {!simple && <label title="Clip bright stars">Brightness <input type="range" min="0" max="1" step="0.01" value={disp.bright} onChange={(e) => set("bright", +e.target.value)} /></label>}
-        {!simple && (
-          <select value={disp.cmap} onChange={(e) => set("cmap", e.target.value)} aria-label="Colour map">
-            <option value="gray">Grey</option><option value="inferno">Heat</option><option value="invert">Inverted</option>
-          </select>
-        )}
+        <select value={disp.cmap} onChange={(e) => set("cmap", e.target.value)} aria-label="Colour grading">
+          <option value="rgb">🌈 RGB colour</option><option value="gray">Grey</option>
+          {!simple && <><option value="inferno">Heat</option><option value="invert">Inverted</option></>}
+        </select>
       </div>
       <div className="row">
         <span className="lbl">Show</span>

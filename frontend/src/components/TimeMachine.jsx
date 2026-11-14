@@ -65,7 +65,7 @@ export default function TimeMachine({ qid, target, fov, disp, onTask }) {
   useEffect(() => {
     if (!data || !data.count || !canvas.current) return;
     const k = Math.min(idx, data.count - 1), n = data.n, f = data.frames[k];
-    paint(canvas.current, data.imgs[k], n, makeScaler(lims[k][0], lims[k][1], disp.contrast, disp.bright), LUTS[disp.cmap]);
+    paint(canvas.current, data.imgs[k], n, makeScaler(lims[k][0], lims[k][1], disp.contrast, disp.bright), (LUTS[disp.cmap] || LUTS.gray));
     const ctx = canvas.current.getContext("2d"), s = W / n, scale = data.scale_arcsec;
     const toXY = (ra, dec) => {
       const cosd = Math.cos((area.dec * Math.PI) / 180);

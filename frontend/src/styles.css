@@ -376,3 +376,9 @@ table.features tr.ambiguous td:last-child { color: var(--muted); font-style: ita
 .howBos { margin-top: 8px; font-size: 14px; color: #c4d0e6; }
 .howBos summary { cursor: pointer; color: var(--accent2); font-weight: 600; }
 .howBos li { margin: 5px 0; }
+
+.rgbLegend { left: auto; right: 10px; bottom: 10px; font-size: 12px; }
+
+.hero { margin: 0 auto 18px; max-width: 1100px; }
+.hero img { width: 100%; display: block; border-radius: 16px; }
+.hero figcaption { color: #c4d0e6; font-size: 14.5px; margin-top: 8px; }

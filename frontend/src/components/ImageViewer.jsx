@@ -1,7 +1,7 @@
 /* The main picture: one SPHEREx frame with optional overlays. Owner: UI 2. */
 import { useEffect, useMemo, useRef } from "react";
 import { diffFrame, meanFrames, mjdToYear, monthYear, percentile, PIX } from "../lib/frames.js";
-import { arrow, LUTS, makeDivScaler, makeScaler, paint, pixToCanvas, skyToCanvas } from "../lib/render.js";
+import { arrow, bandTint, LUTS, makeDivScaler, makeScaler, paint, paintRGBLight, pixToCanvas, skyToCanvas } from "../lib/render.js";
 
 const W = 720; // internal canvas resolution
 
@@ -29,9 +29,16 @@ export function useLimits(F, math) {
 }
 
 export default function ImageViewer({ F, idx, disp, ov, target, cats, asteroids, onNeedAsteroids, sel, candidates,
-  focus, onPixel, simple, fov }) {
+  focus, onPixel, simple, fov, rgb }) {
   const ref = useRef(null);
   const lim = useLimits(F, disp.math);
+  // RGB colour grading: one brightness range per colour channel, shared by all visits (so colours compare fairly)
+  const rgbLims = useMemo(() => {
+    if (!rgb || !F) return null;
+    const sets = F.list.map((f) => rgb[f.visit]).filter(Boolean);
+    if (!sets.length) return null;
+    return [0, 1, 2].map((c) => percentile(sets.map((s) => s[c]), [45, 99.7]));  // dark, neutral sky
+  }, [rgb, F]);
   const i = F ? Math.min(idx, F.data.length - 1) : 0;
   const frame = F && F.list[i];
 
@@ -39,8 +46,15 @@ export default function ImageViewer({ F, idx, disp, ov, target, cats, asteroids,
     const canvas = ref.current;
     if (!canvas || !F || !F.data.length || !lim) return;
     const { arr, diverge } = displayed(F, i, disp.math);
-    const scaler = diverge ? makeDivScaler(lim.L, disp.contrast, disp.bright) : makeScaler(lim.lo, lim.hi, disp.contrast, disp.bright);
-    paint(canvas, arr, F.n, scaler, diverge ? LUTS.diverge : LUTS[disp.cmap], ov.flags ? F.flags[i] : null);
+    const set = rgb && rgbLims && disp.math === "none" && frame ? rgb[frame.visit] : null;
+    if (set) {
+      paintRGBLight(canvas, set[0], set[1], set[2], F.n, rgbLims, disp.contrast, disp.bright, ov.flags ? F.flags[i] : null);
+    } else {
+      const scaler = diverge ? makeDivScaler(lim.L, disp.contrast, disp.bright) : makeScaler(lim.lo, lim.hi, disp.contrast, disp.bright);
+      // RGB grading with a single band (one detector, or single snapshots): tint it in that band's own colour
+      const lut = diverge ? LUTS.diverge : disp.cmap === "rgb" ? (frame && frame.det ? bandTint(frame.det) : LUTS.gray) : LUTS[disp.cmap];
+      paint(canvas, arr, F.n, scaler, lut, ov.flags ? F.flags[i] : null);
+    }
     drawOverlays(canvas.getContext("2d"), F.n, frame);
   });
 
@@ -154,6 +168,13 @@ export default function ImageViewer({ F, idx, disp, ov, target, cats, asteroids,
           </div>
         )}
         <div className="scaleNote">{fov}′ wide{moonFrac >= 2 ? ` ≈ 1/${moonFrac} of the full Moon` : ""}</div>
+        {rgb && disp.math === "none" && (
+          <div className="legend rgbLegend">
+            <span><i style={{ background: "#ff7b7b" }} /> longest infrared (3.8–5 µm)</span>
+            <span><i style={{ background: "#7bff9a" }} /> middle (1.6–3.8 µm)</span>
+            <span><i style={{ background: "#7bb8ff" }} /> shortest (0.75–1.6 µm)</span>
+          </div>
+        )}
         {diverge && (
           <div className="legend">
             <span><i style={{ background: "#ffaa3c" }} /> brighter now / is here now</span>

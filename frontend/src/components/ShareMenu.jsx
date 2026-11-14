@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { applyPalette, GIFEncoder, quantize } from "gifenc";
 import { monthYear, percentile } from "../lib/frames.js";
-import { LUTS, makeScaler, paint } from "../lib/render.js";
+import { LUTS, makeScaler, paint, paintRGBLight } from "../lib/render.js";
 
 const SIZE = 480;
 
@@ -45,7 +45,7 @@ function wrap(ctx, text, x, y, maxW, lh, maxLines) {
   return y + lh;
 }
 
-export default function ShareMenu({ F, disp, target, story, facts, shareURL, say }) {
+export default function ShareMenu({ F, disp, target, story, facts, shareURL, say, rgb }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState("");
   const name = (target?.name || "sky").replace(/\W+/g, "_");
@@ -55,12 +55,15 @@ export default function ShareMenu({ F, disp, target, story, facts, shareURL, say
     setBusy("Making GIF…");
     try {
       const [lo, hi] = percentile(F.data, [3, 99.8]);
+      const sets = rgb ? F.list.map((f) => rgb[f.visit]) : [];
+      const rl = sets.length && sets.every(Boolean) ? [0, 1, 2].map((c) => percentile(sets.map((s) => s[c]), [45, 99.7])) : null;
       const sc = makeScaler(lo, hi, disp.contrast, disp.bright);
       const c = document.createElement("canvas"); c.width = c.height = SIZE;
       const ctx = c.getContext("2d");
       const enc = GIFEncoder();
       for (let k = 0; k < F.data.length; k++) {
-        paint(c, F.data[k], F.n, sc, LUTS[disp.cmap]);
+        if (rl) paintRGBLight(c, sets[k][0], sets[k][1], sets[k][2], F.n, rl, disp.contrast, disp.bright);
+        else paint(c, F.data[k], F.n, sc, (LUTS[disp.cmap] || LUTS.gray));
         const f = F.list[k];
         stamp(ctx, SIZE, [f.date_range ? monthYear(f.date_range[0]) : f.date.slice(0, 16), target?.name || ""]);
         const { data } = ctx.getImageData(0, 0, SIZE, SIZE);
