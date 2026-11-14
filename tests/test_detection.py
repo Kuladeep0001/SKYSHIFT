@@ -42,3 +42,22 @@ def test_nothing_changes_nothing_found():
     w = im.make_grid(100.0, 0.0, 41 * im.PIX_ARCSEC / 60)[0]
     res = detection.run(arrays, meta, w, [0, 1])
     assert not [c for c in res["candidates"] if c["kind"] == "mover"]
+
+
+def test_motion_fit_through_all_visits_has_error_bar():
+    """Three visits, steady motion: the straight-line fit recovers the speed and reports an uncertainty."""
+    rng = np.random.default_rng(2)
+    n, frames, meta = 41, [], []
+    for v, (mjd, dy) in enumerate([(60900.0, 0.0), (61082.6, 0.75), (61265.25, 1.5)]):   # 0, 0.5, 1 yr
+        for k in range(8):
+            frames.append(star(n, 20, 20 + dy) + star(n, 8, 30, 60) + rng.normal(0, 1, (n, n)))
+            meta.append({"i": len(meta), "visit": v, "det": 1 + k % 6, "mjd": mjd + k * 0.1})
+    flux = np.stack(frames).astype(np.float32)
+    arrays = {"flux": flux, "var": np.ones_like(flux), "flags": np.zeros(flux.shape, np.int32)}
+    w = im.make_grid(100.0, 0.0, n * im.PIX_ARCSEC / 60)[0]
+    movers = [c for c in detection.run(arrays, meta, w, [0, 1, 2])["candidates"] if c["kind"] == "mover"]
+    assert movers
+    m = movers[0]["motion"]
+    assert m["n_visits"] == 3
+    assert m["total_arcsec_yr"] == pytest.approx(1.5 * im.PIX_ARCSEC, rel=0.15)
+    assert 0 < m["total_err_arcsec_yr"] < 0.5 * m["total_arcsec_yr"]

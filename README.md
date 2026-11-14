@@ -59,15 +59,16 @@ It takes about 10 minutes the first time.
 - [x] 📤 Share as animated GIF, picture card, link or embed
 - [x] 🛰 Stays up to date with new NASA releases automatically; download task bar with Cancel
 
-**Results on the challenge targets** (SPHEREx only, then checked against Gaia):
+**Results on the challenge targets** (SPHEREx pictures only, then compared with the catalogues; worked out live at
+`/api/validation` and shown on the website's *How it works* page):
 
-| Target | SkyShift measured | Known |
-|---|---|---|
-| Barnard's Star | 10.36″/yr toward 352° | 10.39″/yr toward 356° (Gaia) |
-| Epsilon Indi B | 4.52″/yr toward 129° (D5+D6) | 4.68″/yr toward 122° |
-| RW Aurigae | brightness changed ×2.0 between visits | known variable (young star) |
-| R Draconis | brightness changed ×1.8 (4.4–5 µm) | known variable (Mira) |
-| WISE 0855 | 5.87″/yr toward 269° (D5+D6; faint, so less exact) | 8.15″/yr toward 275° |
+| Target | SkyShift measured | Known | Difference |
+|---|---|---|---|
+| Barnard's Star | 10.37 ± 0.43″/yr toward 353° (fit through 3 visits) | 10.39″/yr toward 356° | 0.3% (0.1σ) |
+| Epsilon Indi B | 4.54 ± 0.38″/yr toward 125° (4 visits, D5+D6) | 4.68″/yr toward 122° | 3.2% (0.4σ) |
+| WISE 0855 | 6.06 ± 1.36″/yr toward 268° (3 visits, D5+D6) | 8.15″/yr toward 275° | 26% (1.5σ, blended with a background star) |
+| RW Aurigae | brightness changed 1.7× between visits, stayed in place | known T Tauri variable | agrees |
+| R Draconis | brightness changed 1.38× (3.8–5 µm), stayed in place | known Mira variable | agrees |
 
 ## How SkyShift stays up to date
 

@@ -50,6 +50,7 @@ export const api = {
   report: (find) => post("/api/finds", { ...find, voter: voterId() }),
   vote: (id, value) => post(`/api/finds/${id}/vote`, { voter: voterId(), value }),
   ask: (question, context) => (MOCK ? Promise.resolve({ answer: "Ask works with the backend running.", source: "built-in" }) : post("/api/ask", { question, context })),
+  validation: () => (MOCK ? mock("validation") : request("/api/validation")),
   askStatus: () => (MOCK ? Promise.resolve({ llm: false }) : request("/api/ask/status")),
   cube: (id, visit = -1) => (MOCK ? mock("cube") : request(`/api/images/${id}/cube?visit=${visit}`)),
   features: (spectrum) => (MOCK ? Promise.resolve({ features: [] }) : post("/api/detections/features", { spectrum })),

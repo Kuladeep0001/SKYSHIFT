@@ -82,6 +82,7 @@ const LABELS = [
   [/^\/api\/metadata\//, ["Picture details (metadata)", "📋"]],
   [/^\/api\/resolve/, ["Looking up the name", "🔤"]],
   [/^\/api\/finds/, ["Discovery board", "🔭"]],
+  [/^\/api\/validation/, ["Checking SkyShift's accuracy on the 5 challenge targets", "📏"]],
 ];
 
 export function labelFor(path) {

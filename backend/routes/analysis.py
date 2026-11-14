@@ -26,7 +26,11 @@ def plain_english(c: dict, meta: list[dict]) -> str:
         m = c["motion"]
         way = COMPASS[int(((m["pa_deg"] + 22.5) % 360) // 45)]
         speed = m["total_arcsec_yr"]
-        text = (f"Something here moved toward the {way} {when}, at about {speed:.1f} arcseconds per year. "
+        err = m.get("total_err_arcsec_yr")
+        if m.get("n_visits", 0) >= 3:
+            when = f"across {m['n_visits']} visits ({m['years']:.1f} years)"
+        size = f"{speed:.1f} arcseconds per year" + (f" (give or take {err:.1f})" if err else "")
+        text = (f"Something here moved toward the {way} {when}, at about {size}. "
                 "Most stars move less than 0.1″ a year, so this is a fast, probably nearby, object.")
     elif c["kind"] == "variable":
         r = c["flux_change"].get("ratio") or 1

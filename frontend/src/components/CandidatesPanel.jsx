@@ -89,7 +89,7 @@ export default function CandidatesPanel({ qid, band, candidates, setCandidates, 
               {expert && (
                 <p className="mono small muted">
                   RA {c.ra.toFixed(5)} Dec {c.dec.toFixed(5)} · S/N {c.snr} · score {c.score}
-                  {c.motion ? ` · ${c.motion.total_arcsec_yr}″/yr PA ${c.motion.pa_deg}°` : ""}
+                  {c.motion ? ` · ${c.motion.total_arcsec_yr}${c.motion.total_err_arcsec_yr != null ? ` ± ${c.motion.total_err_arcsec_yr}` : ""}″/yr PA ${c.motion.pa_deg}°${c.motion.n_visits ? ` (fit, ${c.motion.n_visits} visits)` : ""}` : ""}
                   {c.flux_change && c.flux_change.ratio ? ` · ×${c.flux_change.ratio}` : ""}
                 </p>
               )}

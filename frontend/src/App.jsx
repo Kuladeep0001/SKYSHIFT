@@ -17,7 +17,7 @@ function readExpert() {
 
 export default function App() {
   const [expert, setExpert] = useState(readExpert);
-  const pageOf = () => (location.hash === "#about" ? "about" : location.hash === "#board" ? "board" : "explore");
+  const pageOf = () => (location.hash.startsWith("#about") ? "about" : location.hash === "#board" ? "board" : "explore");
   const [page, setPage] = useState(pageOf);
   const [tourStep, setTourStep] = useState(params.get("tour") === "1" ? 0 : null);
   const [safe, setSafe] = useState(() => { try { return localStorage.getItem("skyshift-cvd") === "1"; } catch (_) { return false; } });

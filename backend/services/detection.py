@@ -86,6 +86,57 @@ def _peak_near(img: np.ndarray, x: float, y: float, r: int = 1) -> float:
     return float(np.nanmax(box)) if np.isfinite(box).any() else float("nan")
 
 
+def fit_motion(stacks: dict, mjd: dict, visits: list, c: dict) -> dict | None:
+    """Re-measure a mover in EVERY visit and fit a straight line (least squares), with an uncertainty.
+
+    The pair-wise detection gives a first guess of the motion; here the star is followed through all
+    visits (centroid near the predicted position) and x(t), y(t) are fitted. With 3+ visits the scatter
+    about the line gives the error; with 2 visits the error comes from the centroid precision (~1/SNR px).
+    """
+    m = c.get("motion") or {}
+    dt0 = m.get("years") or 0
+    if not dt0:
+        return None
+    va = c["visit_a"]
+    vx, vy = m["dx_px"] / dt0, m["dy_px"] / dt0          # first guess, pixels per year
+    n = next(iter(stacks.values())).shape[0]
+    ts, xs, ys = [], [], []
+    for v in visits:
+        t = (mjd[v] - mjd[va]) / 365.25
+        px, py = c["x_from"] + vx * t, c["y_from"] + vy * t
+        if not (2 <= px < n - 2 and 2 <= py < n - 2):
+            continue
+        cx, cy = centroid(stacks[v], px, py, r=2)
+        if math.hypot(cx - px, cy - py) > 1.5:            # lost it (blend, edge, artefact)
+            continue
+        ts.append(t); xs.append(cx); ys.append(cy)
+    if len(ts) < 2:
+        return None
+    t, X, Y = np.array(ts), np.array(xs), np.array(ys)
+    tb = t.mean()
+    St = float(((t - tb) ** 2).sum())
+    if St <= 0:
+        return None
+    bx = float(((t - tb) * (X - X.mean())).sum() / St)
+    by = float(((t - tb) * (Y - Y.mean())).sum() / St)
+    sigma_pos = max(0.03, 1.2 / max(float(c.get("snr") or 1), 1.0))   # centroid precision, px
+    if len(t) >= 3:
+        rx = X - (X.mean() + bx * (t - tb))
+        ry = Y - (Y.mean() + by * (t - tb))
+        sigma_pos = max(sigma_pos, math.sqrt(float((rx ** 2 + ry ** 2).sum()) / (2 * (len(t) - 2))) if len(t) > 2 else sigma_pos)
+    err_px = sigma_pos / math.sqrt(St)                        # px/yr, per axis
+    pmra, pmdec = -bx * im.PIX_ARCSEC * 1000, by * im.PIX_ARCSEC * 1000
+    err = err_px * im.PIX_ARCSEC * 1000
+    total = math.hypot(pmra, pmdec)
+    return {"dx_px": round(bx * (t.max() - t.min()), 2), "dy_px": round(by * (t.max() - t.min()), 2),
+            "years": round(float(t.max() - t.min()), 3),
+            "pmra_mas_yr": round(pmra, 1), "pmdec_mas_yr": round(pmdec, 1), "err_mas_yr": round(err, 1),
+            "total_arcsec_yr": round(total / 1000, 3), "total_err_arcsec_yr": round(err / 1000, 3),
+            "pa_deg": round(math.degrees(math.atan2(pmra, pmdec)) % 360, 1),
+            "pa_err_deg": round(math.degrees(err / total), 1) if total > 0 else None,
+            "n_visits": int(len(t)), "method": f"straight-line fit through {len(t)} visits"}
+
+
 def _saturated_fraction(arrays: dict, idx: list[int], x: float, y: float) -> float:
     xi, yi = int(round(x)), int(round(y))
     f = arrays["flags"][idx, yi, xi]
@@ -221,6 +272,11 @@ def run(arrays: dict, meta: list[dict], grid_wcs, visits: list[int], det: int = 
         if "flux_change" in c:
             c["flux_change"] = {k2: (round(float(v2), 3) if isinstance(v2, (int, float, np.floating)) else v2)
                                 for k2, v2 in c["flux_change"].items()}
+        if c["kind"] == "mover":
+            fit = fit_motion(stacks, mjd, visits, c)
+            if fit:
+                c["motion_pair"] = c["motion"]   # the first guess from one pair of visits
+                c["motion"] = fit
         if "x_from" in c:
             ra0, dec0 = grid_wcs.pixel_to_world_values(c["x_from"], c["y_from"])
             c.update(ra_from=round(float(ra0), 6), dec_from=round(float(dec0), 6),
