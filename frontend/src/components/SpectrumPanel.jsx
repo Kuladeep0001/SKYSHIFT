@@ -85,7 +85,7 @@ export default function SpectrumPanel({ spec, visits, detectors, loading, simple
         tooltip: { callbacks: { label: (c) => c.raw.tip || "" } },
         bands: { features: spec.features, detectors, showAll: allBands },
       },
-      scales: { x: axis("Wavelength λ (µm)", false, 0.7, 5.05), y: axis("Flux density Fν (µJy)", log) },
+      scales: { x: axis("Wavelength λ (µm)", false, 0.7, 5.05), y: axis(simple ? "Brightness = flux (µJy)" : "Flux density Fν (µJy)", log) },
     };
     charts.current.push(new Chart(a.current, { type: "line", data: { datasets: ds }, options: opts, plugins: [bandsPlugin] }));
 
@@ -107,7 +107,7 @@ export default function SpectrumPanel({ spec, visits, detectors, loading, simple
           y: { ...axis("Flux density (µJy)", log), ...(log ? {} : { min: lo - pad, max: hi + pad }) } } },
     }));
     return () => charts.current.forEach((c) => c.destroy());
-  }, [spec, visits, detectors, log, byVisit, raw, allBands]);
+  }, [spec, visits, detectors, log, byVisit, raw, allBands, simple]);
 
   const peak = useMemo(() => {
     const g = binned.filter((p) => !p.saturated);
@@ -165,7 +165,8 @@ export default function SpectrumPanel({ spec, visits, detectors, loading, simple
       )}
       <h2 className="mt">Light curve <small>brightness at this spot over time</small></h2>
       <div className="chartBox"><canvas ref={b} aria-label="Light curve chart" /></div>
-      <p className="note">The spectrum joins all 102 SPHEREx channels: each point is the median of every snapshot in that channel (shaded = ±1σ). Coloured stripes mark where water, CO₂, CO, methane, hydrogen or rock minerals absorb or emit light. SPHEREx's colour resolution is low, so these are hints to follow up, not proof.</p>
+      <p className="note"><b>Flux</b> = how much of the object's light reaches the telescope at that wavelength, in micro-janskys (µJy, millionths of a jansky), measured in a small square around the object with the sky glow removed.
+        The spectrum joins all 102 SPHEREx channels: each point is the median of every snapshot in that channel (shaded = ±1σ). Coloured stripes mark where water, CO₂, CO, methane, hydrogen or rock minerals absorb or emit light. SPHEREx's colour resolution is low, so these are hints to follow up, not proof.</p>
     </section>
   );
 }

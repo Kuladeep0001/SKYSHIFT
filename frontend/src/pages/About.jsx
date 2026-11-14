@@ -16,6 +16,15 @@ export default function About() {
         <p>This is exactly how Pluto was discovered in 1930, and how volunteers on projects like <a href="https://backyardworlds.org" target="_blank" rel="noreferrer">Backyard Worlds</a> have found hundreds of brown dwarfs.</p>
       </section>
       <section className="card">
+        <h2>How can infrared pictures have colours?</h2>
+        <p>Our eyes can't see infrared, so every infrared picture is <b>false colour</b>: we choose which visible colour stands for which infrared wavelength.</p>
+        <ul>
+          <li><b>RGB grading</b> (the flipbook): longest infrared (3.8–5 µm) → red, middle (1.6–3.8 µm) → green, shortest (0.75–1.6 µm) → blue. Cool, dusty things look red; hot stars look blue-white.</li>
+          <li><b>The all-sky picture</b>: SkyShift picks the colours where particular things glow. <span style={{ color: "#ffa36b" }}>Dust</span> made of organic molecules shines at 3.29 µm (orange), <span style={{ color: "#7fe8ff" }}>hot hydrogen gas</span> at 4.05 µm (cyan, with starlight subtracted), and stars at 1–1.6 µm (white). The pieces come from NASA's SPHEREx all-sky map (IRSA), mixed on our server.</li>
+        </ul>
+        <img src="/spherex_allsky.jpg" alt="SPHEREx all-sky false-colour map" style={{ width: "100%", borderRadius: 12 }} />
+      </section>
+      <section className="card">
         <h2>Words you might see</h2>
         <dl className="gloss">{Object.entries(GLOSSARY).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
       </section>

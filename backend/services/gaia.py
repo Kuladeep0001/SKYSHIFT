@@ -24,6 +24,32 @@ def safe_float(value):
         return None
 
 
+# Gaia DR3 AB magnitude zero points.
+GAIA_AB_ZERO_POINTS = {
+    "G": 25.8010,
+    "BP": 25.3540,
+    "RP": 25.1040,
+}
+
+
+def gaia_flux_to_mjy(flux_e_s, band):
+    """
+    Convert Gaia DR3 mean flux (electrons/second) into
+    an AB-equivalent flux density in mJy.
+    """
+
+    if flux_e_s is None or flux_e_s <= 0:
+        return None
+
+    ab_magnitude = (
+        GAIA_AB_ZERO_POINTS[band]
+        - 2.5 * math.log10(flux_e_s)
+    )
+
+    return 3631.0 * (10 ** (-0.4 * ab_magnitude)) * 1000.0
+
+
+
 def observation_year(observation_time):
     if observation_time.tzinfo is None:
         observation_time = observation_time.replace(
@@ -86,7 +112,15 @@ async def query_gaia(ra, dec):
             bp_rp,
             teff_gspphot,
             ruwe,
-            radial_velocity
+            radial_velocity,
+            phot_g_mean_flux,
+            phot_g_mean_flux_error,
+            phot_bp_mean_flux,
+            phot_bp_mean_flux_error,
+            phot_rp_mean_flux,
+            phot_rp_mean_flux_error,
+            phot_bp_mean_mag,
+            phot_rp_mean_mag
         FROM gaiadr3.gaia_source
         WHERE 1 = CONTAINS(
             POINT('ICRS', ra, dec),
@@ -185,11 +219,38 @@ def format_source(source, separation, target_year, propagated):
             )
         },
 
+        
+
         "photometry": {
             "g_magnitude": source["g_mag"],
             "bp_rp": source["bp_rp"],
-            "temperature_k": source["teff"]
+            "temperature_k": source["teff"],
+
+            "bp_magnitude": source["bp_mag"],
+            "rp_magnitude": source["rp_mag"],
+
+            "g_flux_mjy": gaia_flux_to_mjy(source["g_flux"], "G"),
+            "g_flux_error_mjy": (
+                gaia_flux_to_mjy(source["g_flux_error"], "G")
+                if source["g_flux_error"] is not None
+                else None
+            ),
+
+            "bp_flux_mjy": gaia_flux_to_mjy(source["bp_flux"], "BP"),
+            "bp_flux_error_mjy": (
+                gaia_flux_to_mjy(source["bp_flux_error"], "BP")
+                if source["bp_flux_error"] is not None
+                else None
+            ),
+
+            "rp_flux_mjy": gaia_flux_to_mjy(source["rp_flux"], "RP"),
+            "rp_flux_error_mjy": (
+                gaia_flux_to_mjy(source["rp_flux_error"], "RP")
+                if source["rp_flux_error"] is not None
+                else None
+            ),
         },
+
 
         "astrometry": {
             "parallax_mas": source["parallax"],
@@ -259,7 +320,16 @@ async def gaia_match(
             "bp_rp": safe_float(row.get("bp_rp")),
             "teff": safe_float(row.get("teff_gspphot")),
             "ruwe": safe_float(row.get("ruwe")),
-            "radial_velocity": safe_float(row.get("radial_velocity"))
+            "radial_velocity": safe_float(row.get("radial_velocity")),
+            "g_flux": safe_float(row.get("phot_g_mean_flux")),
+            "g_flux_error": safe_float(row.get("phot_g_mean_flux_error")),
+            "bp_flux": safe_float(row.get("phot_bp_mean_flux")),
+            "bp_flux_error": safe_float(row.get("phot_bp_mean_flux_error")),
+            "rp_flux": safe_float(row.get("phot_rp_mean_flux")),
+            "rp_flux_error": safe_float(row.get("phot_rp_mean_flux_error")),
+            "bp_mag": safe_float(row.get("phot_bp_mean_mag")),
+            "rp_mag": safe_float(row.get("phot_rp_mean_mag"))
+
         }
 
         if source["ra"] is None or source["dec"] is None:

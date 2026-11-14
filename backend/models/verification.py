@@ -1,4 +1,3 @@
-
 from datetime import datetime
 from typing import List, Literal, Optional
 from pydantic import BaseModel, Field, validator
@@ -51,6 +50,10 @@ class CandidateVerificationResult(BaseModel):
     assessment: str
     evidence_summary: dict = Field(default_factory=dict)
     cross_catalogue_association: dict = Field(default_factory=dict)
+    photometric_assessment: dict = Field(default_factory=dict)
+    object_profile: dict = Field(default_factory=dict)
+    exoplanet_association: dict = Field(default_factory=dict)
+    
 
 class VerificationResponse(BaseModel):
     results: List[CandidateVerificationResult]

@@ -12,6 +12,13 @@ from backend.services.simbad import simbad_match
 from backend.services.twomass import twomass_match
 from backend.services.allwise import allwise_match
 from backend.services.crossmatch import crossmatch_catalogues
+from backend.services.photometric_validation import (
+    build_photometric_validation,
+)
+from backend.services.object_profile import build_object_profile
+from backend.services.exoplanet_archive import exoplanet_host_match
+
+
 
 router = APIRouter(
     prefix="/api/verification",
@@ -73,6 +80,39 @@ def get_separation(result, nearest_source):
         )
 
     return separation
+
+
+def get_propagated_coordinates(nearest_source):
+    """Extract propagated RA/Dec from a catalogue source, if available."""
+
+    if not nearest_source:
+        return None
+
+    position = nearest_source.get("propagated_position")
+
+    if not isinstance(position, dict):
+        return None
+
+    ra = position.get("ra")
+    dec = position.get("dec")
+
+    if ra is None:
+        ra = position.get("ra_deg")
+
+    if dec is None:
+        dec = position.get("dec_deg")
+
+    try:
+        ra = float(ra)
+        dec = float(dec)
+    except (TypeError, ValueError):
+        return None
+
+    if not (0 <= ra < 360 and -90 <= dec <= 90):
+        return None
+
+    return ra, dec
+
 
 def get_photometry_caveats(catalogue, nearest_source):
     """
@@ -504,6 +544,99 @@ async def verify_candidates(request: VerificationRequest):
         assessment, evidence_summary = build_evidence_summary(
             catalogue_results
         )
+        
+        photometric_assessment = build_photometric_validation(
+            catalogue_results
+        )
+
+        object_profile = build_object_profile(
+            candidate_id=candidate.candidate_id,
+            catalogue_results=catalogue_results,
+            evidence_summary=evidence_summary,
+            photometric_assessment=photometric_assessment,
+        )
+
+        
+        # -----------------------------------------------------
+        # NASA Exoplanet Archive lookup
+        # -----------------------------------------------------
+
+        accepted_gaia = catalogue_results.get("gaia") or {}
+        accepted_simbad = catalogue_results.get("simbad") or {}
+
+        gaia_source = accepted_gaia.get("nearest_source") or {}
+        simbad_source = accepted_simbad.get("nearest_source") or {}
+
+        gaia_is_accepted = (
+            accepted_gaia.get("status") == "match_found"
+            and accepted_gaia.get("match_quality") == "within_radius"
+        )
+
+        simbad_is_accepted = (
+            accepted_simbad.get("status") == "match_found"
+            and accepted_simbad.get("match_quality") == "within_radius"
+        )
+
+        if gaia_is_accepted or simbad_is_accepted:
+
+            # Prefer Gaia's propagated position.
+            query_coordinates = (
+                get_propagated_coordinates(gaia_source)
+                if gaia_is_accepted
+                else None
+            )
+
+            position_source = "gaia_propagated_position"
+
+            # If Gaia's propagated position is unavailable, use
+            # accepted SIMBAD astrometry when it is available.
+            if query_coordinates is None and simbad_is_accepted:
+                query_coordinates = get_propagated_coordinates(
+                    simbad_source
+                )
+                position_source = "simbad_propagated_position"
+
+            # Fall back to the original candidate coordinates.
+            if query_coordinates is None:
+                query_ra = candidate.ra
+                query_dec = candidate.dec
+                position_source = "candidate_input"
+            else:
+                query_ra, query_dec = query_coordinates
+
+            exoplanet_association = await exoplanet_host_match(
+                ra=query_ra,
+                dec=query_dec,
+                gaia_dr3_id=(
+                    gaia_source.get("source_id")
+                    if gaia_is_accepted
+                    else None
+                ),
+                position_source=position_source,
+                position_epoch=candidate.observation_time.isoformat(),
+            )
+
+        else:
+
+            exoplanet_association = {
+                "status": "not_checked",
+                "association_method": None,
+                "match_radius_arcsec": 3.0,
+                "search_radius_arcsec": 10.0,
+                "separation_arcsec": None,
+                "host_name": None,
+                "host_names": [],
+                "planet_count": 0,
+                "planets": [],
+                "message": (
+                    "Exoplanet Archive lookup was skipped because "
+                    "neither Gaia nor SIMBAD produced an accepted "
+                    "positional association."
+                ),
+                "archive": "NASA Exoplanet Archive",
+                "table": "pscomppars",
+                "query_position": None,
+            }
 
         results.append(
             CandidateVerificationResult(
@@ -512,6 +645,9 @@ async def verify_candidates(request: VerificationRequest):
                 assessment=assessment,
                 evidence_summary=evidence_summary,
                 cross_catalogue_association=cross_catalogue_association,
+                photometric_assessment=photometric_assessment,
+                object_profile=object_profile,
+                exoplanet_association=exoplanet_association
             )
         )
 

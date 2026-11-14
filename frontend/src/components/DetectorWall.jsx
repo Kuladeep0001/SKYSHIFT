@@ -1,7 +1,7 @@
 /* Six detector arrays side by side (each stacked per visit), or mixed into one infrared colour picture. */
 import { useEffect, useMemo, useRef } from "react";
 import { diffFrame, monthYear, percentile } from "../lib/frames.js";
-import { DET_COLORS, LUTS, makeDivScaler, makeScaler, paint, paintRGB } from "../lib/render.js";
+import { DET_COLORS, LUTS, makeDivScaler, makeScaler, paint, paintRGBLight, rgbByVisit } from "../lib/render.js";
 
 function visitsOf(F) {
   return [...new Set(F.list.map((f) => f.visit))].sort((a, b) => a - b);
@@ -22,7 +22,7 @@ export default function DetectorWall({ F, idx, disp, detectors, colour, onPixel 
       const arrs = F.list.map((f, k) => (f.det === d ? F.data[k] : null)).filter(Boolean);
       if (arrs.length) out[d] = percentile(arrs, [3, 99.8]);
     }
-    out.rgb = [[5, 6], [3, 4], [1, 2]].map((g) => percentile(F.list.map((f, k) => (g.includes(f.det) ? F.data[k] : null)).filter(Boolean), [5, 99.7]));
+    out.rgb = [[5, 6], [3, 4], [1, 2]].map((g) => percentile(F.list.map((f, k) => (g.includes(f.det) ? F.data[k] : null)).filter(Boolean), [45, 99.7]));
     return out;
   }, [F]);
 
@@ -30,22 +30,9 @@ export default function DetectorWall({ F, idx, disp, detectors, colour, onPixel 
     if (!F) return;
     const n = F.n;
     if (colour) {
-      // red = longest wavelengths (D5+D6), green = middle (D3+D4), blue = shortest (D1+D2)
-      const chans = [[5, 6], [3, 4], [1, 2]].map((g, gi) => {
-        const out = new Float32Array(n * n);
-        let cnt = 0;
-        F.list.forEach((f, k) => {
-          if (f.visit === v && g.includes(f.det)) {
-            cnt++;
-            const a = F.data[k];
-            for (let i = 0; i < a.length; i++) out[i] += Number.isFinite(a[i]) ? a[i] : 0;
-          }
-        });
-        if (cnt) for (let i = 0; i < out.length; i++) out[i] /= cnt;
-        const [lo, hi] = lims.rgb[gi];
-        return { arr: out, sc: makeScaler(lo, hi, disp.contrast, disp.bright) };
-      });
-      refs.current[0] && paintRGB(refs.current[0], chans, n);
+      // red = longest wavelengths (D5+D6), green = middle (D3+D4), blue = shortest (D1+D2), light grading
+      const set = rgbByVisit(F)[v];
+      if (set && refs.current[0]) paintRGBLight(refs.current[0], set[0], set[1], set[2], n, lims.rgb, disp.contrast, disp.bright);
       return;
     }
     for (let d = 1; d <= 6; d++) {
@@ -58,7 +45,7 @@ export default function DetectorWall({ F, idx, disp, detectors, colour, onPixel 
       if (disp.math === "first" && k !== idxs[0]) { arr = diffFrame(F.data[k], F.data[idxs[0]]); diverge = true; }
       const [lo, hi] = lims[d];
       const sc = diverge ? makeDivScaler((hi - lo) / 3, disp.contrast, disp.bright) : makeScaler(lo, hi, disp.contrast, disp.bright);
-      paint(cv, arr, n, sc, diverge ? LUTS.diverge : LUTS[disp.cmap]);
+      paint(cv, arr, n, sc, diverge ? LUTS.diverge : (LUTS[disp.cmap] || LUTS.gray));
     }
   });
 

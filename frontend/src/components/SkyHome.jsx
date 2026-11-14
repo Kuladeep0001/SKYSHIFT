@@ -8,6 +8,9 @@ export function hasWebGL2() {
   try { return !!document.createElement("canvas").getContext("webgl2"); } catch (_) { return false; }
 }
 
+// SPHEREx's own all-sky map in false colour, mixed by our server from IRSA's SPHEREx DR1 cube
+export const COLOUR_SKY = `${location.origin}/hips/spherex-colour`;
+
 const ALADIN_URL = "https://cdn.jsdelivr.net/npm/aladin-lite@3.8.2/dist/aladin.js";
 // J2026 positions of the challenge targets (for the markers)
 const MARKS = { barnard: [269.4463, 4.7682], epsindi: [331.0966, -56.8007], wise0855: [133.7598, -7.2422], rwaur: [76.9566, 30.4013], rdra: [248.1672, 66.7550] };
@@ -19,7 +22,7 @@ export default function SkyHome({ onPick, fovDefault }) {
   const [hover, setHover] = useState(null);
   const [fov, setFov] = useState(null);
   const [failed, setFailed] = useState(false);
-  const [survey, setSurvey] = useState("P/allWISE/color");
+  const [survey, setSurvey] = useState(COLOUR_SKY);
 
   useEffect(() => {
     let alive = true;
@@ -83,6 +86,7 @@ export default function SkyHome({ onPick, fovDefault }) {
           <button className={mode === "box" ? "on" : ""} onClick={() => setMode("box")} title="Drag a square to load that area">⬚ Draw a square</button>
         </div>
         <select value={survey} onChange={(e) => setSurvey(e.target.value)} aria-label="Background sky picture">
+          <option value={COLOUR_SKY}>🌌 SPHEREx colour sky (dust · gas · stars)</option>
           <option value="P/allWISE/color">Infrared sky (WISE)</option>
           <option value="P/2MASS/color">Infrared sky (2MASS)</option>
           <option value="P/Mellinger/color">Visible sky (Mellinger)</option>
@@ -100,7 +104,7 @@ export default function SkyHome({ onPick, fovDefault }) {
         {drag && <div className="skyBox" style={{ left: Math.min(drag.x0, drag.x1), top: Math.min(drag.y0, drag.y1), width: Math.abs(drag.x1 - drag.x0), height: Math.abs(drag.y1 - drag.y0) }} />}
         {mode !== "pan" && tooWide && <div className="skyTip">Zoom in first (✋ mode + scroll): SkyShift loads areas up to 20 arcminutes wide.<br />Right now the map shows {fov > 1 ? `${fov.toFixed(0)}°` : `${(fov * 60).toFixed(0)}′`}.</div>}
       </div>
-      <p className="hint">This is the real sky with real coordinates: the grid lines are RA and Dec. Orange circles are the challenge targets (click one).
+      <p className="hint">This is the real sky as SPHEREx sees it: <b style={{ color: "#ff9a6b" }}>orange-red</b> = glowing dust, <b style={{ color: "#7fe8ff" }}>cyan</b> = hot hydrogen gas, white/blue = stars (infrared turned into colours we can see). The grid lines are RA and Dec. Orange circles are the challenge targets (click one).
         Zoom in, choose <b>📍 Pick a spot</b> or <b>⬚ Draw a square</b>, and SkyShift will fetch every SPHEREx picture of that area.</p>
     </section>
   );

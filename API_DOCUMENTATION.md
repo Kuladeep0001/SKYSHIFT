@@ -160,6 +160,27 @@ Pick a pixel or box and read it through all 102 planes to get its spectrum (done
 Find water/CO2/CO/CH4/hydrogen/mineral bands in any spectrum (e.g. an area from the cube).
 Body `{ "spectrum": [ { "wave": 1.40, "flux": 812.4, "err": 35.1 }, ... ] }` → `{ "features": [ ...same format as above... ] }`
 
+### `GET /api/images/{query_id}/movers?det=0`
+**Movers only** (background-oriented-schlieren style): visits are registered by matching each star's pattern
+(normalised cross-correlation, sub-pixel), a still background (median of the visits) is subtracted, and every
+tracked star gets a displacement vector between the first and last visit.
+```json
+{ "n": 59, "count": 3, "det": 0, "years": 0.988,
+  "frames": [ { "visit": 0, "date": "2025-08-26", "date_range": ["2025-08-15","2025-09-05"], "shift": { "dx": 0.0, "dy": 0.0, "stars": 0 }, "sigma": 0.41 } ],
+  "vectors": [ { "x": 29, "y": 28, "dx": -0.07, "dy": 1.70, "shift_px": 1.698, "arcsec_per_yr": 10.57, "pa_deg": 352.6,
+                 "match": 0.97, "snr": 310.2, "flux_ratio": 1.13, "significant": true, "brightness_changed": false } ],
+  "background": "<base64 float32 n x n>", "residuals": "<base64 float32 count x n x n>", "aligned": "<base64 float32>" }
+```
+
+### `GET /api/images/{query_id}/history?ra=&dec=&fov=`
+**Time machine**: the area in POSS-I (1950s plates), POSS-II (1990s), 2MASS Ks (~2000), WISE W1 (2010) and SPHEREx,
+all on one 240 x 240 north-up grid. `frames[]`: `{survey, label, band, date, year, mjd, coverage}`; `data`: base64 float32.
+
+### `GET /api/images/{query_id}/asteroids`
+Known asteroids/comets (IMCCE SkyBoT, one search per observing day, propagated to each snapshot) inside the picture:
+`{ "objects": [ { "name": "2000 CW34", "number": "103643", "class": "MB>Outer", "mag": 19.9, "rate_arcsec_h": 25.7,
+"visible_guess": false, "appearances": [ { "i": 120, "date": "2026-09-15 08:03", "det": 5, "x": 41.2, "y": 30.9 } ] } ] }`
+
 ### `POST /api/images/compare`
 ```json
 { "query_id": "4c0040ed821b835e", "epoch_a": null, "epoch_b": null, "band": 0, "op": "subtract" }
@@ -239,6 +260,38 @@ Overlay data. `radius` in degrees (≤ 0.5). `skybot` needs `mjd`.
 ```
 SkyBoT returns `{ "catalog": "SkyBoT", "mjd": ..., "objects": [ { "name", "ra", "dec", "class", "mag", "dra", "ddec" } ] }`.
 
+### `POST /api/verification/`: four-catalogue cross-check  (`routes/crossmatch.py`, owner: Meenakshi K)
+Is an object already known? Checks **Gaia DR3, 2MASS, AllWISE and SIMBAD**, each at its own observing date.
+Gaia runs first; its proper motion is used to move the position to the 2MASS (~1999) and AllWISE (2010.5)
+epochs, and the other three catalogues are then queried at the same time. Takes 5–30 s. The website shows it
+as the **🔬 Is it already known?** panel. Full design notes: [backend/VERIFICATION.md](backend/VERIFICATION.md).
+```json
+{ "candidates": [ { "candidate_id": "WISE 0855", "ra": 133.7598, "dec": -7.2422,
+                    "observation_time": "2026-01-01T00:00:00Z",
+                    "pmra_mas_yr": -8118.0, "pmdec_mas_yr": 673.0 } ],
+  "catalogues": ["gaia", "2mass", "allwise", "simbad"],
+  "search_radius_arcsec": 6.0 }
+```
+- `observation_time` must include a time zone. 1–10 candidates per request.
+- `pmra_mas_yr` / `pmdec_mas_yr` are optional: the object's own motion, used instead of Gaia when Gaia has no match
+  (brown dwarfs such as WISE 0855 are too faint for Gaia).
+
+Response, one entry per candidate:
+```json
+{ "results": [ { "candidate_id": "WISE 0855",
+    "assessment": "confirmed_association",
+    "catalogue_results": { "gaia": { "status": "no_match", "match_quality": "borderline", "nearest_source": { ... } },
+                           "allwise": { "status": "match_found", "match_quality": "within_radius", "epoch_correction_available": true,
+                                        "nearest_source": { "designation": "J085510.74-071442.5", "photometry": { "W1": { ... }, "W2": { ... } },
+                                                            "contamination_summary": { ... }, "motion_fit": { ... } } },
+                           "2mass": { ... }, "simbad": { ... } },
+    "evidence_summary": { "explanation": "...", "confirmed_associations": 2, "catalogues": { "allwise": { "evidence": "confirmed_association",
+                          "separation_arcsec": 0.55, "reasons": [ ... ], "photometric_caveats": [ ... ] }, ... } },
+    "cross_catalogue_association": { "status": "consistent | borderline | inconsistent | mixed_evidence | not_assessable", ... } } ] }
+```
+`assessment`: `confirmed_association` · `potential_association` · `no_association` · `insufficient_evidence`
+(a catalogue didn't answer: never treated as "not there") · `conflicting_evidence`.
+
 ## Metadata  (`routes/metadata.py`, owner: Integration lead)
 
 ### `GET /api/metadata/{query_id}`
@@ -284,3 +337,19 @@ Stars with known motion are moved to where they are in 2026.
 `/?q=Barnard's Star` · `/?ra=133.76&dec=-7.24&fov=8` · plus `view=blink|timecolours|compare|wall|color|planes`,
 `mode=visit|exposure|channel`, `det=0-6`, `ch=1-102`, `math=none|first|prev|sum`, `expert=1`, `embed=1`
 (bare player for an `<iframe>`), `listen=1` (Listen mode on), `mock=1` (sample data, no backend).
+
+
+## Discovery board  (`routes/finds.py`)
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/finds` | report `{ra, dec, fov, query_id, x, y, kind, verification, summary, note, nickname, target, voter}`; the same spot+kind within 6″ is merged (counts as a vote). Max 15 reports/hour per IP. |
+| `GET /api/finds?sort=top\|new&voter=` | list (with `my_vote` for this browser) |
+| `POST /api/finds/{id}/vote` | `{voter, value: 1 \| -1 \| 0}`, one vote per browser id |
+
+## Assistant  (`routes/ask.py`)
+
+`POST /api/ask {question, context}` → `{answer, source: "llm" | "built-in", model}`. `GET /api/ask/status`.
+Uses any OpenAI-compatible endpoint (e.g. Qwen) when `SKYSHIFT_LLM_URL` (+ `SKYSHIFT_LLM_MODEL`, `SKYSHIFT_LLM_KEY`
+or `HF_TOKEN`) is set; otherwise a built-in answerer replies from the same context. The context contains only
+what SkyShift loaded (details card, measured motion, spectral features, visits), never personal data.

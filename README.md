@@ -10,6 +10,9 @@ It is built for **everyone first**: a *Simple* mode explains every picture in pl
 
 Built for the **NASA Space Apps Challenge 2026**.
 
+**Want to try it on your own laptop?** Follow [Run SkyShift on your own computer](#run-skyshift-on-your-own-computer).
+It takes about 10 minutes the first time.
+
 ```
  Frontend (React)       search · flipbook · before/after · explanations · expert tools
         │  REST API  (see API_DOCUMENTATION.md)
@@ -38,6 +41,22 @@ Built for the **NASA Space Apps Challenge 2026**.
 - [x] Metadata and contamination flags
 - [x] URL-based coordinate queries + embed mode
 - [x] Detection and analysis: finds movers/brightness changes, checks them against Gaia/WISE/asteroids
+- [x] 🔬 **Is it already known?** four-catalogue cross-check (Gaia DR3, 2MASS, AllWISE, SIMBAD), each compared at its own
+  observing date, with contamination flags and an overall verdict (verification module by Meenakshi K)
+
+**Extra features**
+- [x] 👻 **Movers only**: register the visits, subtract a still background (like background-oriented schlieren), BOS-style motion arrows
+- [x] ⏳ **Time machine**: 1950 and 1991 photographic plates, 2MASS (2000), WISE (2010), SPHEREx, with the predicted path
+- [x] 🧊 Spectral cube, 💧 molecule/mineral finder, 🃏 details card (SIMBAD, Gaia, WISE, Wikipedia)
+- [x] ☄️ **Asteroid hunter**: where each known asteroid was in every snapshot
+- [x] 🔭 **Discovery board**: report finds, vote (citizen science)
+- [x] 💬 **Ask about this object** (Qwen or any OpenAI-compatible model; built-in answers otherwise)
+- [x] ✨ **Guided tour**, 👁 **colour-blind-safe mode**
+- [x] 🔊 **Listen tab** for blind and low-vision visitors: the brightness-vs-wavelength graph is shown big *and* played as sound
+  (higher, louder note = brighter; left ear = short wavelength, right ear = long), arrow keys read it point by point,
+  pick any star from a spoken list, hear how the object moves, everything keyboard and screen-reader friendly
+- [x] 📤 Share as animated GIF, picture card, link or embed
+- [x] 🛰 Stays up to date with new NASA releases automatically; download task bar with Cancel
 
 **Results on the challenge targets** (SPHEREx only, then checked against Gaia):
 
@@ -47,7 +66,7 @@ Built for the **NASA Space Apps Challenge 2026**.
 | Epsilon Indi B | 4.52″/yr toward 129° (D5+D6) | 4.68″/yr toward 122° |
 | RW Aurigae | brightness changed ×2.0 between visits | known variable (young star) |
 | R Draconis | brightness changed ×1.8 (4.4–5 µm) | known variable (Mira) |
-| WISE 0855 | 5.87″/yr toward 269° (reddest detectors D5+D6) | 8.15″/yr toward 275° |
+| WISE 0855 | 6.32″/yr toward 274° (Movers-only tracking, D5+D6) | 8.15″/yr toward 275° |
 
 ## How SkyShift stays up to date
 
@@ -71,6 +90,17 @@ So SkyShift **asks**, cheaply and often:
 - A **task bar** shows every download/update with progress, time left and a **Cancel** button; cancelling keeps
   what was already downloaded.
 
+## Optional: AI answers with Qwen
+
+```bash
+# Hugging Face (needs a free token): 
+set HF_TOKEN=hf_...                         # PowerShell: $env:HF_TOKEN="hf_..."   macOS/Linux: export HF_TOKEN=hf_...
+# or a local model with Ollama:
+set SKYSHIFT_LLM_URL=http://localhost:11434/v1
+set SKYSHIFT_LLM_MODEL=qwen2.5:7b
+```
+Without either, "Ask about this object" uses built-in answers from SkyShift's own data.
+
 ## Tech stack
 
 | Part | Tools |
@@ -80,35 +110,100 @@ So SkyShift **asks**, cheaply and often:
 | Data | NASA IRSA SIA + cutout service (SPHEREx), ESA Gaia TAP, IRSA Gator (AllWISE), IMCCE SkyBoT, CDS Sesame |
 | Deploy | Docker (one container serves the API and the built website) |
 
-## Run it locally
+## Run SkyShift on your own computer
 
-**Backend** (Python 3.11+):
-```bash
+Anyone can run the whole website on their own laptop. Nothing has to be running anywhere else: your
+computer downloads the pictures straight from NASA.
+
+### 1. Install these once
+
+| Program | Where to get it | Notes |
+|---|---|---|
+| **Git** | https://git-scm.com/downloads | To download the code |
+| **Python 3.12 or newer** | https://www.python.org/downloads | Windows: tick **"Add python.exe to PATH"** in the installer |
+| **Node.js 18 or newer** (LTS) | https://nodejs.org | Builds the website |
+
+You also need an **internet connection**, because the pictures come live from NASA's archive.
+Close and reopen your terminal after installing so it finds the new programs.
+
+### 2. Download and set up (first time only, about 5 minutes)
+
+**Windows** (PowerShell or Command Prompt):
+```bat
 git clone https://github.com/Kuladeep0001/SKYSHIFT.git
 cd SKYSHIFT
 python -m venv .venv
-.venv\Scripts\activate            # Windows   (macOS/Linux: source .venv/bin/activate)
+.venv\Scripts\python -m pip install -r requirements.txt
+cd frontend
+npm install
+npm run build
+cd ..
+```
+
+**macOS / Linux** (Terminal):
+```bash
+git clone https://github.com/Kuladeep0001/SKYSHIFT.git
+cd SKYSHIFT
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+cd frontend && npm install && npm run build && cd ..
+```
+
+### 3. Start the website (every time)
+
+From inside the `SKYSHIFT` folder:
+
+| Windows | macOS / Linux |
+|---|---|
+| `.venv\Scripts\python -m uvicorn backend.main:app --port 8000` | `.venv/bin/python -m uvicorn backend.main:app --port 8000` |
+
+Wait until it prints `Application startup complete`, then open **http://localhost:8000** in Chrome, Edge or Firefox.
+Keep the terminal window open while you use the site. Press **Ctrl + C** in it to stop the website.
+
+### Good to know
+
+- **The first time you open a star, it takes 2–7 minutes.** SkyShift downloads every SPHEREx picture of
+  that spot from NASA (100–550 pictures), and the task bar at the bottom shows the progress. After that the
+  star is saved on your computer in `data/cache/` and opens instantly.
+- **Want the 5 challenge stars ready before a demo?** Run this once and let it finish (about 20–30 minutes):
+  `.venv\Scripts\python -m scripts.prewarm` (macOS/Linux: `.venv/bin/python -m scripts.prewarm`).
+- **Disk space:** about 250 MB per star.
+- **Each computer keeps its own copy.** Your friends' laptops download their own pictures. Discovery board
+  reports are saved only on the computer that made them.
+- **Get the newest version:** run `git pull`, then `cd frontend`, `npm run build`, `cd ..`, then start the
+  website again. If `requirements.txt` changed, also run the `pip install` line from step 2 again.
+
+### If something goes wrong
+
+| What you see | What to do |
+|---|---|
+| `python` is not recognised, or the Microsoft Store opens | Reinstall Python and tick **"Add python.exe to PATH"**, or type `py` instead of `python` |
+| `npm` or `git` is not recognised | Install it (step 1), then open a **new** terminal |
+| http://localhost:8000 shows `{"detail":"Not Found"}` or a blank page | You skipped `npm run build`. Run step 2's `frontend` lines again |
+| `address already in use` / `error while attempting to bind` | SkyShift is already running in another window. Use that one, or start with `--port 8001` and open http://localhost:8001 |
+| "IRSA may be busy, please try again" | NASA's archive is overloaded. Wait a minute and search again; pictures already downloaded are kept |
+| The sky map on the home page stays black | Your browser needs WebGL 2. Update Chrome, Edge or Firefox, or turn on hardware acceleration |
+| The assistant (💬 Ask) gives short answers | That's the built-in helper. For full answers, connect Qwen (see [Optional: AI answers with Qwen](#optional-ai-answers-with-qwen)) |
+
+### For developers
+
+Live-reloading development uses two terminals:
+```bash
 pip install -r requirements-dev.txt
 uvicorn backend.main:app --reload --port 8000      # API docs: http://localhost:8000/docs
 ```
-
-**Frontend** (Node 18+), in a second terminal:
 ```bash
 cd frontend
 npm install
 npm run dev          # http://localhost:5173  (forwards /api to port 8000)
 ```
-No backend yet? Open **http://localhost:5173/?mock=1** — the site runs on saved sample responses.
+No backend yet? Open **http://localhost:5173/?mock=1**. The site then runs on saved sample responses.
 
-**Everything in one** (what we deploy): `cd frontend && npm run build`, then the backend serves the site at
-http://localhost:8000. Or with Docker:
+**Docker** (what we deploy: one container serves the API and the built website):
 ```bash
 docker build -t skyshift .
-docker run -p 7860:7860 skyshift
+docker run -p 7860:7860 skyshift      # http://localhost:7860
 ```
-
-The first load of a new spot downloads 100–450 small images from NASA (1–4 minutes); after that it is cached in
-`data/cache/`. Before a demo: `python -m scripts.prewarm` (caches the 5 challenge targets).
 
 **Tests:** `python -m pytest tests`
 
@@ -120,7 +215,8 @@ backend/
   routes/
     images.py               /api/images/*      query, frames, PNGs, spectrum, compare
     analysis.py             /api/detections/*  moving-object detection
-    verification.py         /api/verification/*, /api/catalog/*   Gaia/WISE/asteroid checks + overlays
+    verification.py         /api/verification/gaia, /api/catalog/*   Gaia/WISE/asteroid checks + overlays
+    crossmatch.py           /api/verification/   Gaia + 2MASS + AllWISE + SIMBAD cross-check (see backend/VERIFICATION.md)
     metadata.py             /api/metadata/*, /api/releases, /api/resolve, /api/health
   services/
     spherex.py              IRSA: release discovery, image search, cutout download + cache

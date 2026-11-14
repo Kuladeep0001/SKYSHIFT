@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { objectDetails } from "../lib/api.js";
 import { fmtDec, fmtRA } from "../lib/frames.js";
 
-export default function ObjectCard({ pos, simple }) {
+export default function ObjectCard({ pos, simple, onLoaded }) {
   const [d, setD] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -12,7 +12,7 @@ export default function ObjectCard({ pos, simple }) {
     let alive = true;
     setBusy(true); setErr("");
     objectDetails(pos.ra, pos.dec, pos.mjd, pos.name)
-      .then((r) => alive && setD(r))
+      .then((r) => { if (alive) { setD(r); onLoaded && onLoaded(r); } })
       .catch((e) => alive && setErr(e.message))
       .finally(() => alive && setBusy(false));
     return () => { alive = false; };

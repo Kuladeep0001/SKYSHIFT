@@ -5,12 +5,15 @@ export function hasWebGL2() {
   try { return !!document.createElement("canvas").getContext("webgl2"); } catch (_) { return false; }
 }
 
+// SPHEREx's own all-sky map in false colour, mixed by our server from IRSA's SPHEREx DR1 cube
+export const COLOUR_SKY = `${location.origin}/hips/spherex-colour`;
+
 const ALADIN_URL = "https://cdn.jsdelivr.net/npm/aladin-lite@3.8.2/dist/aladin.js";
 let aladinModule = null;
 
 export default function SkyMap({ target, fov, onLoadHere }) {
   const div = useRef(null), al = useRef(null), overlay = useRef(null);
-  const [survey, setSurvey] = useState("P/allWISE/color");
+  const [survey, setSurvey] = useState(COLOUR_SKY);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -49,6 +52,7 @@ export default function SkyMap({ target, fov, onLoadHere }) {
     <section className="card">
       <h2>Sky map <small>Aladin · CDS</small>
         <select value={survey} onChange={(e) => setSurvey(e.target.value)}>
+          <option value={COLOUR_SKY}>SPHEREx colour</option>
           <option value="P/allWISE/color">WISE infrared</option>
           <option value="P/2MASS/color">2MASS infrared</option>
           <option value="P/DSS2/color">Visible light (DSS)</option>
