@@ -232,6 +232,7 @@ async def simbad_match(
 
     best = None
     best_separation = float("inf")
+    best_rank = float("inf")
     best_match_type = None
 
     for row in rows:
@@ -282,7 +283,11 @@ async def simbad_match(
             separation = propagated_separation
             match_type = "propagated_position"
 
-        if separation < best_separation:
+        # Planets ("Pl") sit exactly on their host star: rank them behind it.
+        rank = separation + (1.0 if (row.get("otype") or "").strip().startswith("Pl") else 0.0)
+
+        if rank < best_rank:
+            best_rank = rank
             best_separation = separation
             best = row
             best["propagated_ra"] = moved_ra
@@ -380,6 +385,7 @@ async def simbad_match(
     if best_separation <= search_radius_arcsec:
         return {
             "status": "match_found",
+            "match_quality": "within_radius",
             "matching_radius_arcsec": search_radius_arcsec,
             "nearest_source": source,
             "message": "A SIMBAD object was found within the matching radius."
@@ -387,6 +393,11 @@ async def simbad_match(
 
     return {
         "status": "no_match",
+        "match_quality": (
+            "borderline"
+            if best_separation <= search_radius_arcsec + 1.0
+            else "outside_radius"
+        ),
         "matching_radius_arcsec": search_radius_arcsec,
         "nearest_source": source,
         "message": "The nearest SIMBAD object is outside the matching radius."

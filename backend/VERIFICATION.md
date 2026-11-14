@@ -1,4 +1,13 @@
-# Planet X & SPHEREx
+# Planet X & SPHEREx: catalogue verification
+
+> **Merged into SkyShift.** This module came from the `verification` branch (Meenakshi K). Inside SkyShift it lives at
+> `backend/routes/crossmatch.py` (endpoint `POST /api/verification/`), `backend/models/verification.py` and
+> `backend/services/{gaia_match,twomass,allwise,simbad,crossmatch}.py`. The website shows it as the
+> **🔬 Is it already known?** panel. Changes made while merging: the AllWISE search is centred on the position at the
+> AllWISE epoch (2010.5) instead of J2000 (fast movers such as Barnard's Star were missed); SIMBAD reports
+> `match_quality` so it can confirm a match and prefers a star over its own planet; 2MASS, AllWISE and SIMBAD are
+> queried at the same time after Gaia; IRSA timeouts are retried once; candidates may carry their own proper motion
+> (`pmra_mas_yr`, `pmdec_mas_yr`) for objects Gaia cannot see, e.g. WISE 0855.
 
 A backend system for analysing SPHEREx observations, identifying astronomical sources, and verifying candidate detections against existing astronomical catalogues.
 
@@ -69,11 +78,11 @@ vita_777/
 │   │
 │   ├── routes/
 │   │   ├── __init__.py
-│   │   └── verification.py
+│   │   └── crossmatch.py        (in SkyShift; was routes/verification.py)
 │   │
 │   └── services/
 │       ├── __init__.py
-│       ├── gaia.py
+│       ├── gaia_match.py        (in SkyShift; was services/gaia.py)
 │       ├── simbad.py
 │       ├── twomass.py
 │       ├── allwise.py
@@ -90,8 +99,8 @@ vita_777/
 |---|---|
 | `main.py` | Initialises the FastAPI application |
 | `models/verification.py` | Defines request and response models |
-| `routes/verification.py` | Handles catalogue verification requests |
-| `services/gaia.py` | Queries Gaia DR3 and processes astrometric data |
+| `routes/crossmatch.py` | Handles catalogue verification requests |
+| `services/gaia_match.py` | Queries Gaia DR3 and processes astrometric data |
 | `services/simbad.py` | Queries SIMBAD for object information |
 | `services/twomass.py` | Retrieves and processes 2MASS measurements |
 | `services/allwise.py` | Retrieves and processes AllWISE measurements |

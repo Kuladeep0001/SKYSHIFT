@@ -286,6 +286,19 @@ table.features tr.notseen { opacity: .5; }
 .listenTab details summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
 .listenTab details p, .listenTab details ul { margin: 6px 0; }
 .listenTab table tr.cur { background: rgba(255, 209, 102, .16); }
+/* catalogue cross-check */
+.catCheck .verdict { font-size: 18px; margin: 4px 0 2px; }
+.catCheck .verdict.good b { color: #6fe3c4; }
+.catCheck .verdict.maybe b { color: var(--accent); }
+.catCheck .verdict.none b { color: var(--text); }
+.catTable tr.likely td:nth-child(2) { color: #6fe3c4; font-weight: 700; }
+.catTable tr.possible td:nth-child(2) { color: var(--accent); font-weight: 600; }
+table.features.catTable tr.likely td:last-child, table.features.catTable tr.possible td:last-child { color: var(--text); font-weight: 400; }
+.catTable td { vertical-align: top; }
+.catCheck .warnList { list-style: none; padding: 0; margin: 8px 0; color: #ffcf8a; }
+.catCheck pre.raw { max-height: 260px; overflow: auto; font: 11px var(--mono); background: #0a1222; padding: 8px; border-radius: 8px; }
+.spin { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 4px; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 @media (max-width: 700px) { .chartBox.listenChart { height: 260px; } .listenTab .listenBtns button { flex: 1 1 45%; } }
 

@@ -260,6 +260,38 @@ Overlay data. `radius` in degrees (≤ 0.5). `skybot` needs `mjd`.
 ```
 SkyBoT returns `{ "catalog": "SkyBoT", "mjd": ..., "objects": [ { "name", "ra", "dec", "class", "mag", "dra", "ddec" } ] }`.
 
+### `POST /api/verification/`: four-catalogue cross-check  (`routes/crossmatch.py`, owner: Meenakshi K)
+Is an object already known? Checks **Gaia DR3, 2MASS, AllWISE and SIMBAD**, each at its own observing date.
+Gaia runs first; its proper motion is used to move the position to the 2MASS (~1999) and AllWISE (2010.5)
+epochs, and the other three catalogues are then queried at the same time. Takes 5–30 s. The website shows it
+as the **🔬 Is it already known?** panel. Full design notes: [backend/VERIFICATION.md](backend/VERIFICATION.md).
+```json
+{ "candidates": [ { "candidate_id": "WISE 0855", "ra": 133.7598, "dec": -7.2422,
+                    "observation_time": "2026-01-01T00:00:00Z",
+                    "pmra_mas_yr": -8118.0, "pmdec_mas_yr": 673.0 } ],
+  "catalogues": ["gaia", "2mass", "allwise", "simbad"],
+  "search_radius_arcsec": 6.0 }
+```
+- `observation_time` must include a time zone. 1–10 candidates per request.
+- `pmra_mas_yr` / `pmdec_mas_yr` are optional: the object's own motion, used instead of Gaia when Gaia has no match
+  (brown dwarfs such as WISE 0855 are too faint for Gaia).
+
+Response, one entry per candidate:
+```json
+{ "results": [ { "candidate_id": "WISE 0855",
+    "assessment": "confirmed_association",
+    "catalogue_results": { "gaia": { "status": "no_match", "match_quality": "borderline", "nearest_source": { ... } },
+                           "allwise": { "status": "match_found", "match_quality": "within_radius", "epoch_correction_available": true,
+                                        "nearest_source": { "designation": "J085510.74-071442.5", "photometry": { "W1": { ... }, "W2": { ... } },
+                                                            "contamination_summary": { ... }, "motion_fit": { ... } } },
+                           "2mass": { ... }, "simbad": { ... } },
+    "evidence_summary": { "explanation": "...", "confirmed_associations": 2, "catalogues": { "allwise": { "evidence": "confirmed_association",
+                          "separation_arcsec": 0.55, "reasons": [ ... ], "photometric_caveats": [ ... ] }, ... } },
+    "cross_catalogue_association": { "status": "consistent | borderline | inconsistent | mixed_evidence | not_assessable", ... } } ] }
+```
+`assessment`: `confirmed_association` · `potential_association` · `no_association` · `insufficient_evidence`
+(a catalogue didn't answer: never treated as "not there") · `conflicting_evidence`.
+
 ## Metadata  (`routes/metadata.py`, owner: Integration lead)
 
 ### `GET /api/metadata/{query_id}`

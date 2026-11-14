@@ -1,3 +1,7 @@
+"""Catalogue cross-check: Gaia DR3, 2MASS, AllWISE and SIMBAD with epoch-aware matching.
+Owner: Verification (Meenakshi K).
+"""
+import asyncio
 
 from fastapi import APIRouter
 
@@ -7,7 +11,7 @@ from backend.models.verification import (
     CandidateVerificationResult,
 )
 
-from backend.services.gaia import gaia_match
+from backend.services.gaia_match import gaia_match
 from backend.services.simbad import simbad_match
 from backend.services.twomass import twomass_match
 from backend.services.allwise import allwise_match
@@ -17,6 +21,36 @@ router = APIRouter(
     prefix="/api/verification",
     tags=["Catalogue Verification"],
 )
+
+
+def gaia_confirmed(gaia_result):
+    return bool(
+        gaia_result
+        and gaia_result.get("status") == "match_found"
+        and gaia_result.get("match_quality") == "within_radius"
+    )
+
+
+def candidate_motion_reference(candidate):
+    """A Gaia-shaped reference built from the candidate's own position and motion."""
+
+    from astropy.time import Time
+
+    return {
+        "status": "match_found",
+        "match_quality": "within_radius",
+        "nearest_source": {
+            "catalogue_position": {
+                "ra": candidate.ra,
+                "dec": candidate.dec,
+                "reference_epoch": float(Time(candidate.observation_time).jyear),
+            },
+            "proper_motion": {
+                "pmra_mas_yr": candidate.pmra_mas_yr,
+                "pmdec_mas_yr": candidate.pmdec_mas_yr,
+            },
+        },
+    }
 
 
 def get_source_identifier(catalogue, nearest_source):
@@ -434,72 +468,71 @@ def build_evidence_summary(catalogue_results):
 
 @router.post("/", response_model=VerificationResponse)
 async def verify_candidates(request: VerificationRequest):
+    """Cross-match candidates against Gaia DR3, 2MASS, AllWISE and SIMBAD.
+
+    Gaia runs first because 2MASS and AllWISE use its proper motion for
+    epoch-aware matching; the other three catalogues are then queried at
+    the same time.
+    """
 
     results = []
 
     for candidate in request.candidates:
 
         catalogue_results = {}
-
-        # Gaia runs first because the infrared services may use
-        # its confirmed proper motion for epoch-aware matching.
-        catalogue_order = sorted(
-            request.catalogues,
-            key=lambda name: name != "gaia",
+        common = dict(
+            ra=candidate.ra,
+            dec=candidate.dec,
+            observation_time=candidate.observation_time,
+            search_radius_arcsec=request.search_radius_arcsec,
         )
 
-        for catalogue in catalogue_order:
+        if "gaia" in request.catalogues:
+            catalogue_results["gaia"] = await gaia_match(**common)
 
-            if catalogue == "gaia":
+        gaia_result = catalogue_results.get("gaia")
+        motion_basis = "confirmed_gaia_propagation"
 
-                result = await gaia_match(
-                    ra=candidate.ra,
-                    dec=candidate.dec,
-                    observation_time=candidate.observation_time,
-                    search_radius_arcsec=request.search_radius_arcsec,
-                )
+        # No confirmed Gaia match, but the candidate's own motion is known:
+        # use it as the astrometric reference for 2MASS and AllWISE.
+        if (
+            not gaia_confirmed(gaia_result)
+            and candidate.pmra_mas_yr is not None
+            and candidate.pmdec_mas_yr is not None
+        ):
+            gaia_result = candidate_motion_reference(candidate)
+            motion_basis = "candidate_proper_motion"
 
-                catalogue_results["gaia"] = result
+        jobs = {}
 
-            elif catalogue == "2mass":
+        if "2mass" in request.catalogues:
+            jobs["2mass"] = twomass_match(**common, gaia_result=gaia_result)
 
-                result = await twomass_match(
-                    ra=candidate.ra,
-                    dec=candidate.dec,
-                    observation_time=candidate.observation_time,
-                    search_radius_arcsec=request.search_radius_arcsec,
-                    gaia_result=catalogue_results.get("gaia"),
-                )
+        if "allwise" in request.catalogues:
+            jobs["allwise"] = allwise_match(**common, gaia_result=gaia_result)
 
-                catalogue_results["2mass"] = result
+        if "simbad" in request.catalogues:
+            jobs["simbad"] = simbad_match(**common)
 
-            elif catalogue == "allwise":
+        done = await asyncio.gather(*jobs.values(), return_exceptions=True)
 
-                result = await allwise_match(
-                    ra=candidate.ra,
-                    dec=candidate.dec,
-                    observation_time=candidate.observation_time,
-                    search_radius_arcsec=request.search_radius_arcsec,
-                    gaia_result=catalogue_results.get("gaia"),
-                )
+        for name, result in zip(jobs, done):
+            if isinstance(result, Exception):
+                result = {
+                    "status": "inconclusive",
+                    "message": f"{name} lookup failed: {result}",
+                    "nearest_source": None,
+                }
+            if (
+                name in ("2mass", "allwise")
+                and motion_basis == "candidate_proper_motion"
+                and result.get("position_basis") == "confirmed_gaia_propagation"
+            ):
+                result["position_basis"] = motion_basis
+                if isinstance(result.get("search_position"), dict):
+                    result["search_position"]["position_basis"] = motion_basis
 
-                catalogue_results["allwise"] = result
-
-            elif catalogue == "simbad":
-
-                result = await simbad_match(
-                    ra=candidate.ra,
-                    dec=candidate.dec,
-                    observation_time=candidate.observation_time,
-                    search_radius_arcsec=request.search_radius_arcsec,
-                )
-
-                catalogue_results["simbad"] = result
-
-        assessment, evidence_summary = build_evidence_summary(
-            catalogue_results
-        )
-
+            catalogue_results[name] = result
 
         cross_catalogue_association = crossmatch_catalogues(
             catalogue_results=catalogue_results,

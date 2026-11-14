@@ -1,7 +1,7 @@
 
 from datetime import datetime
 from typing import List, Literal, Optional
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 CatalogueName = Literal["gaia", "allwise", "2mass", "simbad"]
 
@@ -11,8 +11,14 @@ class CandidateInput(BaseModel):
     ra: float = Field(ge=0, lt=360)
     dec: float = Field(ge=-90, le=90)
     observation_time: datetime
+    # Optional proper motion of the candidate (mas/yr, pmra = mu_alpha*cos(dec)).
+    # Used for epoch-aware 2MASS/AllWISE matching when Gaia has no match,
+    # e.g. for brown dwarfs too faint for Gaia such as WISE 0855.
+    pmra_mas_yr: Optional[float] = Field(default=None, ge=-20000, le=20000)
+    pmdec_mas_yr: Optional[float] = Field(default=None, ge=-20000, le=20000)
 
-    @validator("observation_time")
+    @field_validator("observation_time")
+    @classmethod
     def timestamp_must_have_timezone(cls, value):
         if value.tzinfo is None or value.utcoffset() is None:
             raise ValueError(
@@ -22,7 +28,7 @@ class CandidateInput(BaseModel):
 
 
 class VerificationRequest(BaseModel):
-    candidates: List[CandidateInput]
+    candidates: List[CandidateInput] = Field(min_length=1, max_length=10)
     catalogues: List[CatalogueName] = Field(
         default=["gaia", "allwise", "2mass", "simbad"]
     )

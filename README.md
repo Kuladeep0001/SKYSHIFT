@@ -41,6 +41,8 @@ It takes about 10 minutes the first time.
 - [x] Metadata and contamination flags
 - [x] URL-based coordinate queries + embed mode
 - [x] Detection and analysis: finds movers/brightness changes, checks them against Gaia/WISE/asteroids
+- [x] 🔬 **Is it already known?** four-catalogue cross-check (Gaia DR3, 2MASS, AllWISE, SIMBAD), each compared at its own
+  observing date, with contamination flags and an overall verdict (verification module by Meenakshi K)
 
 **Extra features**
 - [x] 👻 **Movers only**: register the visits, subtract a still background (like background-oriented schlieren), BOS-style motion arrows
@@ -213,7 +215,8 @@ backend/
   routes/
     images.py               /api/images/*      query, frames, PNGs, spectrum, compare
     analysis.py             /api/detections/*  moving-object detection
-    verification.py         /api/verification/*, /api/catalog/*   Gaia/WISE/asteroid checks + overlays
+    verification.py         /api/verification/gaia, /api/catalog/*   Gaia/WISE/asteroid checks + overlays
+    crossmatch.py           /api/verification/   Gaia + 2MASS + AllWISE + SIMBAD cross-check (see backend/VERIFICATION.md)
     metadata.py             /api/metadata/*, /api/releases, /api/resolve, /api/health
   services/
     spherex.py              IRSA: release discovery, image search, cutout download + cache

@@ -12,6 +12,7 @@ import Explainer from "../components/Explainer.jsx";
 import ImageViewer from "../components/ImageViewer.jsx";
 import Listen from "../components/Listen.jsx";
 import ObjectCard from "../components/ObjectCard.jsx";
+import CatalogueCheck from "../components/CatalogueCheck.jsx";
 import SkyHome from "../components/SkyHome.jsx";
 import TimeColours from "../components/TimeColours.jsx";
 import MetadataPanel from "../components/MetadataPanel.jsx";
@@ -68,6 +69,7 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
   const [focus, setFocus] = useState(null);
   const [toast, setToast] = useState("");
   const [objPos, setObjPos] = useState(null);
+  const [objPm, setObjPm] = useState(null);         // known motion of the selected object (mas/yr), for the catalogue check
   const [details, setDetails] = useState(null);     // details card data (for the assistant and share card)
   const [checks, setChecks] = useState({});         // verification results of found candidates
   const [tmTask, setTmTask] = useState(null);       // time-machine download task (for the task bar)
@@ -114,6 +116,7 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
       setMeta(m); setQid(st.query_id); setLoad({ phase: "ready" });
       const mid = m.exposures.length ? m.exposures[m.exposures.length >> 1].mjd : 0;
       setObjPos({ ra: t.ra, dec: t.dec, mjd: mid, name: findTarget(t.query || t.name) ? t.name : null });
+      setObjPm(Number.isFinite(t.pmra) && Number.isFinite(t.pmdec) ? { pmra: t.pmra, pmdec: t.pmdec } : null);
       const c = (m.n_pix - 1) >> 1;  // start with the spectrum of whatever is in the middle
       api.spectrum(st.query_id, c, c).then((sp) => token.current === my && setSpec(sp)).catch(() => {});
       if (st.progress.failed) say(`${st.progress.failed} pictures couldn't be downloaded and were skipped.`);
@@ -302,6 +305,7 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
   const onPixel = async (x, y) => {
     if (!qid) return;
     setSel({ x, y });
+    setObjPm(null);
     setSpecLoading(true);
     try {
       const sp = await api.spectrum(qid, x, y);
@@ -329,7 +333,11 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
   const focusCand = (id) => {
     setFocus(id);
     const c = (candidates || []).find((x) => x.candidate_id === id);
-    if (c) onPixel(Math.round(c.x), Math.round(c.y));
+    if (c) {
+      onPixel(Math.round(c.x), Math.round(c.y));
+      const m = c.kind === "mover" && c.motion;
+      setObjPm(m && Number.isFinite(m.pmra_mas_yr) ? { pmra: m.pmra_mas_yr, pmdec: m.pmdec_mas_yr } : null);
+    }
   };
 
   /* ------------------------------------------------------------ share */
@@ -509,6 +517,8 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
                 flags={view === "blink" && F ? F.flags[Math.min(idx, F.flags.length - 1)] : null} fov={fov}
                 releases={meta.status?.releases || []} selFlags={selFlags} simple={simple} fresh={fresh} onCheckNow={checkNow} />
               <ObjectCard pos={objPos} simple={simple} onLoaded={setDetails} />
+              <CatalogueCheck pos={objPos} pm={objPm} simple={simple}
+                label={objPos?.name || details?.simbad?.name || (objPos && target && Math.hypot(objPos.ra - target.ra, objPos.dec - target.dec) < 2e-3 ? target.name : null)} />
               <SpectrumPanel spec={spec} visits={meta.visits} detectors={meta.detectors} loading={specLoading} simple={simple} />
               <SkyMap target={target} fov={fov} onLoadHere={goCoords} />
             </aside>

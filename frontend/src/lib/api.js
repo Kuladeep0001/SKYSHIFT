@@ -51,6 +51,9 @@ export const api = {
   cancel: (id) => (MOCK ? Promise.resolve({ cancelled: true }) : post(`/api/images/${id}/cancel`, {})),
   updates: () => (MOCK ? Promise.resolve({ log: [] }) : request("/api/updates")),
   verify: (candidates) => (MOCK ? mock("verification") : post("/api/verification/gaia", { candidates })),
+  // Gaia + 2MASS + AllWISE + SIMBAD epoch-aware cross-match (verification branch)
+  crossCheck: (candidates, radius = 6) => (MOCK ? mock("crosscheck")
+    : post("/api/verification/", { candidates, catalogues: ["gaia", "2mass", "allwise", "simbad"], search_radius_arcsec: radius })),
   catalog: (name, ra, dec, radius, mjd = 0) =>
     MOCK ? mock(`catalog_${name}`).catch(() => ({ stars: [], objects: [] }))
       : request(`/api/catalog/${name}?ra=${ra}&dec=${dec}&radius=${radius.toFixed(3)}${mjd ? `&mjd=${mjd.toFixed(3)}` : ""}`),
