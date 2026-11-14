@@ -18,8 +18,8 @@ from backend.services.allwise import allwise_match
 from backend.services.crossmatch import crossmatch_catalogues
 
 router = APIRouter(
-    prefix="/api/verification",
-    tags=["Catalogue Verification"],
+    prefix="/api/crossmatch",
+    tags=["Catalogue Crossmatch"],
 )
 
 
