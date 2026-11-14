@@ -4,3 +4,4 @@ astropy>=6.1
 numpy>=1.26
 requests>=2.31
 pillow>=10
+httpx>=0.27
