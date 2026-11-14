@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -24,7 +25,7 @@ from .spherex import CACHE, SESSION
 SRC = "https://irsa.ipac.caltech.edu/data/hips/SPHEREx/spherex_allsky_cube"
 OUT = CACHE / "colour_sky"
 OUT.mkdir(parents=True, exist_ok=True)
-POOL = ThreadPoolExecutor(max_workers=8)
+POOL = ThreadPoolExecutor(max_workers=16)  # each RGB tile needs 8 IRSA tiles
 
 # wavelengths of the 102 frames (from the HiPS properties); frame number = index + 1
 WAVES = [0.753, 0.771, 0.790, 0.809, 0.828, 0.848, 0.868, 0.889, 0.910, 0.932, 0.955, 0.978, 1.001, 1.025, 1.050, 1.075,
@@ -48,7 +49,11 @@ def _fetch(rel: str, f: int) -> np.ndarray | None:
     """One greyscale tile (0-1) of frame f, cached."""
     path = OUT / "src" / f"{rel.replace('/', '_')}_{f}.png"
     if not path.exists():
-        r = SESSION.get(f"{SRC}/{rel}_{f}.png", timeout=60)
+        for attempt in range(3):  # IRSA sometimes answers "busy": wait a moment and try again
+            r = SESSION.get(f"{SRC}/{rel}_{f}.png", timeout=60)
+            if r.status_code == 200 or r.status_code == 404:
+                break
+            time.sleep(1 + 2 * attempt)
         if r.status_code != 200:
             return None
         path.parent.mkdir(parents=True, exist_ok=True)

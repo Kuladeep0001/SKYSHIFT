@@ -36,7 +36,7 @@ It takes about 10 minutes the first time.
 - [x] Selectable field of view (2′–20′)
 - [x] Compare or subtract images from different epochs (before/after slider, − first, − previous, add all)
 - [x] Explore the 102 infrared bands: a true **spectral cube** (each plane = one wavelength over the whole area), 3D stack, fly-through, area spectrum
-- [x] Combine data from the six detector arrays (stacked per visit, 6-panel wall, infrared colour)
+- [x] Combine data from the six detector arrays (stacked per visit, 6-panel wall, RGB colour grading in the flipbook)
 - [x] Gaia and WISE overlays (Gaia moved to each picture's date)
 - [x] Metadata and contamination flags
 - [x] URL-based coordinate queries + embed mode
@@ -45,7 +45,8 @@ It takes about 10 minutes the first time.
   observing date, with contamination flags and an overall verdict (verification module by Meenakshi K)
 
 **Extra features**
-- [x] 👻 **Movers only**: register the visits, subtract a still background (like background-oriented schlieren), BOS-style motion arrows
+- [x] 🗺 **Live sky map on the home page** (Aladin Lite): the whole sky in SPHEREx false colour (dust, hot gas, stars), zoomable,
+  with the challenge targets marked. 📍 Pick a spot or ⬚ draw a square and SkyShift loads every SPHEREx picture of it
 - [x] ⏳ **Time machine**: 1950 and 1991 photographic plates, 2MASS (2000), WISE (2010), SPHEREx, with the predicted path
 - [x] 🧊 Spectral cube, 💧 molecule/mineral finder, 🃏 details card (SIMBAD, Gaia, WISE, Wikipedia)
 - [x] ☄️ **Asteroid hunter**: where each known asteroid was in every snapshot
@@ -66,7 +67,7 @@ It takes about 10 minutes the first time.
 | Epsilon Indi B | 4.52″/yr toward 129° (D5+D6) | 4.68″/yr toward 122° |
 | RW Aurigae | brightness changed ×2.0 between visits | known variable (young star) |
 | R Draconis | brightness changed ×1.8 (4.4–5 µm) | known variable (Mira) |
-| WISE 0855 | 6.32″/yr toward 274° (Movers-only tracking, D5+D6) | 8.15″/yr toward 275° |
+| WISE 0855 | 5.87″/yr toward 269° (D5+D6; faint, so less exact) | 8.15″/yr toward 275° |
 
 ## How SkyShift stays up to date
 
@@ -182,7 +183,7 @@ Keep the terminal window open while you use the site. Press **Ctrl + C** in it t
 | http://localhost:8000 shows `{"detail":"Not Found"}` or a blank page | You skipped `npm run build`. Run step 2's `frontend` lines again |
 | `address already in use` / `error while attempting to bind` | SkyShift is already running in another window. Use that one, or start with `--port 8001` and open http://localhost:8001 |
 | "IRSA may be busy, please try again" | NASA's archive is overloaded. Wait a minute and search again; pictures already downloaded are kept |
-| The sky map on the home page stays black | Your browser needs WebGL 2. Update Chrome, Edge or Firefox, or turn on hardware acceleration |
+| The sky map on the home page stays black | Wait a few seconds the first time (the colour sky is built from NASA's tiles), or pick another sky in the map's menu. If it never appears, your browser needs WebGL 2: update Chrome, Edge or Firefox, or turn on hardware acceleration (you then get a still picture instead) |
 | The assistant (💬 Ask) gives short answers | That's the built-in helper. For full answers, connect Qwen (see [Optional: AI answers with Qwen](#optional-ai-answers-with-qwen)) |
 
 ### For developers
@@ -234,7 +235,7 @@ frontend/
   src/App.jsx               header, Simple/Expert switch, pages
   src/pages/                Explorer (main dashboard), About (how it works)
   src/components/           ImageViewer, Timeline, CoordinateInput, Controls, BeforeAfter, Explainer,
-                            CandidatesPanel, DetectorWall, PlanesGrid, SpectrumPanel, MetadataPanel, SkyMap…
+                            CandidatesPanel, DetectorWall, SpectralCube, SpectrumPanel, MetadataPanel, SkyHome, SkyMap…
   src/lib/                  api.js (all API calls + mock mode), frames.js, render.js, targets.js
   public/mock/              saved API responses for ?mock=1
 tests/                      pytest: resolver, image processing, detection, API contract

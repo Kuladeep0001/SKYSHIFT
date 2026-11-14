@@ -17,6 +17,33 @@ def properties():
     return PlainTextResponse(colour_sky.PROPERTIES, headers=CACHE_HDR)
 
 
+def _full_sky_moc() -> bytes:
+    """MOC (sky coverage) file saying "the whole sky": the 12 order-0 HEALPix cells.
+    Aladin uses it to decide which tiles exist; without one it drew only a single tile."""
+    import io
+
+    import numpy as np
+    from astropy.io import fits
+
+    col = fits.Column(name="UNIQ", format="J", array=np.arange(4, 16, dtype=np.int32))
+    hdu = fits.BinTableHDU.from_columns([col])
+    hdu.header.update(PIXTYPE="HEALPIX", ORDERING="NUNIQ", COORDSYS="C", MOCORDER=0, MOCORD_S=0,
+                      MOCDIM="SPACE", MOCVERS="2.0", MOCTOOL="SkyShift", MOCTYPE="IMAGE")
+    buf = io.BytesIO()
+    fits.HDUList([fits.PrimaryHDU(), hdu]).writeto(buf)
+    return buf.getvalue()
+
+
+_MOC = None
+
+
+@router.get("/Moc.fits")
+def moc():
+    global _MOC
+    _MOC = _MOC or _full_sky_moc()
+    return Response(_MOC, media_type="application/fits", headers=CACHE_HDR)
+
+
 @router.get("/Norder{order}/Allsky.png")
 def allsky(order: int):
     if not 0 <= order <= 3:

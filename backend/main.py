@@ -43,6 +43,10 @@ if DIST.exists():
         f = DIST / path
         if path and f.is_file() and DIST in f.resolve().parents:
             return FileResponse(f)
+        # Data paths must say "not found", never return the web page: Aladin read the page as the
+        # colour sky's Moc.fits (sky coverage) and then drew nothing.
+        if path.startswith(("api/", "hips/", "mock/")):
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
         return FileResponse(DIST / "index.html")
 else:
     @app.get("/", include_in_schema=False)

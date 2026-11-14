@@ -10,8 +10,6 @@ export const TOUR = [
     text: "The same patch of sky on a 1950 glass photo, then 1991, 2000, 2010 and SPHEREx today. Follow Barnard's Star along the dashed line: it has travelled almost half the width of the full Moon." },
   { view: "blink", action: "detect", title: "SkyShift measures it",
     text: "SkyShift compares the visits by itself, measures the motion (about 10.4 arcseconds a year), and checks Gaia and SIMBAD: confirmed!" },
-  { view: "movers", det: 0, title: "Only what moves",
-    text: "Here everything that stays still is removed, just like background-oriented schlieren: line up the pictures, subtract a still background, and only Barnard's Star is left, with an arrow showing which way it went." },
   { q: "eps Ind B", view: "blink", det: 7, title: "Two failed stars",
     text: "Epsilon Indi B is a pair of brown dwarfs: too small to shine like the Sun. They glow in the reddest infrared, drifting down and to the left." },
   { view: "planes", title: "What are they made of?",

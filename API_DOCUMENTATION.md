@@ -160,18 +160,6 @@ Pick a pixel or box and read it through all 102 planes to get its spectrum (done
 Find water/CO2/CO/CH4/hydrogen/mineral bands in any spectrum (e.g. an area from the cube).
 Body `{ "spectrum": [ { "wave": 1.40, "flux": 812.4, "err": 35.1 }, ... ] }` → `{ "features": [ ...same format as above... ] }`
 
-### `GET /api/images/{query_id}/movers?det=0`
-**Movers only** (background-oriented-schlieren style): visits are registered by matching each star's pattern
-(normalised cross-correlation, sub-pixel), a still background (median of the visits) is subtracted, and every
-tracked star gets a displacement vector between the first and last visit.
-```json
-{ "n": 59, "count": 3, "det": 0, "years": 0.988,
-  "frames": [ { "visit": 0, "date": "2025-08-26", "date_range": ["2025-08-15","2025-09-05"], "shift": { "dx": 0.0, "dy": 0.0, "stars": 0 }, "sigma": 0.41 } ],
-  "vectors": [ { "x": 29, "y": 28, "dx": -0.07, "dy": 1.70, "shift_px": 1.698, "arcsec_per_yr": 10.57, "pa_deg": 352.6,
-                 "match": 0.97, "snr": 310.2, "flux_ratio": 1.13, "significant": true, "brightness_changed": false } ],
-  "background": "<base64 float32 n x n>", "residuals": "<base64 float32 count x n x n>", "aligned": "<base64 float32>" }
-```
-
 ### `GET /api/images/{query_id}/history?ra=&dec=&fov=`
 **Time machine**: the area in POSS-I (1950s plates), POSS-II (1990s), 2MASS Ks (~2000), WISE W1 (2010) and SPHEREx,
 all on one 240 x 240 north-up grid. `frames[]`: `{survey, label, band, date, year, mjd, coverage}`; `data`: base64 float32.

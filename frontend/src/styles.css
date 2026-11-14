@@ -306,7 +306,10 @@ table.features.catTable tr.likely td:last-child, table.features.catTable tr.poss
 .skyHome { margin: 10px auto 24px; text-align: left; }
 .skyTools { justify-content: space-between; }
 .skyWrap { position: relative; height: min(62vh, 560px); border-radius: 14px; overflow: hidden; border: 1px solid var(--line); background: #02050c; }
-.skyMap { position: absolute; inset: 0; }
+.skyMap { position: absolute; inset: 0; width: 100%; height: 100%; }  /* explicit size: Aladin resets "position", which collapsed the map to a 2px strip */
+.skyHome.lead-map { max-width: 1100px; margin: 4px auto 22px; }
+.skyHome.lead-map .skyWrap { height: min(68vh, 620px); }
+.skyStill { width: 100%; height: 100%; object-fit: contain; display: block; }
 .skyCatcher { position: absolute; inset: 0; z-index: 5; }
 .skyBox { position: absolute; border: 2px solid var(--accent); background: rgba(255, 181, 71, .12); z-index: 6; pointer-events: none; }
 .skyTip { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); z-index: 7; background: rgba(6, 11, 22, .88); border: 1px solid var(--accent);

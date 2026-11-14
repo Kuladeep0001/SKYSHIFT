@@ -23,7 +23,6 @@ import TaskBar from "../components/TaskBar.jsx";
 import AskPanel from "../components/AskPanel.jsx";
 import AsteroidHunter from "../components/AsteroidHunter.jsx";
 import TimeMachine from "../components/TimeMachine.jsx";
-import MoversOnly from "../components/MoversOnly.jsx";
 import Tour, { TOUR } from "../components/Tour.jsx";
 import Timeline from "../components/Timeline.jsx";
 import { api, loadImages } from "../lib/api.js";
@@ -49,7 +48,8 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
   const [load, setLoad] = useState({ phase: "idle" });
   const [qid, setQid] = useState(null);
   const [meta, setMeta] = useState(null);
-  const [view, setView] = useState(params.get("view") || "blink");
+  const VIEWS = ["blink", "timecolours", "compare", "timemachine", "wall", "planes", "asteroids", "listen"];
+  const [view, setView] = useState(VIEWS.includes(params.get("view")) ? params.get("view") : "blink");
   const [mode, setMode] = useState(params.get("mode") || "visit");
   const [det, setDet] = useState(+params.get("det") || 0);
   const [ch, setCh] = useState(+params.get("ch") || 40);
@@ -89,7 +89,7 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
   const say = (m) => { setToast(m); setTimeout(() => setToast(""), 2600); };
 
   // Simple mode only has the flipbook and before/after views.
-  useEffect(() => { if (simple && !["blink", "movers", "compare", "timecolours", "planes", "timemachine", "asteroids", "listen"].includes(view)) setView("blink"); if (simple) setMode("visit"); }, [simple]);
+  useEffect(() => { if (simple && !["blink", "compare", "timecolours", "planes", "timemachine", "asteroids", "listen"].includes(view)) setView("blink"); if (simple) setMode("visit"); }, [simple]);
   // Listen mode (header button) opens the Listen tab, made for blind and low-vision visitors.
   useEffect(() => { if (listenMode) setView("listen"); }, [listenMode]);
 
@@ -190,7 +190,7 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
             const all = await api.frames(qid, { mode: "visitdet" });
             if (alive) setWallF(decodeFrames(all));
           }
-        } else if (view === "wall" || view === "color") {
+        } else if (view === "wall") {
           if (!wallF) { const res = await api.frames(qid, { mode: "visitdet" }); if (alive) setWallF(decodeFrames(res)); }
           setIdx(0);
         }
@@ -201,7 +201,7 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
   const rgbSets = useMemo(() => (disp.cmap === "rgb" ? rgbByVisit(wallF) : null), [wallF, disp.cmap]);
   const useRGB = disp.cmap === "rgb" && det === 0 && F?.mode === "visit" && rgbSets && Object.keys(rgbSets).length > 0;
 
-  const count = view === "wall" || view === "color" ? wallVisitCount(wallF) : F ? F.data.length : 0;
+  const count = view === "wall" ? wallVisitCount(wallF) : F ? F.data.length : 0;
 
   // play loop
   useEffect(() => {
@@ -381,8 +381,8 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
   const chInfo = meta && meta.channels[ch - 1];
   const chWave = chInfo && chInfo.wave ? `${chInfo.wave[0].toFixed(2)}–${chInfo.wave[1].toFixed(2)} µm` : "";
   const tabs = simple
-    ? [["blink", "▶ Flipbook"], ["movers", "👻 Movers only"], ["timecolours", "🎨 Colour by date"], ["compare", "⇔ Before / after"], ["timemachine", "⏳ Time machine"], ["planes", "🌈 102 colours"], ["asteroids", "☄️ Asteroids"], ["listen", "🔊 Listen"]]
-    : [["blink", "Blink"], ["movers", "👻 Movers only"], ["timecolours", "Colour by date"], ["compare", "Before / after"], ["timemachine", "⏳ Time machine"], ["wall", "6 Detectors"], ["color", "Infrared colour"], ["planes", "🧊 Spectral cube (102)"], ["asteroids", "☄️ Asteroids"], ["listen", "🔊 Listen"]];
+    ? [["blink", "▶ Flipbook"], ["timecolours", "🎨 Colour by date"], ["compare", "⇔ Before / after"], ["timemachine", "⏳ Time machine"], ["planes", "🌈 102 colours"], ["asteroids", "☄️ Asteroids"], ["listen", "🔊 Listen"]]
+    : [["blink", "Blink"], ["timecolours", "Colour by date"], ["compare", "Before / after"], ["timemachine", "⏳ Time machine"], ["wall", "6 Detectors"], ["planes", "🧊 Spectral cube (102)"], ["asteroids", "☄️ Asteroids"], ["listen", "🔊 Listen"]];
 
   return (
     <div className="explorer">
@@ -393,13 +393,7 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
 
       {load.phase === "idle" && !embed && (
         <section className="welcome">
-          <figure className="hero">
-            <img src="/spherex_allsky.jpg" alt="The whole sky in infrared as seen by NASA's SPHEREx, in false colour" />
-            <figcaption>
-              <b>The whole sky as SPHEREx sees it.</b> Infrared light is invisible, so SkyShift turns it into colours:{" "}
-              <span style={{ color: "#ffa36b" }}>orange = glowing dust</span>, <span style={{ color: "#7fe8ff" }}>cyan = hot hydrogen gas</span>, white = stars. The Milky Way runs across the middle.
-            </figcaption>
-          </figure>
+          <SkyHome fovDefault={fov} onPick={(p) => (p.q ? go(p.q) : goCoords(p.ra, p.dec, p.fov))} />
           <h1>Watch the sky <span className="hl">move</span>.</h1>
           <p className="lead">NASA's <b>SPHEREx</b> telescope photographs the whole sky every six months. SkyShift lines up its pictures of any spot and plays them like a <b>flipbook</b>, so anything that moves or changes brightness jumps out. That's how Pluto was found!</p>
           <ol className="steps">
@@ -408,7 +402,6 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
             <li><span>3</span>Press play and spot what moves</li>
           </ol>
           <button className="primary tourBtn" onClick={() => setTourStep(0)}>✨ Show me something amazing (guided tour)</button>
-          <SkyHome fovDefault={fov} onPick={(p) => (p.q ? go(p.q) : goCoords(p.ra, p.dec, p.fov))} />
           <h2 className="center">…or start with one of the challenge's test targets</h2>
           <div className="cards">
             {TARGETS.map((t) => (
@@ -449,7 +442,7 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
               </div>
             )}
 
-            {(view === "blink" || view === "movers") && (
+            {view === "blink" && (
               <div className="row">
                 {expert && view === "blink" && (
                   <div className="seg" role="group" aria-label="How to build each picture">
@@ -486,15 +479,14 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
               onPixel={onPixel} simple={simple} fov={fov} rgb={useRGB ? rgbSets : null} />}
             {view === "compare" && <BeforeAfter F={F} disp={disp} rgb={useRGB ? rgbSets : null} />}
             {view === "timecolours" && <TimeColours F={F} disp={disp} onPixel={onPixel} focusXY={sel} />}
-            {(view === "wall" || view === "color") && <DetectorWall F={wallF} idx={idx} disp={disp} detectors={meta.detectors} colour={view === "color"} onPixel={onPixel} />}
+            {view === "wall" && <DetectorWall F={wallF} idx={idx} disp={disp} detectors={meta.detectors} colour={false} onPixel={onPixel} />}
             {view === "planes" && <SpectralCube qid={qid} visits={meta.visits} disp={disp} version={dataVersion} />}
             {view === "timemachine" && <TimeMachine qid={qid} target={target} fov={fov} disp={disp} onTask={setTmTask} />}
             {view === "asteroids" && <AsteroidHunter qid={qid} disp={disp} />}
-            {view === "movers" && <MoversOnly qid={qid} det={det} version={dataVersion} onPixel={onPixel} />}
             {view === "listen" && <Listen target={target} story={story} F={F && F.mode === "visit" ? F : null} sel={sel}
               spec={spec} loading={specLoading} onPixel={onPixel} candidates={candidates} />}
 
-            {!["planes", "compare", "timecolours", "timemachine", "asteroids", "movers", "listen"].includes(view) && (
+            {!["planes", "compare", "timecolours", "timemachine", "asteroids", "listen"].includes(view) && (
               <Controls playing={playing} setPlaying={setPlaying} idx={idx} count={count} setIdx={setIdx} fps={fps} setFps={setFps} disabled={!count} />
             )}
             {view === "blink" && <Timeline meta={meta} frame={frame} mode={F?.mode} simple={simple}
