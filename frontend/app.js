@@ -133,24 +133,24 @@ function displayed(F, i) {
   if (S.math === "sum") return { arr: F._sum || (F._sum = sumFrames(F)), diverge: false };
   if (S.math === "first" && i > 0) return { arr: diffFrame(F.data[i], F.data[0]), diverge: true };
   if (S.math === "prev" && i > 0) return { arr: diffFrame(F.data[i], F.data[i - 1]), diverge: true };
-  return { arr: F.data[i], diverge: S.math !== "none" };
+  // In difference mode the first frame is the reference, shown normally.
+  return { arr: F.data[i], diverge: false, ref: S.math === "first" || S.math === "prev" };
 }
 function limits(F) {
-  const key = `${S.math}`;
-  if (F._lim && F._lim.key === key) return F._lim;
-  let lim;
-  if (S.math === "first" || S.math === "prev") {
-    const diffs = [];
-    for (let i = 1; i < F.data.length; i++) diffs.push(displayed(F, i).arr);
-    lim = { L: percentile(diffs.length ? diffs : [F.data[0]], [99.5], true)[0] };
-  } else {
-    const arrs = S.math === "sum" ? [displayed(F, 0).arr] : F.data;
-    const [lo, hi] = percentile(arrs, [3, 99.8]);
-    lim = { lo, hi };
+  if (!F._base) { const [lo, hi] = percentile(F.data, [3, 99.8]); F._base = { lo, hi }; }
+  if (S.math === "sum") {
+    if (!F._sumLim) { const [lo, hi] = percentile([displayed(F, 0).arr], [3, 99.8]); F._sumLim = { lo, hi }; }
+    return F._sumLim;
   }
-  lim.key = key;
-  F._lim = lim;
-  return lim;
+  if (S.math === "first" || S.math === "prev") {
+    if (!F._dl || F._dl.key !== S.math) {
+      const diffs = [];
+      for (let i = 1; i < F.data.length; i++) diffs.push(displayed(F, i).arr);
+      F._dl = { key: S.math, L: percentile(diffs.length ? diffs : [F.data[0]], [99.5], true)[0], ...F._base };
+    }
+    return F._dl;
+  }
+  return F._base;
 }
 
 /* ---------------------------------------------------------- drawing */
@@ -258,14 +258,17 @@ function renderMain() {
   const F = S.F;
   if (!F || !F.data.length) return;
   const i = Math.min(S.idx, F.data.length - 1);
-  const { arr, diverge } = displayed(F, i);
+  const { arr, diverge, ref } = displayed(F, i);
   const lim = limits(F);
   const scaler = diverge ? makeDivScaler(lim.L) : makeScaler(lim.lo, lim.hi);
   const lut = diverge ? LUTS.diverge : LUTS[S.cmap];
   const canvas = $("#main");
   paint(canvas, arr, F.n, scaler, lut, $("#ovFlags").checked ? F.flags[i] : null);
   drawOverlays(canvas, F.n, F.list[i]);
-  $("#stamp").textContent = S.math === "sum" ? `All ${F.data.length} frames added` : frameLabel(F.list[i]);
+  $("#stamp").textContent = S.math === "sum" ? `All ${F.data.length} frames added together`
+    : (ref ? "REFERENCE (subtracted from the other frames)
+" : diverge ? `MINUS ${S.math === "first" ? "frame 1" : "previous frame"}: orange = brighter now, blue = was brighter
+` : "") + frameLabel(F.list[i]);
   $("#frameLbl").textContent = `${i + 1}/${F.data.length}`;
   $("#scrub").value = i;
   renderMeta(F.list[i]);
@@ -306,7 +309,7 @@ function renderWall() {
   $("#frameLbl").textContent = `${visits.indexOf(v) + 1}/${visits.length}`;
   $("#scrub").max = visits.length - 1;
   $("#scrub").value = visits.indexOf(v);
-  renderMeta({ ...f0, det: "all 6 (one panel each)", n_exp: F.list.filter((f) => f.visit === v).reduce((a, f) => a + f.n_exp, 0) });
+  renderMeta({ ...f0, wave: null, det: "all 6 (one panel each)", n_exp: F.list.filter((f) => f.visit === v).reduce((a, f) => a + f.n_exp, 0) });
 }
 
 function renderColor() {
@@ -353,7 +356,7 @@ function renderColor() {
   $("#frameLbl").textContent = `${visits.indexOf(v) + 1}/${visits.length}`;
   $("#scrub").max = visits.length - 1;
   $("#scrub").value = visits.indexOf(v);
-  renderMeta({ ...f0, det: "colour composite" });
+  renderMeta({ ...f0, wave: null, det: "colour composite (all 6)", n_exp: F.list.filter((f) => f.visit === v).reduce((a, f) => a + f.n_exp, 0) });
 }
 
 function renderPlanes() {
