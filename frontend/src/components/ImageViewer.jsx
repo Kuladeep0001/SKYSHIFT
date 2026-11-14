@@ -1,7 +1,8 @@
 /* The main picture: one SPHEREx frame with optional overlays. Owner: UI 2. */
 import { useEffect, useMemo, useRef } from "react";
 import { diffFrame, meanFrames, mjdToYear, monthYear, percentile, PIX } from "../lib/frames.js";
-import { arrow, bandTint, LUTS, makeDivScaler, makeScaler, paint, paintRGBLight, pixToCanvas, skyToCanvas } from "../lib/render.js";
+import { arrow, bandTint, LUTS, makeDivScaler, makeScaler, paint, paintRGBLight, pixToCanvas, skyToCanvas, zoomView } from "../lib/render.js";
+import { trackStar } from "./Listen.jsx";
 
 const W = 720; // internal canvas resolution
 
@@ -29,7 +30,7 @@ export function useLimits(F, math) {
 }
 
 export default function ImageViewer({ F, idx, disp, ov, target, cats, asteroids, onNeedAsteroids, sel, candidates,
-  focus, onPixel, simple, fov, rgb }) {
+  focus, onPixel, simple, fov, rgb, zoom = 1 }) {
   const ref = useRef(null);
   const lim = useLimits(F, disp.math);
   // RGB colour grading: one brightness range per colour channel, shared by all visits (so colours compare fairly)
@@ -41,6 +42,11 @@ export default function ImageViewer({ F, idx, disp, ov, target, cats, asteroids,
   }, [rgb, F]);
   const i = F ? Math.min(idx, F.data.length - 1) : 0;
   const frame = F && F.list[i];
+  // what we zoom on and follow: the object you clicked, or the target in the middle
+  const n0 = F ? F.n : 0, cx0 = sel ? sel.x : (n0 - 1) / 2, cy0 = sel ? sel.y : (n0 - 1) / 2;
+  const view = F ? zoomView(F.n, zoom, cx0, cy0) : null;
+  // the object's measured position in every frame (for the path)
+  const path = useMemo(() => (F && F.data.length > 1 && F.mode !== "exposure" ? trackStar(F, cx0, cy0) : null), [F, cx0, cy0]);
 
   useEffect(() => {
     const canvas = ref.current;
@@ -48,22 +54,52 @@ export default function ImageViewer({ F, idx, disp, ov, target, cats, asteroids,
     const { arr, diverge } = displayed(F, i, disp.math);
     const set = rgb && rgbLims && disp.math === "none" && frame ? rgb[frame.visit] : null;
     if (set) {
-      paintRGBLight(canvas, set[0], set[1], set[2], F.n, rgbLims, disp.contrast, disp.bright, ov.flags ? F.flags[i] : null);
+      paintRGBLight(canvas, set[0], set[1], set[2], F.n, rgbLims, disp.contrast, disp.bright, ov.flags ? F.flags[i] : null, view);
     } else {
       const scaler = diverge ? makeDivScaler(lim.L, disp.contrast, disp.bright) : makeScaler(lim.lo, lim.hi, disp.contrast, disp.bright);
       // RGB grading with a single band (one detector, or single snapshots): tint it in that band's own colour
       const lut = diverge ? LUTS.diverge : disp.cmap === "rgb" ? (frame && frame.det ? bandTint(frame.det) : LUTS.gray) : LUTS[disp.cmap];
-      paint(canvas, arr, F.n, scaler, lut, ov.flags ? F.flags[i] : null);
+      paint(canvas, arr, F.n, scaler, lut, ov.flags ? F.flags[i] : null, view);
     }
     drawOverlays(canvas.getContext("2d"), F.n, frame);
   });
 
   function drawOverlays(ctx, n, f) {
-    const s = W / n, year = f && f.mjd ? mjdToYear(f.mjd) : 2026;
+    const z = view ? n / view.sw : 1;
+    const s = (W / n) * z, year = f && f.mjd ? mjdToYear(f.mjd) : 2026;
+    // full-picture canvas position -> zoomed canvas position
+    const Z = ([x, y]) => (view ? [(x - view.sx * (W / n)) * z, (y - view.sy * (W / n)) * z] : [x, y]);
     ctx.lineWidth = 1.6;
     ctx.font = "600 14px Inter, sans-serif";
+    // the object's path through the visits: ring = first visit, dots = later visits, bright = this picture
+    if (ov.path !== false && path && disp.math !== "sum") {
+      const pts = path.map((p) => Z(pixToCanvas(p.x, p.y, n, W)));
+      ctx.save();
+      ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+      ctx.beginPath(); pts.slice(0, i + 1).forEach(([x, y], k) => (k ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke();
+      ctx.setLineDash([]);
+      pts.forEach(([x, y], k) => {
+        if (k > i) return;
+        ctx.fillStyle = k === i ? "#ffffff" : "rgba(255,207,77,.9)";
+        ctx.beginPath(); ctx.arc(x, y, k === i ? 5 : 3.5, 0, 2 * Math.PI); ctx.fill();
+      });
+      const [x0, y0] = pts[0];
+      ctx.strokeStyle = "#ffcf4d"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(x0, y0, 9, 0, 2 * Math.PI); ctx.stroke();
+      ctx.font = "600 13px Inter, sans-serif"; ctx.fillStyle = "#ffcf4d";
+      const first = F.list[0], d0 = first.date_range ? monthYear(first.date_range[0]) : first.date.slice(0, 7);
+      ctx.fillText(`start: ${d0}`, x0 + 13, y0 + 18);
+      if (i > 0) {
+        const moved = Math.hypot(path[i].x - path[0].x, path[i].y - path[0].y) * PIX;
+        const [xi, yi] = pts[i];
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(`now: moved ${moved.toFixed(1)}″`, xi + 26, yi - 14);
+      }
+      ctx.restore();
+      ctx.font = "600 14px Inter, sans-serif"; ctx.lineWidth = 1.6;
+    }
     // the target
-    if (ov.cross) {
+    if (ov.cross && z === 1) {
       ctx.strokeStyle = "rgba(83,216,196,.8)";
       const c = W / 2, g = 3.5 * s + 6;
       ctx.beginPath();
@@ -92,9 +128,9 @@ export default function ImageViewer({ F, idx, disp, ov, target, cats, asteroids,
         if (!fast && (st.mag ?? 99) > magLimit) continue;
         const dec = st.dec + (st.pmdec * dt) / 3.6e6;
         const ra = st.ra + (st.pmra * dt) / 3.6e6 / Math.cos((st.dec * Math.PI) / 180);
-        const [x, y] = skyToCanvas(ra, dec, target.ra, target.dec, n, W);
+        const [x, y] = Z(skyToCanvas(ra, dec, target.ra, target.dec, n, W));
         if (x < -10 || y < -10 || x > W + 10 || y > W + 10) continue;
-        const rad = Math.max(5, Math.min(15, (18 - (st.mag ?? 15)) * 1.2)) * Math.max(1, s / 10);
+        const rad = Math.max(5, Math.min(15, (18 - (st.mag ?? 15)) * 1.2)) * Math.max(1, (W / n) / 10) * Math.min(z, 2.5);
         ctx.globalAlpha = fast ? 1 : 0.55;
         ctx.strokeStyle = fast ? "#5ab0ff" : color;
         ctx.lineWidth = fast ? 2.2 : 1.3;
@@ -110,7 +146,7 @@ export default function ImageViewer({ F, idx, disp, ov, target, cats, asteroids,
       if (a && a.objects) {
         ctx.strokeStyle = ctx.fillStyle = "#ff6b8b";
         for (const o of a.objects) {
-          const [x, y] = skyToCanvas(o.ra, o.dec, target.ra, target.dec, n, W);
+          const [x, y] = Z(skyToCanvas(o.ra, o.dec, target.ra, target.dec, n, W));
           if (x < 0 || y < 0 || x > W || y > W) continue;
           ctx.beginPath(); ctx.rect(x - 10, y - 10, 20, 20); ctx.stroke();
           ctx.fillText(`${o.name}`, x + 14, y + 5);
@@ -121,30 +157,31 @@ export default function ImageViewer({ F, idx, disp, ov, target, cats, asteroids,
     for (const c of candidates || []) {
       if (c.x == null) continue;
       const on = focus === c.candidate_id;
-      const [x, y] = pixToCanvas(c.x, c.y, n, W);
+      const [x, y] = Z(pixToCanvas(c.x, c.y, n, W));
       ctx.strokeStyle = ctx.fillStyle = on ? "#ffffff" : "#ff6bd6";
       ctx.lineWidth = on ? 3 : 2;
       ctx.setLineDash(on ? [] : [5, 4]);
       ctx.beginPath(); ctx.arc(x, y, 14 + (on ? 4 : 0), 0, 2 * Math.PI); ctx.stroke();
       ctx.setLineDash([]);
       if (c.kind === "mover" && c.x_from != null) {
-        const [x0, y0] = pixToCanvas(c.x_from, c.y_from, n, W);
-        const k = 6; // exaggerate the (tiny) shift so the direction is visible
+        const [x0, y0] = Z(pixToCanvas(c.x_from, c.y_from, n, W));
+        const k = Math.max(1.5, 6 / z); // exaggerate the (tiny) shift so the direction is visible
         arrow(ctx, x, y, x + (x - x0) * k, y + (y - y0) * k, 9);
       }
       ctx.fillText(c.candidate_id, x + 18, y - 14);
     }
     if (sel) {
       ctx.strokeStyle = "#ffa31a"; ctx.lineWidth = 2;
-      const [x, y] = pixToCanvas(sel.x, sel.y, n, W);
-      ctx.strokeRect(x - 1.5 * s, y - 1.5 * s, 3 * s, 3 * s);
+      const [x, y] = Z(pixToCanvas(sel.x, sel.y, n, W));
+      if (z === 1) ctx.strokeRect(x - 1.5 * s, y - 1.5 * s, 3 * s, 3 * s);
     }
   }
 
   function click(e) {
     if (!F) return;
     const r = e.currentTarget.getBoundingClientRect();
-    const cx = ((e.clientX - r.left) / r.width) * F.n, cy = ((e.clientY - r.top) / r.height) * F.n;
+    const fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
+    const cx = view ? view.sx + fx * view.sw : fx * F.n, cy = view ? view.sy + fy * view.sw : fy * F.n;
     onPixel && onPixel(Math.floor(cx), F.n - 1 - Math.floor(cy));
   }
 
@@ -167,7 +204,7 @@ export default function ImageViewer({ F, idx, disp, ov, target, cats, asteroids,
             )}
           </div>
         )}
-        <div className="scaleNote">{fov}′ wide{moonFrac >= 2 ? ` ≈ 1/${moonFrac} of the full Moon` : ""}</div>
+        <div className="scaleNote">{view ? `zoomed ${zoom}× · ${(fov / zoom).toFixed(1)}′ wide` : `${fov}′ wide${moonFrac >= 2 ? ` ≈ 1/${moonFrac} of the full Moon` : ""}`}</div>
         {rgb && disp.math === "none" && (
           <div className="legend rgbLegend">
             <span><i style={{ background: "#ff7b7b" }} /> longest infrared (3.8–5 µm)</span>

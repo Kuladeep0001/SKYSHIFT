@@ -52,7 +52,7 @@ export function bandTint(det) {
 /* Colour-grade a picture from three infrared bands into a light, bright RGB image.
  * r, g, b: Float32Arrays (row 0 = south); lims: [[lo,hi] x3]. Midtones are lifted (gamma) and saturation
  * boosted so colours look light and vivid while empty sky stays dark. */
-export function paintRGBLight(canvas, r, g, b, n, lims, contrast = 0.55, bright = 0.5, flags = null) {
+export function paintRGBLight(canvas, r, g, b, n, lims, contrast = 0.55, bright = 0.5, flags = null, view = null) {
   const beta = Math.pow(10, contrast * 3) - 0.999, norm = Math.asinh(beta) || 1;
   const lift = 0.72 - (bright - 0.5) * 0.5;  // brightness slider -> gamma
   const st = (v, [lo, hi]) => {
@@ -81,7 +81,7 @@ export function paintRGBLight(canvas, r, g, b, n, lims, contrast = 0.55, bright 
   octx.putImageData(img, 0, 0);
   const ctx = canvas.getContext("2d");
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(off, 0, 0, canvas.width, canvas.height);
+  blit(ctx, canvas, n, view);
 }
 
 /* Build one RGB set per visit from per-visit-per-detector frames:
@@ -129,8 +129,30 @@ export function makeDivScaler(L, contrast = 0.55, bright = 0.5) {
 }
 
 const off = document.createElement("canvas");
+
+/* Copy the n x n picture onto the canvas: all of it, or only a square window when zoomed.
+ * view = { sx, sy, sw } in picture pixels (top-left origin, as drawn). Smoothing is on when zoomed,
+ * so a star that moves by a pixel slides instead of jumping between blocks. */
+function blit(ctx, canvas, n, view) {
+  if (!view || view.sw >= n) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(off, 0, 0, canvas.width, canvas.height);
+    return;
+  }
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(off, view.sx, view.sy, view.sw, view.sw, 0, 0, canvas.width, canvas.height);
+}
+
+/* The zoom window around grid pixel (x, y) (y up), kept inside the picture. */
+export function zoomView(n, zoom, x, y) {
+  if (!zoom || zoom <= 1) return null;
+  const sw = n / zoom;
+  const clamp = (v) => Math.max(0, Math.min(n - sw, v));
+  return { sx: clamp(x + 0.5 - sw / 2), sy: clamp(n - 1 - y + 0.5 - sw / 2), sw };
+}
 /* Paint a frame (FITS order: row 0 = south) onto a canvas with north up. */
-export function paint(canvas, arr, n, scaler, lut, flags) {
+export function paint(canvas, arr, n, scaler, lut, flags, view = null) {
   off.width = off.height = n;
   const octx = off.getContext("2d");
   const img = octx.createImageData(n, n);
@@ -148,7 +170,7 @@ export function paint(canvas, arr, n, scaler, lut, flags) {
   octx.putImageData(img, 0, 0);
   const ctx = canvas.getContext("2d");
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(off, 0, 0, canvas.width, canvas.height);
+  blit(ctx, canvas, n, view);
 }
 
 export function paintRGB(canvas, chans, n) {

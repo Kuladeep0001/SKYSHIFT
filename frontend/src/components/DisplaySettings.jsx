@@ -57,6 +57,7 @@ export default function DisplaySettings({ view = "blink", disp, setDisp, ov, set
           <label className="tog"><input type="checkbox" checked={ov.ast} onChange={() => tog("ast")} /> <i className="dot ast" />Known asteroids</label>
           <label className="tog"><input type="checkbox" checked={ov.flags} onChange={() => tog("flags")} /> <i className="dot flag" />{simple ? "Bad pixels" : "Contamination flags"}</label>
           <label className="tog"><input type="checkbox" checked={ov.cross} onChange={() => tog("cross")} /> Target marker</label>
+          <label className="tog" title="Where the object was at each visit: ring = first visit, dots = later visits"><input type="checkbox" checked={ov.path !== false} onChange={() => tog("path")} /> {simple ? "Its path" : "Path (all visits)"}</label>
         </>}
         <span className="spacer" />
         <ShareMenu {...share} />

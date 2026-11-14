@@ -57,9 +57,11 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
   const [wallF, setWallF] = useState(null);
   const [idx, setIdx] = useState(0);
   const [playing, setPlaying] = useState(true);
+  const [zoom, setZoom] = useState(+params.get("zoom") || 1);        // flipbook zoom on the object
+  const [blinkPair, setBlinkPair] = useState(false);                  // blink only the first and last visit
   const [fps, setFps] = useState(1.5);
   const [disp, setDisp] = useState({ contrast: 0.55, bright: 0.5, cmap: "rgb", math: params.get("math") || "none" });
-  const [ov, setOv] = useState({ gaia: true, wise: false, ast: false, flags: false, cross: true });
+  const [ov, setOv] = useState({ gaia: true, wise: false, ast: false, flags: false, cross: true, path: true });
   const [cats, setCats] = useState({});
   const [asteroids, setAsteroids] = useState({});
   const [sel, setSel] = useState(null);
@@ -133,6 +135,7 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
       setTarget(t);
       const s = findTarget(t.query || t.name);
       if (s && !expert) setDet(s.band);
+      setZoom(Math.hypot(r.pmra || 0, r.pmdec || 0) > 300 ? 3 : 1);
       startLoad(t, fov, release);
     } catch (e) {
       setLoad({ phase: "error", message: e.message });
@@ -142,6 +145,7 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
   const goCoords = (ra, dec, f = fov) => {
     const t = { ra, dec, name: null, query: null };
     setTarget(t);
+    setZoom(1);
     if (f !== fov) { firstRun.current = true; setFov(f); }
     startLoad(t, f, release);
   };
@@ -206,9 +210,9 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
   // play loop
   useEffect(() => {
     if (!playing || !count || ["planes", "compare", "timecolours", "listen"].includes(view) || disp.math === "sum") return;
-    const h = setInterval(() => setIdx((i) => (i + 1) % count), 1000 / fps);
+    const h = setInterval(() => setIdx((i) => (blinkPair ? (i === 0 ? count - 1 : 0) : (i + 1) % count)), 1000 / fps);
     return () => clearInterval(h);
-  }, [playing, fps, count, view, disp.math]);
+  }, [playing, fps, count, view, disp.math, blinkPair]);
 
   // keyboard: space / arrows
   useEffect(() => {
@@ -235,10 +239,11 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
     if (det) p.set("det", det);
     if (mode === "channel") p.set("ch", ch);
     if (disp.math !== "none") p.set("math", disp.math);
+    if (zoom > 1) p.set("zoom", zoom);
     if (expert) p.set("expert", "1");
     if (embed) p.set("embed", "1");
     history.replaceState(null, "", `${location.pathname}?${p}${location.hash}`);
-  }, [target, fov, release, view, mode, det, ch, disp.math, expert, embed]);
+  }, [target, fov, release, view, mode, det, ch, disp.math, expert, embed, zoom]);
 
   /* --------------------------------------------------------- guided tour */
   const tour = tourStep != null ? TOUR[tourStep] : null;
@@ -461,6 +466,19 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
                     )).filter((_, d) => expert || [0, 1, 7].includes(d))}
                   </div>
                 )}
+                {view === "blink" && (
+                  <div className="seg" role="group" aria-label="Zoom on the object">
+                    {[[1, "Whole picture"], [2, "2×"], [3, "3×"], [4, "4×"]].map(([z, l]) => (
+                      <button key={z} className={zoom === z ? "on" : ""} onClick={() => setZoom(z)}
+                        title={z === 1 ? "Show the whole area" : `Zoom ${z}× on the object (click a star to zoom on it instead)`}>{l}</button>
+                    ))}
+                  </div>
+                )}
+                {view === "blink" && F && F.data.length > 2 && (
+                  <label className="tog" title="Flick between the first and the last visit only: the biggest change, like the blink comparator that found Pluto">
+                    <input type="checkbox" checked={blinkPair} onChange={() => { setBlinkPair(!blinkPair); setIdx(0); }} /> Blink first ↔ last
+                  </label>
+                )}
                 {mode === "channel" && (
                   <label className="plane">Colour plane <b>{ch}</b>
                     <input type="range" min="1" max="102" value={ch} onChange={(e) => setCh(+e.target.value)} />
@@ -475,7 +493,7 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
 
             {view === "blink" && <ImageViewer F={F} idx={idx} disp={disp} ov={ov} target={target} cats={cats}
               asteroids={asteroids} onNeedAsteroids={needAsteroids} sel={sel} candidates={candidates} focus={focus}
-              onPixel={onPixel} simple={simple} fov={fov} rgb={useRGB ? rgbSets : null} />}
+              onPixel={onPixel} simple={simple} fov={fov} rgb={useRGB ? rgbSets : null} zoom={zoom} />}
             {view === "compare" && <BeforeAfter F={F} disp={disp} rgb={useRGB ? rgbSets : null} />}
             {view === "timecolours" && <TimeColours F={F} disp={disp} onPixel={onPixel} focusXY={sel} />}
             {view === "wall" && <DetectorWall F={wallF} idx={idx} disp={disp} detectors={meta.detectors} onPixel={onPixel} />}
