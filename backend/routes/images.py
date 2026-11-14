@@ -10,6 +10,7 @@ from ..models.schemas import (CompareRequest, CompareResponse, ImageInfo, ImageQ
                               Progress)
 from ..services import image_processing as im
 from ..services import jobs
+from ..services import spectral_features as sf
 
 router = APIRouter(prefix="/api/images", tags=["images"])
 
@@ -100,11 +101,28 @@ def frame_png(query_id: str, k: int, mode: str = "visit", det: int = Query(0, ge
 
 @router.get("/{query_id}/spectrum")
 def spectrum(query_id: str, x: int, y: int, r: int = Query(1, ge=0, le=4)):
-    """Brightness of one spot in every exposure: a spectrum (by wavelength) and light curve (by date)."""
+    """Brightness of one spot in every exposure, plus:
+
+    - `binned`: one value per channel (1-102) = a continuous spectrum
+    - `binned_by_visit`: the same, separately for each big visit (to see changes)
+    - `features`: depth of known bands (water, CO2, CO, methane, hydrogen lines, minerals)
+    - `ra`, `dec`: sky position of the pixel
+    """
+    job = ready_or_409(query_id)
     try:
-        return jobs.spectrum(ready_or_409(query_id), x, y, r)
+        res = jobs.spectrum(job, x, y, r)
     except ValueError as e:
         raise HTTPException(400, {"status": "error", "error": "bad_request", "message": str(e)})
+    pts = res["points"]
+    res["binned"] = sf.bin_spectrum(pts)
+    res["binned_by_visit"] = {str(v): sf.bin_spectrum([p for p in pts if p["visit"] == v]) for v in jobs.main_visits(job)}
+    usable = [b for b in res["binned"] if not b["saturated"]]
+    res["features"] = sf.measure_features(usable)
+    res["saturated_fraction"] = round(sum(b["saturated"] for b in res["binned"]) / max(1, len(res["binned"])), 2)
+    wcs = im.make_grid(job.ra, job.dec, job.fov)[0]
+    ra, dec = wcs.pixel_to_world_values(x, y)
+    res["ra"], res["dec"] = round(float(ra), 6), round(float(dec), 6)
+    return res
 
 
 def _visit_pair(job: jobs.Job, a: int | None, b: int | None) -> tuple[int, int]:

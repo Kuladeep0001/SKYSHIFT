@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from ..models.schemas import Candidate, VerificationRequest, VerificationResult
 from ..services import gaia as cat
-from ..services import solar_system
+from ..services import object_info, solar_system
 
 router = APIRouter(tags=["verification"])
 
@@ -124,3 +124,11 @@ def catalog(name: str, ra: float, dec: float, radius: float = Query(0.1, gt=0, l
         raise HTTPException(502, {"status": "error", "error": "upstream", "message": f"{name} lookup failed: {e}"})
     raise HTTPException(404, {"status": "error", "error": "unknown_catalog",
                               "message": "catalog must be gaia, allwise or skybot"})
+
+
+@router.get("/api/object")
+def object_details(ra: float = Query(..., ge=0, lt=360), dec: float = Query(..., ge=-90, le=90), mjd: float = 0,
+                   name: str | None = None):
+    """Details card for whatever is at (ra, dec): SIMBAD type/distance/papers, Gaia, WISE, Wikipedia, links."""
+    year = cat.mjd_to_year(mjd) if mjd else 2026.0
+    return object_info.details(round(ra, 6), round(dec, 6), year, name)

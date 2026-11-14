@@ -15,6 +15,7 @@ function readExpert() {
 export default function App() {
   const [expert, setExpert] = useState(readExpert);
   const [page, setPage] = useState(location.hash === "#about" ? "about" : "explore");
+  const [listen, setListen] = useState(params.get("listen") === "1");
 
   useEffect(() => {
     try { localStorage.setItem("skyshift-expert", expert ? "1" : "0"); } catch (_) { /* private mode */ }
@@ -25,7 +26,7 @@ export default function App() {
     return () => window.removeEventListener("hashchange", h);
   }, []);
 
-  if (embed) return <div className="app embed"><Explorer expert={expert} embed /></div>;
+  if (embed) return <div className="app embed"><Explorer expert={expert} embed listenMode={listen} /></div>;
   return (
     <div className="app">
       <header className="top">
@@ -38,13 +39,15 @@ export default function App() {
           <a href="#" className={page === "explore" ? "on" : ""} onClick={(e) => { e.preventDefault(); location.hash = ""; }}>Explore</a>
           <a href="#about" className={page === "about" ? "on" : ""}>How it works</a>
         </nav>
+        <button className={`listenToggle ${listen ? "on" : ""}`} onClick={() => setListen(!listen)} aria-pressed={listen}
+          title="Listen mode: the data is described and played as sound (for blind and low-vision users)">🔊 Listen mode</button>
         <div className="modeSwitch" role="group" aria-label="Simple or expert mode">
           <button className={!expert ? "on" : ""} onClick={() => setExpert(false)} title="Plain-English view for everyone">Simple</button>
           <button className={expert ? "on" : ""} onClick={() => setExpert(true)} title="All the science tools">Expert</button>
         </div>
       </header>
       {api.mock && <div className="mockBanner">Mock mode: showing saved sample data (no backend needed)</div>}
-      <main style={{ display: page === "about" ? "none" : "block" }}><Explorer expert={expert} /></main>
+      <main style={{ display: page === "about" ? "none" : "block" }}><Explorer expert={expert} listenMode={listen} /></main>
       {page === "about" && <main><About /></main>}
       <footer className="foot">
         Real data from NASA's SPHEREx (via IRSA), ESA Gaia and NASA WISE. Built for the NASA Space Apps Challenge 2026 ·{" "}

@@ -55,3 +55,7 @@ export async function loadImages({ ra, dec, fov, release }, onProgress, isCancel
   if (st.status === "error") throw new Error(st.message || "Loading failed");
   return st;
 }
+
+export const objectDetails = (ra, dec, mjd, name) =>
+  api.mock ? request("/mock/object.json")
+    : request(`/api/object?ra=${ra}&dec=${dec}${mjd ? `&mjd=${mjd.toFixed(2)}` : ""}${name ? `&name=${encodeURIComponent(name)}` : ""}`);

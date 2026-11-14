@@ -111,6 +111,19 @@ Brightness of a (2r+1)² box (local sky removed) in **every** exposure → spect
                 "visit": 0, "det": 6, "channel": 100, "flags": ["SOURCE"], "saturated": false } ] }
 ```
 
+Also returned (for the continuous spectrum and molecule finder):
+```json
+{ "ra": 331.09664, "dec": -56.80066, "saturated_fraction": 0.32,
+  "binned": [ { "channel": 1, "wave": 0.7581, "flux": 812.4, "err": 35.1, "n": 4, "saturated": false } ],
+  "binned_by_visit": { "0": [ ...same per channel, visit 0 only... ] },
+  "features": [ { "name": "H₂O vapour 1.9 µm", "species": "H2O", "category": "water", "center_um": 1.88,
+                  "half_width_um": 0.08, "kind": "absorption", "change_pct": -61.6, "significance": 7.4,
+                  "status": "likely", "plain_english": "Dip of 62% at 1.88 µm (7.4σ). Water vapour absorbing light.",
+                  "seen_in": "cool stars, brown dwarfs", "n_channels": 3 } ] }
+```
+`status`: `likely` (≥5σ, right sign) · `possible` (≥3σ) · `not seen`. Bands covered: water vapour/ice, hydrated
+minerals, olivine/pyroxene (rock), CO₂ ice, CO, CH₄, PAH, hydrogen lines (Paβ, Brγ, Brα), H₂.
+
 ### `POST /api/images/compare`
 ```json
 { "query_id": "4c0040ed821b835e", "epoch_a": null, "epoch_b": null, "band": 0, "op": "subtract" }
@@ -169,6 +182,18 @@ Optional `radius_arcsec` (default 12).
 (SkyBoT, for `transient`/`appeared`) · `unmatched` (not in any catalogue — worth a human look!) · `pending`
 (archives unreachable). Gaia positions are moved to the candidate's date using proper motion.
 
+### `GET /api/object?ra=&dec=&mjd=&name=`
+Details card for whatever is at a position (fast-moving stars are matched at the given date):
+```json
+{ "summary": "This is Barnard's star, a red dwarf with starspots (BY Draconis variable) (type M4V), about 6.0 light-years away. It appears in 924 scientific papers. It moves 10.39″ per year across the sky (Gaia).",
+  "simbad": { "main_id": "NAME Barnard's star", "type": "...", "spectral_type": "M4V", "distance_ly": 5.96, "n_references": 924, "url": "..." },
+  "gaia": { "id": "4472832130942575872", "mag": 8.19, "pm_total": 10393.3, "distance_ly": 5.96, "sep_arcsec": 2.6 },
+  "wise": { "id": "J175749.21+044635.6", "mag": 4.03, "w2": 3.76, "w1_w2": 0.27 },
+  "wikipedia": { "title": "Barnard's Star", "extract": "...", "thumbnail": "https://...", "url": "https://en.wikipedia.org/wiki/Barnard%27s_Star" },
+  "links": [ { "label": "SIMBAD", "url": "..." }, { "label": "ESASky", "url": "..." } ],
+  "sources": ["SIMBAD", "Gaia DR3", "AllWISE"], "errors": [] }
+```
+
 ### `GET /api/catalog/{gaia|allwise|skybot}?ra=&dec=&radius=&mjd=`
 Overlay data. `radius` in degrees (≤ 0.5). `skybot` needs `mjd`.
 ```json
@@ -220,6 +245,6 @@ Stars with known motion are moved to where they are in 2026.
 
 ## Website URL parameters (for sharing and embedding)
 
-`/?q=Barnard's Star` · `/?ra=133.76&dec=-7.24&fov=8` · plus `view=blink|compare|wall|color|planes`,
+`/?q=Barnard's Star` · `/?ra=133.76&dec=-7.24&fov=8` · plus `view=blink|timecolours|compare|wall|color|planes`,
 `mode=visit|exposure|channel`, `det=0-6`, `ch=1-102`, `math=none|first|prev|sum`, `expert=1`, `embed=1`
-(bare player for an `<iframe>`), `mock=1` (sample data, no backend).
+(bare player for an `<iframe>`), `listen=1` (Listen mode on), `mock=1` (sample data, no backend).
