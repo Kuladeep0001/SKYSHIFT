@@ -4,6 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { fmtDec, fmtRA } from "../lib/frames.js";
 import { TARGETS } from "../lib/targets.js";
 
+export function hasWebGL2() {
+  try { return !!document.createElement("canvas").getContext("webgl2"); } catch (_) { return false; }
+}
+
 const ALADIN_URL = "https://cdn.jsdelivr.net/npm/aladin-lite@3.8.2/dist/aladin.js";
 // J2026 positions of the challenge targets (for the markers)
 const MARKS = { barnard: [269.4463, 4.7682], epsindi: [331.0966, -56.8007], wise0855: [133.7598, -7.2422], rwaur: [76.9566, 30.4013], rdra: [248.1672, 66.7550] };
@@ -20,6 +24,7 @@ export default function SkyHome({ onPick, fovDefault }) {
   useEffect(() => {
     let alive = true;
     (async () => {
+      if (!hasWebGL2()) { setFailed(true); return; }  // the sky atlas needs WebGL2
       try {
         A.current = (await import(/* @vite-ignore */ ALADIN_URL)).default;
         await A.current.init;

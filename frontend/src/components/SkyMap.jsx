@@ -1,6 +1,10 @@
 /* Zoomable sky atlas around the target (Aladin Lite from CDS Strasbourg). */
 import { useEffect, useRef, useState } from "react";
 
+export function hasWebGL2() {
+  try { return !!document.createElement("canvas").getContext("webgl2"); } catch (_) { return false; }
+}
+
 const ALADIN_URL = "https://cdn.jsdelivr.net/npm/aladin-lite@3.8.2/dist/aladin.js";
 let aladinModule = null;
 
@@ -12,6 +16,7 @@ export default function SkyMap({ target, fov, onLoadHere }) {
   useEffect(() => {
     let alive = true;
     (async () => {
+      if (!hasWebGL2()) { setFailed(true); return; }  // the sky atlas needs WebGL2
       try {
         aladinModule = aladinModule || (await import(/* @vite-ignore */ ALADIN_URL)).default;
         await aladinModule.init;

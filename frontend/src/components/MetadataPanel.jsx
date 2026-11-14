@@ -27,7 +27,7 @@ export default function MetadataPanel({ target, meta, frame, flags, fov, release
   if (frame) {
     rows.push(["This picture", frame.date_range ? `${monthYear(frame.date_range[0])} (${frame.date_range[0]} → ${frame.date_range[1]})` : `${frame.date} UT`]);
     if (!simple) {
-      rows.push(["Detector", frame.det ? `D${frame.det} (${meta.detectors[frame.det].map((x) => x.toFixed(2)).join("–")} µm)` : "all 6 combined"]);
+      rows.push(["Detector", frame.det === 7 ? "D5 + D6 (3.8–5 µm)" : frame.det ? `D${frame.det} (${meta.detectors[frame.det].map((x) => x.toFixed(2)).join("–")} µm)` : "all 6 combined"]);
       if (frame.wave) rows.push(["Wavelength", `${fmtWave(frame.wave)}${frame.channel ? ` · plane ${frame.channel} of 102` : ""}`]);
       if (frame.n_exp) rows.push(["Stacked", `${frame.n_exp} snapshots`]);
       if (frame.obs_id) rows.push(["Exposure ID", frame.obs_id]);

@@ -23,6 +23,11 @@ from . import image_processing as im
 MAX_CANDIDATES = 30
 
 
+def det_matches(d: int, det: int) -> bool:
+    """det 0 = all detectors, 1-6 = one detector, 7 = the two reddest (D5+D6, best for cold brown dwarfs)."""
+    return det == 0 or d == det or (det == 7 and d >= 5)
+
+
 def robust_sigma(a: np.ndarray) -> float:
     v = a[np.isfinite(a)]
     if v.size < 10:
@@ -95,7 +100,7 @@ def run(arrays: dict, meta: list[dict], grid_wcs, visits: list[int], det: int = 
     det:      0 = all detectors stacked (deepest), 1..6 = one detector
     threshold: how many noise-sigmas a residual must stand out by
     """
-    members = {v: [m["i"] for m in meta if m["visit"] == v and (not det or m["det"] == det)] for v in visits}
+    members = {v: [m["i"] for m in meta if m["visit"] == v and det_matches(m["det"], det)] for v in visits}
     most = max((len(x) for x in members.values()), default=0)
     visits = [v for v in visits if len(members[v]) >= max(3, 0.25 * most)]  # skip thin visits (too noisy)
     if len(visits) < 2:

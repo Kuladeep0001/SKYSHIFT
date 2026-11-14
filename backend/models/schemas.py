@@ -67,7 +67,7 @@ class CompareResponse(BaseModel):
 # --------------------------------------------------------------- analysis ---
 class DetectionRequest(BaseModel):
     query_id: str
-    band: int = Field(0, ge=0, le=6, description="0 = all detectors stacked; 5/6 are best for cold brown dwarfs")
+    band: int = Field(0, ge=0, le=7, description="0 = all detectors, 1-6 = one detector, 7 = D5+D6 (best for cold brown dwarfs)")
     threshold: float = Field(5.0, ge=3, le=50, description="How many noise-sigmas a change must stand out by")
     include_transients: bool = Field(False, description="Also look for one-off spots (possible asteroids). Noisy.")
 
@@ -115,5 +115,5 @@ class VerificationRequest(BaseModel):
 class VerificationResult(BaseModel):
     candidate_id: str
     matches: list[dict]
-    verification_status: Literal["known_mover", "known_star", "known_asteroid", "unmatched", "pending"]
+    verification_status: Literal["known_mover", "known_star", "known_asteroid", "likely_artefact", "unmatched", "pending"]
     plain_english: str = ""

@@ -191,7 +191,7 @@ export default function SpectralCube({ qid, visits, disp, version }) {
   const c = cube.channels[k];
   const stack = [...new Set([...Array.from({ length: 12 }, (_, i) => Math.round((i * 101) / 11)), k])].sort((a, b) => a - b);
   const bw = box ? Math.abs(box.x1 - box.x0) + 1 : 0, bh = box ? Math.abs(box.y1 - box.y0) + 1 : 0;
-  const seen = features.filter((f) => f.status !== "not seen");
+  const seen = features.filter((f) => f.status === "likely" || f.status === "possible");
 
   return (
     <div className="cubeView">

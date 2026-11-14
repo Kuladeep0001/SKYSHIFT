@@ -242,8 +242,8 @@ def group_frames(arrays: dict, meta: list, mode: str, det: int = 0, channel: int
     """
     flux, var, flags = arrays["flux"], arrays["var"], arrays["flags"]
     idx = list(range(len(meta)))
-    if det:
-        idx = [i for i in idx if meta[i]["det"] == det]
+    if det:  # 1-6 one detector; 7 = D5+D6 together (the reddest light, where cold brown dwarfs glow)
+        idx = [i for i in idx if meta[i]["det"] == det or (det == 7 and meta[i]["det"] >= 5)]
     if channel and mode in ("exposure", "channel"):
         idx = [i for i in idx if meta[i]["channel"] == channel]
     if visit >= 0:

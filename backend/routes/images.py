@@ -127,7 +127,7 @@ def cube(query_id: str, visit: int = -1):
 
 
 @router.get("/{query_id}/frames")
-def frames(query_id: str, mode: str = "visit", det: int = Query(0, ge=0, le=6),
+def frames(query_id: str, mode: str = "visit", det: int = Query(0, ge=0, le=7),
            channel: int = Query(0, ge=0, le=102), visit: int = -1):
     """Aligned frames as float32 pixels (base64), for the interactive viewer.
 
@@ -141,7 +141,7 @@ def frames(query_id: str, mode: str = "visit", det: int = Query(0, ge=0, le=6),
 
 
 @router.get("/{query_id}/frames/{k}.png")
-def frame_png(query_id: str, k: int, mode: str = "visit", det: int = Query(0, ge=0, le=6),
+def frame_png(query_id: str, k: int, mode: str = "visit", det: int = Query(0, ge=0, le=7),
               channel: int = Query(0, ge=0, le=102), visit: int = -1, contrast: float = Query(0.55, ge=0, le=1),
               v: int = 0):
     """One frame as a ready-to-show PNG (north up, east left)."""

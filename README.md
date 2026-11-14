@@ -44,10 +44,10 @@ Built for the **NASA Space Apps Challenge 2026**.
 | Target | SkyShift measured | Known |
 |---|---|---|
 | Barnard's Star | 10.36″/yr toward 352° | 10.39″/yr toward 356° (Gaia) |
-| Epsilon Indi B | 4.45″/yr toward 128° | 4.68″/yr toward 122° |
+| Epsilon Indi B | 4.52″/yr toward 129° (D5+D6) | 4.68″/yr toward 122° |
 | RW Aurigae | brightness changed ×2.0 between visits | known variable (young star) |
 | R Draconis | brightness changed ×1.8 (4.4–5 µm) | known variable (Mira) |
-| WISE 0855 | visible in detector D6; too faint in the first visit to measure motion | 8.1″/yr |
+| WISE 0855 | 5.87″/yr toward 269° (reddest detectors D5+D6) | 8.15″/yr toward 275° |
 
 ## How SkyShift stays up to date
 

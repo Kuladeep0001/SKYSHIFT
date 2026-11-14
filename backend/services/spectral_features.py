@@ -117,5 +117,31 @@ def measure_features(binned: list[dict], min_sigma: float = 3.0) -> list[dict]:
                     "center_um": c, "half_width_um": hw, "kind": kind, "change_pct": round(change * 100, 1),
                     "significance": round(sig, 1), "status": status, "plain_english": text, "seen_in": where,
                     "n_channels": int(inb.sum())})
-    order = {"likely": 0, "possible": 1, "not seen": 2}
+    # A narrow emission line can't be told apart from the bright gap between two deep absorption bands
+    # (e.g. the 1.28 µm peak of a brown dwarf sits between water dips at 1.15 and 1.4 µm).
+    dips = [f for f in out if f["kind"] == "absorption" and f["status"] != "not seen"]
+    for f in out:
+        if f["kind"] != "emission" or f["status"] == "not seen":
+            continue
+        reach = f["half_width_um"] + max(0.15, 2.5 * f["half_width_um"])
+        near = [d for d in dips if abs(d["center_um"] - f["center_um"]) - d["half_width_um"] < reach]
+        broad_peak = _is_broad_peak(w, f, binned)
+        if near or broad_peak:
+            f["status"] = "ambiguous"
+            f["plain_english"] = (f"Bump at {f['center_um']:.2f} µm, but it sits between absorption dips "
+                                  f"({', '.join(d['name'] for d in near) or 'a broad hump'}), so it is probably just "
+                                  "the bright gap between them, not glowing gas.")
+    order = {"likely": 0, "possible": 1, "ambiguous": 2, "not seen": 3}
     return sorted(out, key=lambda x: (order[x["status"]], -x["significance"]))
+
+
+def _is_broad_peak(w: np.ndarray, f: dict, binned: list[dict]) -> bool:
+    """True when the 'line' is really a wide hump: neighbours just outside the band are also well above
+    the continuum ends (a real unresolved line drops back quickly)."""
+    c, hw = f["center_um"], f["half_width_um"]
+    fl = np.array([b["flux"] for b in binned])
+    inner = (np.abs(w - c) > hw) & (np.abs(w - c) <= hw + 0.08)
+    outer = (np.abs(w - c) > hw + 0.15) & (np.abs(w - c) <= hw + 0.3)
+    if inner.sum() < 2 or outer.sum() < 2:
+        return False
+    return float(np.mean(fl[inner])) > 1.3 * float(np.mean(fl[outer]))

@@ -102,7 +102,7 @@ Aligned pixel data for the interactive viewer.
 | | `channel` | per visit, only exposures in one of the **102 channels** (same wavelength over time) |
 | | `visitdet` | per visit **and** per detector (for the 6-detector wall / colour image) |
 | | `planes` | all 102 channels for **one** visit |
-| `det` | 0–6 | 0 = all detectors |
+| `det` | 0–7 | 0 = all detectors, 1–6 = one detector, 7 = D5+D6 (reddest light: cold brown dwarfs) |
 | `channel` | 1–102 | with `mode=channel` or `exposure` |
 | `visit` | int | with `mode=planes` (or to filter) |
 
@@ -140,7 +140,7 @@ Also returned (for the continuous spectrum and molecule finder):
                   "status": "likely", "plain_english": "Dip of 62% at 1.88 µm (7.4σ). Water vapour absorbing light.",
                   "seen_in": "cool stars, brown dwarfs", "n_channels": 3 } ] }
 ```
-`status`: `likely` (≥5σ, right sign) · `possible` (≥3σ) · `not seen`. Bands covered: water vapour/ice, hydrated
+`status`: `likely` (≥5σ, right sign) · `possible` (≥3σ) · `ambiguous` (an emission bump that is really the gap between two absorption dips) · `not seen`. Bands covered: water vapour/ice, hydrated
 minerals, olivine/pyroxene (rock), CO₂ ice, CO, CH₄, PAH, hydrogen lines (Paβ, Brγ, Brα), H₂.
 
 ### `GET /api/images/{query_id}/cube?visit=-1`
@@ -214,7 +214,7 @@ One candidate (format from the team plan) → one result:
 Many at once: `{ "candidates": [ ...candidates from /api/detections/run... ] }` → a list of results.
 Optional `radius_arcsec` (default 12).
 
-`verification_status`: `known_mover` (Gaia, >100 mas/yr) · `known_star` (Gaia or WISE) · `known_asteroid`
+`verification_status`: `known_mover` (SIMBAD or Gaia, >100 mas/yr) · `known_star` (Gaia or WISE) · `likely_artefact` (glare next to a very bright star, or a saturated star) · `known_asteroid`
 (SkyBoT, for `transient`/`appeared`) · `unmatched` (not in any catalogue — worth a human look!) · `pending`
 (archives unreachable). Gaia positions are moved to the candidate's date using proper motion.
 

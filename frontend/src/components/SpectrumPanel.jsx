@@ -21,7 +21,8 @@ export const bandsPlugin = {
       if (x1 < a.left || x0 > a.right) continue;
       const seen = f.status !== "not seen";
       if (!seen && !opts.showAll) continue;
-      ctx.fillStyle = `rgba(${CAT_COLOR[f.category]},${seen ? (f.status === "likely" ? 0.28 : 0.17) : 0.06})`;
+      const amb = f.status === "ambiguous";
+      ctx.fillStyle = `rgba(${CAT_COLOR[f.category]},${amb ? 0.06 : seen ? (f.status === "likely" ? 0.28 : 0.17) : 0.06})`;
       ctx.fillRect(x0, a.top, x1 - x0, a.bottom - a.top);
       if (seen || opts.showAll) {
         ctx.fillStyle = `rgba(${CAT_COLOR[f.category]},${seen ? 1 : 0.5})`;
@@ -53,7 +54,7 @@ export default function SpectrumPanel({ spec, visits, detectors, loading, simple
   const [raw, setRaw] = useState(false);
   const [allBands, setAllBands] = useState(false);
   const binned = spec?.binned || [];
-  const seen = (spec?.features || []).filter((f) => f.status !== "not seen");
+  const seen = (spec?.features || []).filter((f) => f.status === "likely" || f.status === "possible");
 
   useEffect(() => {
     charts.current.forEach((c) => c.destroy());
@@ -95,12 +96,15 @@ export default function SpectrumPanel({ spec, visits, detectors, loading, simple
       label: `D${d}`, type: "scatter", data: byDet[d].map((p) => ({ x: p.mjd, y: p.flux, tip: `${p.date} · D${d} · ${p.wave.toFixed(2)} µm · ${p.flux.toFixed(1)} ± ${p.err.toFixed(1)} µJy` })),
       backgroundColor: DET_COLORS[d - 1], pointRadius: 2.2, borderWidth: 0,
     }));
+    const ys = spec.points.map((p) => p.flux).sort((x, y) => x - y);
+    const q = (f) => ys[Math.min(ys.length - 1, Math.max(0, Math.floor(f * ys.length)))];
+    const lo = q(0.02), hi = q(0.98), pad = (hi - lo) * 0.15 || 1;
     charts.current.push(new Chart(b.current, {
       type: "scatter", data: { datasets: lds },
       options: { animation: false, maintainAspectRatio: false, parsing: false,
         plugins: { legend: { labels: { color: "#8fa0bd", boxWidth: 10, font: { size: 10.5 } } }, tooltip: { callbacks: { label: (c) => c.raw.tip } } },
         scales: { x: { ...axis("Date", false), ticks: { color: "#8fa0bd", font: { size: 10 }, callback: (v) => new Date((v - 40587) * 864e5).toISOString().slice(0, 7) } },
-          y: axis("Flux density (µJy)", log) } },
+          y: { ...axis("Flux density (µJy)", log), ...(log ? {} : { min: lo - pad, max: hi + pad }) } } },
     }));
     return () => charts.current.forEach((c) => c.destroy());
   }, [spec, visits, detectors, log, byVisit, raw, allBands]);

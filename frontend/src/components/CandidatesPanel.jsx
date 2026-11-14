@@ -5,6 +5,7 @@ import { api } from "../lib/api.js";
 const ICON = { mover: "🏃", variable: "💡", appeared: "✨", vanished: "🌑", transient: "☄️" };
 const BADGE = {
   known_mover: ["✓ Known fast star", "ok"], known_star: ["✓ Known star", "ok"], known_asteroid: ["☄️ Known asteroid", "ok"],
+  likely_artefact: ["⚠ Probably glare", "wait"],
   unmatched: ["? Unknown: worth a look!", "new"], pending: ["… couldn't check", "wait"],
 };
 
@@ -36,7 +37,7 @@ export default function CandidatesPanel({ qid, band, candidates, setCandidates, 
 
   return (
     <section className="card candidates">
-      <h2>Find things that moved {expert && <small>detector {band ? `D${band}` : "all"}</small>}</h2>
+      <h2>Find things that moved {expert && <small>detector {band === 7 ? "D5+D6" : band ? `D${band}` : "all"}</small>}</h2>
       <p className="small muted">SkyShift compares the visits, points out anything that moved or changed brightness, and checks it against other telescopes.</p>
       <button className="primary full" onClick={run} disabled={busy || !qid}>{busy ? "Searching…" : "🔎 Find moving or changing things"}</button>
       {err && <p className="err">{err}</p>}

@@ -66,6 +66,32 @@ def verify_one(c: Candidate, radius_arcsec: float = 12.0) -> VerificationResult:
         except Exception:
             pass
 
+    measured = (c.motion or {}).get("total_arcsec_yr")
+    if c.kind == "mover":
+        # SIMBAD knows fast movers that Gaia can't see (cold brown dwarfs like WISE 0855 are invisible to Gaia).
+        try:
+            sim = object_info.simbad_near(round(c.ra, 5), round(c.dec, 5), round(year, 2), radius_arcsec)
+        except Exception:
+            sim = None
+        if sim and sim["pm_mas_yr"] > FAST_PM_MAS_YR:
+            matches.insert(0, {"catalog": "SIMBAD", "id": sim["main_id"], "type": sim["type"],
+                               "sep_arcsec": sim["separation_arcsec"], "pm_total": sim["pm_mas_yr"], "url": sim["url"]})
+            extra = f" SkyShift measured {measured:.2f}″ per year from SPHEREx alone." if measured else ""
+            return VerificationResult(candidate_id=c.candidate_id, matches=matches, verification_status="known_mover",
+                                      plain_english=f"✓ Confirmed: {sim['name']}, a known {sim['type']} moving "
+                                                    f"{sim['pm_mas_yr'] / 1000:.2f}″ per year (SIMBAD).{extra}")
+        # A Gaia star a few arcseconds away is a different object, not the mover itself.
+        gm = [m for m in gm if m["sep_arcsec"] <= 6]
+        if not gm and measured and measured > 1.0:
+            return VerificationResult(
+                candidate_id=c.candidate_id, matches=matches, verification_status="unmatched",
+                plain_english=f"? A fast mover ({measured:.1f}″ per year) that Gaia and SIMBAD don't list at this "
+                              "spot. Could be a new nearby star or brown dwarf, or an artefact. Worth a human look!")
+    if gm and c.kind in ("variable", "appeared", "vanished") and c.saturated:
+        return VerificationResult(
+            candidate_id=c.candidate_id, matches=matches, verification_status="likely_artefact",
+            plain_english="A known star, but it's so bright it overloads the camera, so this 'change' is most "
+                          "likely a processing effect, not a real brightness change.")
     if gm:
         best = gm[0]
         if best["pm_total"] > FAST_PM_MAS_YR:
@@ -80,6 +106,16 @@ def verify_one(c: Candidate, radius_arcsec: float = 12.0) -> VerificationResult:
             if c.kind != "mover" else "A known star that Gaia says barely moves, so this 'motion' is probably "
                                       "a processing artefact.")
     if wm:
+        try:
+            bright = [s for s in cat.crossmatch(c.ra, c.dec, year, cat.gaia(round(c.ra, 2), round(c.dec, 2), 0.06), 45)
+                      if (s.get("mag") or 99) < 10]
+        except Exception:
+            bright = []
+        if bright or c.saturated:
+            return VerificationResult(
+                candidate_id=c.candidate_id, matches=matches, verification_status="likely_artefact",
+                plain_english="Only WISE lists something here, but it's right next to a very bright star, "
+                              "so this is most likely glare from that star, not a new object.")
         return VerificationResult(
             candidate_id=c.candidate_id, matches=matches, verification_status="known_star",
             plain_english="Seen by WISE but not by Gaia: it's very red or cold. Brown dwarfs look like this!")

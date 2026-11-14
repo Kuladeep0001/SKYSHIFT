@@ -19,8 +19,8 @@ export const TARGETS = [
     tagline: "Two 'failed stars' orbiting each other",
     story:
       "Two brown dwarfs, balls of gas too small to shine like the Sun, circling each other 12 light-years away. They are cool, so they glow mostly in long-wavelength infrared.",
-    watch: "The dot in the middle drifts down and to the left. It shows up best in the reddest colours (detector D6).",
-    band: 6,
+    watch: "The dot in the middle drifts down and to the left. It shows up best in the reddest colours.",
+    band: 7,
   },
   {
     id: "wise0855",
@@ -30,8 +30,8 @@ export const TARGETS = [
     tagline: "The coldest brown dwarf known: freezer-cold",
     story:
       "At about −25 °C, WISE 0855 is colder than a home freezer. It gives off almost no visible light, only long-wavelength infrared heat glow, so you need an infrared telescope like SPHEREx to see it.",
-    watch: "Switch to the reddest colours (D6): a faint dot near the middle that is missing in the bluer colours.",
-    band: 6,
+    watch: "In the reddest colours there is a faint dot in the middle, creeping to the right (west). It's missing in the bluer colours.",
+    band: 7,
   },
   {
     id: "rwaur",

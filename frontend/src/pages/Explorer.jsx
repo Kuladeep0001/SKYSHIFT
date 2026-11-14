@@ -46,10 +46,8 @@ export default function Explorer({ expert, embed, listenMode }) {
   const [mode, setMode] = useState(params.get("mode") || "visit");
   const [det, setDet] = useState(+params.get("det") || 0);
   const [ch, setCh] = useState(+params.get("ch") || 40);
-  const [planeVisit, setPlaneVisit] = useState(0);
   const [F, setF] = useState(null);
   const [wallF, setWallF] = useState(null);
-  const [planesF, setPlanesF] = useState(null);
   const [idx, setIdx] = useState(0);
   const [playing, setPlaying] = useState(true);
   const [fps, setFps] = useState(1.5);
@@ -85,7 +83,7 @@ export default function Explorer({ expert, embed, listenMode }) {
     const my = ++token.current;
     setLoad({ phase: "loading", done: 0, total: 0, message: "Asking NASA which SPHEREx pictures cover this spot…" });
     loadingId.current = null; loadStart.current = Date.now(); setNewData(null); setFresh(null);
-    setQid(null); setMeta(null); setF(null); setWallF(null); setPlanesF(null);
+    setQid(null); setMeta(null); setF(null); setWallF(null);
     setSel(null); setSpec(null); setCandidates(null); setFocus(null); setCats({}); setAsteroids({}); setObjPos(null);
     astPending.current = new Set();
     const rad = (fovNow / 60) * 0.75 + 0.01;
@@ -177,7 +175,7 @@ export default function Explorer({ expert, embed, listenMode }) {
       } catch (e) { say(e.message); }
     })();
     return () => { alive = false; };
-  }, [qid, view, mode, det, ch, planeVisit, simple, dataVersion]);
+  }, [qid, view, mode, det, ch, simple, dataVersion]);
 
   const count = view === "wall" || view === "color" ? wallVisitCount(wallF) : F ? F.data.length : 0;
 
@@ -252,7 +250,7 @@ export default function Explorer({ expert, embed, listenMode }) {
   };
   const showNewData = async () => {
     const m = await api.metadata(qid);
-    setMeta(m); setWallF(null); setPlanesF(null); setCandidates(null);
+    setMeta(m); setWallF(null); setCandidates(null);
     setDataVersion(m.status.freshness.version); setFresh(m.status.freshness); setNewData(null);
   };
   const tasks = [];
@@ -394,12 +392,13 @@ export default function Explorer({ expert, embed, listenMode }) {
                 )}
                 {mode !== "channel" && (
                   <div className="seg" role="group" aria-label="Infrared colour range">
-                    {[0, 1, 2, 3, 4, 5, 6].map((d) => (
+                    {[0, 1, 2, 3, 4, 5, 6, 7].map((d) => (
                       <button key={d} className={det === d ? "on" : ""} onClick={() => setDet(d)}
-                        title={d ? `Detector D${d}${meta.detectors[d] ? `: ${meta.detectors[d][0].toFixed(2)}–${meta.detectors[d][1].toFixed(2)} µm` : ""}` : "All 6 detectors stacked: deepest picture"}>
-                        {d ? (simple ? ["", "Bluest", "", "", "", "", "Reddest"][d] || `D${d}` : `D${d}`) : (simple ? "All colours" : "All")}
+                        title={d === 7 ? "D5 + D6 together (3.8–5 µm): the reddest light, where cold brown dwarfs glow"
+                          : d ? `Detector D${d}${meta.detectors[d] ? `: ${meta.detectors[d][0].toFixed(2)}–${meta.detectors[d][1].toFixed(2)} µm` : ""}` : "All 6 detectors stacked: deepest picture"}>
+                        {d === 7 ? (simple ? "Reddest" : "D5+6") : d ? (simple ? "Bluest" : `D${d}`) : (simple ? "All colours" : "All")}
                       </button>
-                    )).filter((_, d) => expert || [0, 1, 6].includes(d))}
+                    )).filter((_, d) => expert || [0, 1, 7].includes(d))}
                   </div>
                 )}
                 {mode === "channel" && (
@@ -410,7 +409,7 @@ export default function Explorer({ expert, embed, listenMode }) {
                 )}
               </div>
             )}
-            {simple && story && story.band === 6 && det === 6 && view === "blink" && (
+            {simple && story && story.band === 7 && det === 7 && view === "blink" && (
               <p className="hint">Showing the <b>reddest</b> infrared colours, where cold brown dwarfs glow.</p>
             )}
 

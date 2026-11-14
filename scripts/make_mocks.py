@@ -46,6 +46,8 @@ if __name__ == "__main__":
     det = c.post("/api/detections/run", json={"query_id": qid}).json()
     save("detections", det)
     save("verification", c.post("/api/verification/gaia", json={"candidates": det["candidates"][:8]}).json())
+    save("cube", c.get(f"/api/images/{qid}/cube").json())
+    save("object", c.get(f"/api/object?ra={t['ra']}&dec={t['dec']}&mjd=61100&name=Barnard's Star").json())
     for name in ("gaia", "allwise"):
         save(f"catalog_{name}", c.get(f"/api/catalog/{name}?ra={t['ra']}&dec={t['dec']}&radius=0.085").json())
 

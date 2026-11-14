@@ -8,7 +8,7 @@ export default function Explainer({ story, target, mode, math, det, channel, chW
   else if (math === "sum") howBuilt = <>All pictures are <b>added together</b>, so faint things show up better. Moving things get smeared, though.</>;
   else if (mode === "exposure") howBuilt = <>Each picture is <b>one single snapshot</b>, taken minutes to days apart. Good for catching fast things like asteroids.</>;
   else if (mode === "channel") howBuilt = <>Every picture uses the <b>same infrared colour</b> (plane {channel} of 102{chWave ? `, ${chWave}` : ""}), so brightness changes are a fair comparison.</>;
-  else howBuilt = <>Each picture combines all snapshots from one <Term k="visit">visit</Term>. SPHEREx comes back to every spot about <b>every 6 months</b>{det ? `, here using detector D${det}` : ""}.</>;
+  else howBuilt = <>Each picture combines all snapshots from one <Term k="visit">visit</Term>. SPHEREx comes back to every spot about <b>every 6 months</b>{det === 7 ? ", here using only the reddest light (3.8–5 µm)" : det ? `, here using detector D${det}` : ""}.</>;
 
   return (
     <section className="card explainer">

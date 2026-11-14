@@ -153,7 +153,7 @@ export default function Listen({ target, story, F, sel, getSpectrum, listenFirst
     const pts = (spec?.binned || []).filter((p) => !p.saturated || spec.saturated_fraction > 0.5);
     if (pts.length < 5) return say("There isn't enough data at this spot to play a spectrum.");
     const fl = pts.map((p) => p.flux), lo = Math.min(...fl), hi = Math.max(...fl);
-    const seen = (spec.features || []).filter((f) => f.status !== "not seen");
+    const seen = (spec.features || []).filter((f) => f.status === "likely" || f.status === "possible");
     await say(`The spectrum of ${sel ? "the selected object" : name}. You will hear its brightness in all ${pts.length} infrared colours, from the shortest wavelength, 0.75 microns, to the longest, 5 microns. ` +
       "Short wavelengths are high notes, long wavelengths are low notes. Louder means brighter. Short wavelength notes last a little longer. " +
       (seen.length ? "A soft ding marks a place where a molecule or mineral may be absorbing or glowing." : ""));

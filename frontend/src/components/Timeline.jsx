@@ -32,7 +32,7 @@ export default function Timeline({ meta, frame, mode, onPick, simple }) {
           const a = ex.filter((e) => e.visit === v.visit);
           const x0 = x(Math.min(...a.map((e) => e.mjd))) - 5;
           return <g key={v.visit} onClick={() => onPick && onPick(v.visit)} style={{ cursor: "pointer" }}>
-            <text x={x0} y={H - 2}>{v.start.slice(0, 7)}</text>
+            <text x={Math.min(x0, w - 46)} y={H - 2}>{v.start.slice(0, 7)}</text>
           </g>;
         })}
         {ex.map((e) => <circle key={e.i} cx={x(e.mjd)} cy={y(e.det)} r={simple ? 3 : 2.3}
