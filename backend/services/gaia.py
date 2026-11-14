@@ -11,6 +11,27 @@ from .spherex import SESSION
 GAIA_TAP = "https://gea.esac.esa.int/tap-server/tap/sync"
 VIZIER_TAP = "https://tapvizier.cds.unistra.fr/TAPVizieR/tap/sync"
 GAIA_EPOCH = 2016.0
+_GAIA = {"table": "gaiadr3.gaia_source", "release": "Gaia DR3", "epoch": 2016.0, "t": 0.0}
+_NEWER = [("gaiadr4.gaia_source", "Gaia DR4")]  # tried in order; used as soon as ESA publishes them
+
+
+def gaia_release(force: bool = False) -> dict:
+    """Which Gaia release to use. Re-checked once a day, so a new release is picked up automatically."""
+    import time as _t
+    if not force and _t.time() - _GAIA["t"] < 86400:
+        return _GAIA
+    for table, name in _NEWER:
+        try:
+            r = SESSION.post(GAIA_TAP, data={"REQUEST": "doQuery", "LANG": "ADQL", "FORMAT": "csv",
+                                             "QUERY": f"SELECT TOP 1 source_id, ref_epoch FROM {table}"}, timeout=20)
+            lines = r.text.strip().splitlines()
+            if r.ok and lines and lines[0].startswith("source_id") and len(lines) > 1:
+                _GAIA.update(table=table, release=name, epoch=float(lines[1].split(",")[1]))
+                break
+        except Exception:
+            pass
+    _GAIA["t"] = _t.time()
+    return _GAIA
 ALLWISE_EPOCH = 2010.5
 
 
@@ -18,11 +39,16 @@ def _csv(text: str) -> list[dict]:
     return list(csv.DictReader(io.StringIO(text)))
 
 
-@lru_cache(maxsize=256)
 def gaia(ra: float, dec: float, radius: float, gmax: float = 19.0) -> dict:
-    """Gaia DR3 stars with proper motions (positions at epoch 2016.0)."""
+    """Gaia stars with proper motions, from the newest release that is online."""
+    rel = gaia_release()
+    return _gaia(rel["table"], rel["release"], rel["epoch"], ra, dec, radius, gmax)
+
+
+@lru_cache(maxsize=256)
+def _gaia(table: str, release: str, epoch: float, ra: float, dec: float, radius: float, gmax: float) -> dict:
     q = ("SELECT TOP 3000 source_id, ra, dec, pmra, pmdec, parallax, phot_g_mean_mag "
-         "FROM gaiadr3.gaia_source WHERE 1=CONTAINS(POINT('ICRS', ra, dec), "
+         f"FROM {table} WHERE 1=CONTAINS(POINT('ICRS', ra, dec), "
          f"CIRCLE('ICRS', {ra:.6f}, {dec:.6f}, {radius:.5f})) AND phot_g_mean_mag < {gmax} "
          "ORDER BY phot_g_mean_mag")
     try:
@@ -31,6 +57,7 @@ def gaia(ra: float, dec: float, radius: float, gmax: float = 19.0) -> dict:
         r.raise_for_status()
         rows = _csv(r.text)
         src = "ESA Gaia archive"
+        used, used_epoch = release, epoch
     except Exception:  # fall back to the CDS copy of Gaia DR3
         q2 = ('SELECT TOP 3000 Source AS source_id, RA_ICRS AS ra, DE_ICRS AS dec, pmRA AS pmra, pmDE AS pmdec, '
               'Plx AS parallax, Gmag AS phot_g_mean_mag FROM "I/355/gaiadr3" WHERE 1=CONTAINS(POINT(\'ICRS\', '
@@ -40,6 +67,7 @@ def gaia(ra: float, dec: float, radius: float, gmax: float = 19.0) -> dict:
         r.raise_for_status()
         rows = _csv(r.text)
         src = "CDS VizieR (Gaia DR3)"
+        used, used_epoch = "Gaia DR3", 2016.0
     out = []
     for x in rows:
         try:
@@ -48,7 +76,7 @@ def gaia(ra: float, dec: float, radius: float, gmax: float = 19.0) -> dict:
                         "plx": float(x["parallax"] or 0), "mag": round(float(x["phot_g_mean_mag"]), 2)})
         except (ValueError, KeyError):
             continue
-    return {"catalog": "Gaia DR3", "epoch": 2016.0, "source": src, "band": "G", "stars": out}
+    return {"catalog": used, "epoch": used_epoch, "source": src, "band": "G", "stars": out}
 
 
 GATOR = "https://irsa.ipac.caltech.edu/cgi-bin/Gator/nph-query"

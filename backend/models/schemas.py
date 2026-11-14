@@ -37,11 +37,12 @@ class ImageInfo(BaseModel):
 
 
 class ImageQueryResponse(BaseModel):
-    status: Literal["pending", "success", "error"]
+    status: Literal["pending", "success", "error", "cancelled"]
     query_id: str
     message: str = ""
     progress: Progress = Progress()
     images: list[ImageInfo] = []
+    freshness: dict = Field(default_factory=dict, description="data version, when it was built/checked, whether an update is running")
 
 
 class CompareRequest(BaseModel):

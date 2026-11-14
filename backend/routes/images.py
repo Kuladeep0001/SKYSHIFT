@@ -32,15 +32,21 @@ def ready_or_409(query_id: str) -> jobs.Job:
     return job
 
 
-@lru_cache(maxsize=64)
 def _frames_cached(query_id: str, mode: str, det: int, channel: int, visit: int):
+    job = ready_or_409(query_id)
+    return _frames_v(query_id, job.version, mode, det, channel, visit)
+
+
+@lru_cache(maxsize=64)
+def _frames_v(query_id: str, version: int, mode: str, det: int, channel: int, visit: int):
+    """Cached per data version, so a refreshed spot never serves stale frames."""
     job = ready_or_409(query_id)
     return im.group_frames(job.arrays, job.meta, mode, det, channel, visit)
 
 
 def _response(job: jobs.Job, bands: list[int] | None = None) -> ImageQueryResponse:
-    status = {"done": "success", "error": "error"}.get(job.state, "pending")
-    resp = ImageQueryResponse(status=status, query_id=job.id, message=job.message,
+    status = {"done": "success", "error": "error", "cancelled": "cancelled"}.get(job.state, "pending")
+    resp = ImageQueryResponse(status=status, query_id=job.id, message=job.message, freshness=job.freshness(),
                               progress=Progress(done=job.done, total=job.total, failed=job.failed))
     if status == "success":
         for band in bands or [0]:
@@ -49,7 +55,7 @@ def _response(job: jobs.Job, bands: list[int] | None = None) -> ImageQueryRespon
                 resp.images.append(ImageInfo(
                     id=f"{job.id}-b{band}-v{f['visit']}", epoch=f["date"][:10], date_range=f["date_range"],
                     band=band, visit=f["visit"], n_exposures=f["n_exp"], wavelength_um=f["wave"],
-                    image_url=f"/api/images/{job.id}/frames/{k}.png?mode=visit&det={band}"))
+                    image_url=f"/api/images/{job.id}/frames/{k}.png?mode=visit&det={band}&v={job.version}"))
     return resp
 
 
@@ -71,6 +77,28 @@ def image_info(query_id: str, bands: str = ""):
     return _response(job_or_404(query_id), b)
 
 
+@router.post("/{query_id}/check")
+def check_for_new_data(query_id: str):
+    """Ask NASA IRSA right now whether this spot has new or reprocessed images (at most every 2 minutes).
+
+    If it has, the spot is rebuilt in the background: watch `freshness.refreshing` and `freshness.version`
+    on GET /api/images/{query_id}.
+    """
+    job = ready_or_409(query_id)
+    try:
+        result = jobs.check(job)
+    except Exception as e:
+        raise HTTPException(502, {"status": "error", "error": "upstream", "message": f"IRSA check failed: {e}"})
+    return {"result": result, "freshness": job.freshness()}
+
+
+@router.post("/{query_id}/cancel")
+def cancel_download(query_id: str):
+    """Stop downloading this spot. Pictures already downloaded are kept, so asking again resumes."""
+    job = job_or_404(query_id)
+    return {**jobs.cancel(job), "status": job.state}
+
+
 @router.get("/{query_id}/frames")
 def frames(query_id: str, mode: str = "visit", det: int = Query(0, ge=0, le=6),
            channel: int = Query(0, ge=0, le=102), visit: int = -1):
@@ -87,7 +115,8 @@ def frames(query_id: str, mode: str = "visit", det: int = Query(0, ge=0, le=6),
 
 @router.get("/{query_id}/frames/{k}.png")
 def frame_png(query_id: str, k: int, mode: str = "visit", det: int = Query(0, ge=0, le=6),
-              channel: int = Query(0, ge=0, le=102), visit: int = -1, contrast: float = Query(0.55, ge=0, le=1)):
+              channel: int = Query(0, ge=0, le=102), visit: int = -1, contrast: float = Query(0.55, ge=0, le=1),
+              v: int = 0):
     """One frame as a ready-to-show PNG (north up, east left)."""
     try:
         _, imgs, _ = _frames_cached(query_id, mode, det, channel, visit)

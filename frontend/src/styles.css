@@ -271,3 +271,24 @@ table.features tr.notseen { opacity: .5; }
   padding: 8px 14px; border-radius: 10px; font-size: 13.5px; text-align: center; pointer-events: none; }
 .pad { padding: 20px; }
 h2.center { justify-content: center; margin-top: 8px; }
+
+/* --- task bar (downloads / updates) --- */
+.taskBar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); width: min(720px, calc(100vw - 24px)); z-index: 45;
+  display: flex; flex-direction: column; gap: 8px; }
+.task { display: flex; align-items: center; gap: 12px; background: #101b31; border: 1px solid #33476e; border-radius: 12px; padding: 10px 14px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, .5); }
+.taskIcon { font-size: 20px; }
+.taskBody { flex: 1; min-width: 0; }
+.taskTop { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.task .bar { height: 8px; background: var(--panel2); border-radius: 99px; overflow: hidden; }
+.task .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent)); transition: width .4s; }
+.task .bar i.indet { animation: slide 1.2s infinite ease-in-out; }
+@keyframes slide { 0% { margin-left: -30%; } 100% { margin-left: 100%; } }
+.cancelBtn { background: #3a1520; border-color: #ff6b8b; color: #ffd0da; white-space: nowrap; }
+.cancelBtn:hover { background: #55202f !important; }
+.progress .cancelBtn { margin-top: 14px; }
+.newData { background: #0f3a2f; border: 1px solid #2f8f76; color: #c8f5e9; border-radius: 12px; padding: 10px 14px; margin-bottom: 12px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.freshness { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 13.5px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.freshness p { margin: 0; }
+@media (prefers-reduced-motion: reduce) { .task .bar i.indet { animation: none; } }

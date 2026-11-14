@@ -5,7 +5,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException, Query
 
 from ..services import image_processing as im
-from ..services import jobs, resolver, spherex
+from ..services import jobs, resolver, spherex, watcher
 from .images import job_or_404, ready_or_409
 
 router = APIRouter(tags=["metadata"])
@@ -20,6 +20,25 @@ def health():
 def releases(refresh: bool = False):
     """Every SPHEREx release at IRSA (new ones appear automatically) and the default 'best' combination."""
     return spherex.releases(force=refresh)
+
+
+@router.get("/api/updates")
+def updates():
+    """Freshness feed: when SkyShift last checked NASA/ESA for new data, what it found, what's next."""
+    return watcher.status()
+
+
+@router.post("/api/updates/run")
+def run_updates():
+    """Check every cached spot for new data right now (at most once every 10 minutes)."""
+    import threading
+    import time
+    last = watcher.STATE["last_run"]
+    if watcher.STATE["running"] or (last and time.time() - last < 600):
+        raise HTTPException(429, {"status": "error", "error": "too_soon",
+                                  "message": "A check ran in the last 10 minutes (or is running now)."})
+    threading.Thread(target=watcher.run_once, daemon=True).start()
+    return {"started": True}
 
 
 @router.get("/api/resolve")

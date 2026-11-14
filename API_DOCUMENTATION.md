@@ -73,6 +73,25 @@ Response (ready): one stacked image per **visit** (SPHEREx revisits each spot ev
 ### `GET /api/images/{query_id}?bands=0,6`
 Same response as above. Use it to poll.
 
+### Keeping data fresh, and cancelling
+
+Every image response carries a `freshness` block:
+```json
+"freshness": { "version": 2, "built_at": 1794637873.3, "checked_at": 1794637890.1, "refreshing": false,
+               "refresh_progress": { "done": 0, "total": 0 },
+               "last_update": { "at": 1794637873.3, "new_exposures": 25, "reprocessed": 0, "new_releases": [], "total": 358 },
+               "releases": ["spherex_dr1", "spherex_qr3"], "follows_newest": true }
+```
+`version` goes up by one each time NASA data for this spot changed and SkyShift rebuilt it. The website polls
+`GET /api/images/{query_id}` every 2 minutes and offers "show new pictures" when `version` increases.
+
+| Endpoint | What it does |
+|---|---|
+| `POST /api/images/{query_id}/check` | Ask IRSA **now** if this spot has new/reprocessed images (max once per 2 min). Returns `{ "result": { "checked": true, "changed": true, "new_exposures": 25, "reprocessed": 0, "new_releases": [] }, "freshness": {…} }`. If changed, the rebuild runs in the background. |
+| `POST /api/images/{query_id}/cancel` | Stop a download (or a background update). `{ "cancelled": true, "kept": 120, "status": "cancelled" }`. Cutouts already downloaded stay cached, so a new query resumes. Status `cancelled` is then returned by `GET /api/images/{query_id}`. |
+| `GET /api/updates` | Watcher feed: `{ enabled, every_hours, running, last_run, next_run, releases, gaia, cached_spots, log: [{at, message}] }` |
+| `POST /api/updates/run` | Run the watcher now for every cached spot (max once per 10 min; `429 too_soon` otherwise). |
+
 ### `GET /api/images/{query_id}/frames`
 Aligned pixel data for the interactive viewer.
 

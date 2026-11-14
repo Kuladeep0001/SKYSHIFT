@@ -8,6 +8,7 @@ import csv
 import io
 import math
 import re
+import time
 from functools import lru_cache
 from urllib.parse import quote
 
@@ -45,9 +46,13 @@ def _tap(url: str, query: str) -> list[dict]:
     return list(csv.DictReader(io.StringIO(r.text)))
 
 
-@lru_cache(maxsize=256)
 def simbad_near(ra: float, dec: float, year: float, radius_arcsec: float = 12.0) -> dict | None:
-    """Nearest SIMBAD object at a given date (fast-moving stars are moved from their J2000 position)."""
+    """Nearest SIMBAD object at a given date. Cached for one day, so updates at SIMBAD show up."""
+    return _simbad_near(ra, dec, year, radius_arcsec, int(time.time() // 86400))
+
+
+@lru_cache(maxsize=256)
+def _simbad_near(ra: float, dec: float, year: float, radius_arcsec: float, _day: int) -> dict | None:
     q = ("SELECT TOP 300 b.oid, b.main_id, b.otype, b.sp_type, b.ra, b.dec, b.plx_value, b.pmra, b.pmdec, "
          "b.rvz_radvel, b.nbref FROM basic AS b WHERE CONTAINS(POINT('ICRS', b.ra, b.dec), "
          f"CIRCLE('ICRS', {ra:.6f}, {dec:.6f}, 0.1)) = 1")
@@ -91,9 +96,13 @@ def simbad_near(ra: float, dec: float, year: float, radius_arcsec: float = 12.0)
     }
 
 
-@lru_cache(maxsize=256)
 def wikipedia(name: str) -> dict | None:
-    """Short Wikipedia summary for well-known objects (we only try names, never search)."""
+    """Short Wikipedia summary for well-known objects (we only try names, never search). Cached one day."""
+    return _wikipedia(name, int(time.time() // 86400))
+
+
+@lru_cache(maxsize=256)
+def _wikipedia(name: str, _day: int) -> dict | None:
     tries = [name]
     m = re.match(r"^(eps|alf|bet|gam|del)\s+(\w+)", name)
     if m:  # Bayer names: "eps Ind B" -> "Epsilon Indi"

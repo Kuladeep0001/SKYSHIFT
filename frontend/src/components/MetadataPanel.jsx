@@ -2,7 +2,13 @@
 import { fmtDec, fmtRA, fmtWave, monthYear } from "../lib/frames.js";
 import Term from "./Term.jsx";
 
-export default function MetadataPanel({ target, meta, frame, flags, fov, releases, selFlags, simple }) {
+function ago(t) {
+  if (!t) return "never";
+  const s = Date.now() / 1000 - t;
+  return s < 90 ? "just now" : s < 5400 ? `${Math.round(s / 60)} min ago` : s < 172800 ? `${Math.round(s / 3600)} h ago` : `${Math.round(s / 86400)} days ago`;
+}
+
+export default function MetadataPanel({ target, meta, frame, flags, fov, releases, selFlags, simple, fresh, onCheckNow }) {
   if (!target || !meta) return null;
   let bad = null;
   if (flags) {
@@ -33,6 +39,15 @@ export default function MetadataPanel({ target, meta, frame, flags, fov, release
     <section className="card">
       <h2>{simple ? "About this picture" : "Metadata"}</h2>
       <dl className="meta">{rows.map(([k, v], i) => <div key={i} className="mrow"><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
+      {fresh && (
+        <div className="freshness">
+          <span>🛰 Up to date with NASA as of <b>{ago(fresh.checked_at)}</b>
+            {fresh.last_update?.at ? <> · last new data {ago(fresh.last_update.at)}</> : null}
+            {!simple && <> · data v{fresh.version}</>}</span>
+          <button onClick={onCheckNow} disabled={fresh.refreshing}>{fresh.refreshing ? "Updating…" : "🔄 Check for new pictures"}</button>
+          <p className="small muted">SkyShift re-checks NASA's archive automatically, so new SPHEREx releases appear here without anyone touching the code.</p>
+        </div>
+      )}
     </section>
   );
 }

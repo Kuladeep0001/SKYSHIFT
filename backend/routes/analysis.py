@@ -46,7 +46,7 @@ def plain_english(c: dict, meta: list[dict]) -> str:
 def run_detection(req: DetectionRequest):
     """Find things that moved or changed brightness between visits of this patch."""
     job = ready_or_409(req.query_id)
-    key = (job.id, req.band, req.threshold, req.include_transients)
+    key = (job.id, job.version, req.band, req.threshold, req.include_transients)
     if key not in _cache:
         grid_wcs = im.make_grid(job.ra, job.dec, job.fov)[0]
         res = detection.run(job.arrays, job.meta, grid_wcs, jobs.main_visits(job), det=req.band,

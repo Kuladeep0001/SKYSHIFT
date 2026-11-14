@@ -37,6 +37,9 @@ export const api = {
   spectrum: (id, x, y) => (MOCK ? mock("spectrum") : request(`/api/images/${id}/spectrum?x=${x}&y=${y}&r=1`)),
   compare: (body) => (MOCK ? mock("compare") : post("/api/images/compare", body)),
   detect: (body) => (MOCK ? mock("detections") : post("/api/detections/run", body)),
+  checkNow: (id) => (MOCK ? Promise.resolve({ result: { checked: true, changed: false }, freshness: {} }) : post(`/api/images/${id}/check`, {})),
+  cancel: (id) => (MOCK ? Promise.resolve({ cancelled: true }) : post(`/api/images/${id}/cancel`, {})),
+  updates: () => (MOCK ? Promise.resolve({ log: [] }) : request("/api/updates")),
   verify: (candidates) => (MOCK ? mock("verification") : post("/api/verification/gaia", { candidates })),
   catalog: (name, ra, dec, radius, mjd = 0) =>
     MOCK ? mock(`catalog_${name}`).catch(() => ({ stars: [], objects: [] }))
@@ -52,6 +55,7 @@ export async function loadImages({ ra, dec, fov, release }, onProgress, isCancel
     if (isCancelled && isCancelled()) return null;
     st = await api.imageStatus(st.query_id);
   }
+  if (st.status === "cancelled") return null;
   if (st.status === "error") throw new Error(st.message || "Loading failed");
   return st;
 }

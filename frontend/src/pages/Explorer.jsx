@@ -18,6 +18,7 @@ import MetadataPanel from "../components/MetadataPanel.jsx";
 import PlanesGrid from "../components/PlanesGrid.jsx";
 import SkyMap from "../components/SkyMap.jsx";
 import SpectrumPanel from "../components/SpectrumPanel.jsx";
+import TaskBar from "../components/TaskBar.jsx";
 import Timeline from "../components/Timeline.jsx";
 import { api, loadImages } from "../lib/api.js";
 import { decodeFrames, mainVisitsOnly } from "../lib/frames.js";
@@ -63,6 +64,11 @@ export default function Explorer({ expert, embed, listenMode }) {
   const [focus, setFocus] = useState(null);
   const [toast, setToast] = useState("");
   const [objPos, setObjPos] = useState(null);
+  const [fresh, setFresh] = useState(null);        // freshness info from the server
+  const [dataVersion, setDataVersion] = useState(0); // version of the data currently on screen
+  const [newData, setNewData] = useState(null);     // set when the server has a newer version
+  const loadingId = useRef(null);
+  const loadStart = useRef(0);
   const [fact, setFact] = useState(0);
   const token = useRef(0);
   const firstRun = useRef(true);
@@ -78,6 +84,7 @@ export default function Explorer({ expert, embed, listenMode }) {
   const startLoad = useCallback(async (t, fovNow, rel) => {
     const my = ++token.current;
     setLoad({ phase: "loading", done: 0, total: 0, message: "Asking NASA which SPHEREx pictures cover this spot…" });
+    loadingId.current = null; loadStart.current = Date.now(); setNewData(null); setFresh(null);
     setQid(null); setMeta(null); setF(null); setWallF(null); setPlanesF(null);
     setSel(null); setSpec(null); setCandidates(null); setFocus(null); setCats({}); setAsteroids({}); setObjPos(null);
     astPending.current = new Set();
@@ -87,9 +94,10 @@ export default function Explorer({ expert, embed, listenMode }) {
     }
     try {
       const st = await loadImages({ ra: t.ra, dec: t.dec, fov: fovNow, release: rel },
-        (p) => token.current === my && setLoad({ phase: "loading", done: p.progress.done, total: p.progress.total, message: p.message }),
+        (p) => { if (token.current === my) { loadingId.current = p.query_id; setLoad({ phase: "loading", done: p.progress.done, total: p.progress.total, message: p.message }); } },
         () => token.current !== my);
       if (!st || token.current !== my) return;
+      setFresh(st.freshness || null); setDataVersion(st.freshness?.version || 0);
       const m = await api.metadata(st.query_id);
       if (token.current !== my) return;
       setMeta(m); setQid(st.query_id); setLoad({ phase: "ready" });
@@ -172,7 +180,7 @@ export default function Explorer({ expert, embed, listenMode }) {
       } catch (e) { say(e.message); }
     })();
     return () => { alive = false; };
-  }, [qid, view, mode, det, ch, planeVisit, simple]);
+  }, [qid, view, mode, det, ch, planeVisit, simple, dataVersion]);
 
   const count = view === "wall" || view === "color" ? wallVisitCount(wallF) : F ? F.data.length : 0;
 
@@ -211,6 +219,51 @@ export default function Explorer({ expert, embed, listenMode }) {
     if (embed) p.set("embed", "1");
     history.replaceState(null, "", `${location.pathname}?${p}${location.hash}`);
   }, [target, fov, release, view, mode, det, ch, disp.math, expert, embed]);
+
+  /* ------------------------------------------- cancel / stay up to date */
+  const cancelLoad = async () => {
+    const id = loadingId.current;
+    token.current++;                       // stop listening to this download
+    setLoad({ phase: "idle" });
+    setTarget(null);
+    if (id) { try { await api.cancel(id); } catch (_) { /* already finished */ } }
+    say("Download cancelled. Pictures fetched so far are kept, so trying again will be faster.");
+  };
+
+  // While a spot is open, ask the server every 2 minutes whether NASA added pictures for it.
+  useEffect(() => {
+    if (!qid) return;
+    const poll = async () => {
+      try {
+        const st = await api.imageStatus(qid);
+        if (!st.freshness) return;
+        setFresh(st.freshness);
+        if (st.freshness.version > dataVersion) setNewData(st.freshness.last_update || {});
+      } catch (_) { /* offline: try again later */ }
+    };
+    const h = setInterval(poll, fresh?.refreshing ? 4000 : 120000);
+    return () => clearInterval(h);
+  }, [qid, dataVersion, fresh?.refreshing]);
+
+  const checkNow = async () => {
+    try {
+      const r = await api.checkNow(qid);
+      setFresh(r.freshness);
+      if (r.result.changed) say(`NASA has ${r.result.new_exposures} new pictures of this spot. Updating…`);
+      else say(r.result.checked ? "Checked NASA just now: you already have the latest pictures." : `Already ${r.result.reason}.`);
+    } catch (e) { say(e.message); }
+  };
+  const showNewData = async () => {
+    const m = await api.metadata(qid);
+    setMeta(m); setWallF(null); setPlanesF(null); setCandidates(null);
+    setDataVersion(m.status.freshness.version); setFresh(m.status.freshness); setNewData(null);
+  };
+  const tasks = [];
+  if (load.phase === "loading") tasks.push({ id: "load", label: `Fetching ${target?.name || "this spot"} from NASA`, detail: load.message,
+    done: load.done, total: load.total, startedAt: loadStart.current, onCancel: cancelLoad });
+  if (fresh?.refreshing) tasks.push({ id: "refresh", kind: "update", label: "New SPHEREx pictures found: updating this spot",
+    done: fresh.refresh_progress?.done || 0, total: fresh.refresh_progress?.total || 0,
+    onCancel: () => api.cancel(qid).then(() => say("Update cancelled.")).catch(() => {}) });
 
   /* ---------------------------------------------------------- spectrum */
   const onPixel = async (x, y) => {
@@ -312,10 +365,18 @@ export default function Explorer({ expert, embed, listenMode }) {
           <div className="bar"><i style={{ width: `${load.total ? Math.max(4, (100 * load.done) / load.total) : 3}%` }} /></div>
           <p>{load.total ? <>Fetching <b>{load.done}</b> of <b>{load.total}</b> pictures from NASA… The first time takes 1–3 minutes, then it's instant.</> : load.message}</p>
           <p className="fact">💡 {FACTS[fact]}</p>
+          <button onClick={cancelLoad} className="cancelBtn">✕ Cancel download</button>
         </section>
       )}
       {load.phase === "error" && <section className="progress card"><p className="err">⚠ {load.message}</p></section>}
 
+      {ready && newData && (
+        <div className="newData" role="status">
+          🆕 NASA added data for this spot{newData.new_exposures ? `: ${newData.new_exposures} new pictures` : ""}
+          {newData.new_releases?.length ? ` (new release ${newData.new_releases.join(", ").replace(/spherex_/g, "").toUpperCase()})` : ""}.
+          <button className="primary" onClick={showNewData}>Show them</button>
+        </div>
+      )}
       {ready && (
         <div className={`layout ${embed ? "embedLayout" : ""}`}>
           <section className="stage card">
@@ -387,7 +448,7 @@ export default function Explorer({ expert, embed, listenMode }) {
                 focus={focus} setFocus={focusCand} expert={expert} />
               <MetadataPanel target={target} meta={meta} frame={view === "blink" ? frame : null}
                 flags={view === "blink" && F ? F.flags[Math.min(idx, F.flags.length - 1)] : null} fov={fov}
-                releases={meta.status?.releases || []} selFlags={selFlags} simple={simple} />
+                releases={meta.status?.releases || []} selFlags={selFlags} simple={simple} fresh={fresh} onCheckNow={checkNow} />
               <ObjectCard pos={objPos} simple={simple} />
               <SpectrumPanel spec={spec} visits={meta.visits} detectors={meta.detectors} loading={specLoading} simple={simple} />
               {!listenMode && <Listen target={target} story={story} F={F && F.mode === "visit" ? F : null} sel={sel} getSpectrum={getSpectrum} />}
@@ -396,6 +457,7 @@ export default function Explorer({ expert, embed, listenMode }) {
           )}
         </div>
       )}
+      <TaskBar tasks={tasks} />
       <div className={`toast ${toast ? "show" : ""}`}>{toast}</div>
     </div>
   );

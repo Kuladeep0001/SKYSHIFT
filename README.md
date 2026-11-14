@@ -49,6 +49,28 @@ Built for the **NASA Space Apps Challenge 2026**.
 | R Draconis | brightness changed ×1.8 (4.4–5 µm) | known variable (Mira) |
 | WISE 0855 | visible in detector D6; too faint in the first visit to measure motion | 8.1″/yr |
 
+## How SkyShift stays up to date
+
+NASA's archive (IRSA) adds SPHEREx data every week and publishes new releases, but it does not notify anyone.
+So SkyShift **asks**, cheaply and often:
+
+```
+ every 6 h   watcher ──► re-detect releases (dr1, qr3, future dr2/qr4…)  ──► new one? use it automatically
+ (and when   │        ──► for every cached spot: 2-second IRSA search ──► same image list?  nothing to do
+ a spot is   │                                                        └─► list changed?  download ONLY the new
+ opened, or  │                                                            cutouts, rebuild, version + 1
+ "check now")└──► open browsers poll every 2 min ──► "🆕 NASA added 25 new pictures. Show them"
+```
+
+- Each cached spot stores a **fingerprint** of the exact IRSA files it was built from. New exposures, a new
+  release, or reprocessed files all change the fingerprint.
+- Visitors keep seeing the old version until the new one is ready, then it is swapped in one step.
+- Gaia: the newest release online is detected daily (DR4 will be used as soon as ESA publishes it).
+  SIMBAD and Wikipedia answers are refreshed daily. Asteroid positions are always computed live.
+- Settings: `SKYSHIFT_WATCH_HOURS` (default 6, 0 = off), `SKYSHIFT_CHECK_MINUTES` (default 60).
+- A **task bar** shows every download/update with progress, time left and a **Cancel** button; cancelling keeps
+  what was already downloaded.
+
 ## Tech stack
 
 | Part | Tools |
@@ -103,7 +125,10 @@ backend/
   services/
     spherex.py              IRSA: release discovery, image search, cutout download + cache
     image_processing.py     alignment, background removal, stacking, 102 channels, frames, spectra, compare, PNG
-    jobs.py                 background download jobs + cache
+    jobs.py                 background download jobs, cache, versions, cancel, update checks
+    watcher.py              background loop that keeps every cached spot in step with NASA
+    spectral_features.py    102-channel spectrum binning + water/CO2/CO/CH4/mineral band finder
+    object_info.py          details card: SIMBAD, Gaia, WISE, Wikipedia
     detection.py            movers / brightness changes / transients
     gaia.py                 Gaia DR3 + AllWISE queries, cross-matching
     solar_system.py         known asteroids (SkyBoT)

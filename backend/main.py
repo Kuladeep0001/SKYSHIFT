@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .routes import analysis, images, metadata, verification
+from .services import watcher
 
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "frontend" / "dist"  # built React app (npm run build)
@@ -25,6 +26,13 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET", "P
 
 for r in (images.router, analysis.router, verification.router, metadata.router):
     app.include_router(r)
+
+
+
+@app.on_event("startup")
+def _start_watcher():
+    watcher.start()  # keeps cached spots up to date with new NASA releases
+
 
 if DIST.exists():
     app.mount("/assets", StaticFiles(directory=DIST / "assets"), name="assets")
