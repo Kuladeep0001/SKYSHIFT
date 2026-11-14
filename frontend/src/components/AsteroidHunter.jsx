@@ -54,11 +54,11 @@ export default function AsteroidHunter({ qid, disp, onReport }) {
     ctx.strokeStyle = "#ff6b8b"; ctx.lineWidth = 2.5;
     ctx.strokeRect(x - 16, y - 16, 32, 32);
     ctx.fillStyle = "#ff6b8b"; ctx.font = "600 14px Inter, sans-serif";
-    const label = `☄ ${obj.name}`, tw = ctx.measureText(label).width;
+    const label = `${obj.name}`, tw = ctx.measureText(label).width;
     ctx.fillText(label, x + 20 + tw > W - 6 ? x - 20 - tw : x + 20, y - 8);  // keep the label inside the picture
   }, [seq, k, frames, disp.contrast, disp.bright, disp.cmap]);
 
-  if (err) return <p className="err">⚠ {err}</p>;
+  if (err) return <p className="err">{err}</p>;
   if (!ast) return <div className="progress"><div className="bar"><i className="indet" style={{ width: "30%" }} /></div><p>Asking the IMCCE asteroid service which asteroids crossed this spot on each day SPHEREx looked… (up to a minute the first time)</p></div>;
   if (!ast.objects.length) return (
     <p className="hint">No known asteroids crossed this picture during SPHEREx's {ast.days_checked} observing days. Asteroids travel near the <b>ecliptic</b> (the Sun's path across the sky). Try a spot close to it, like RW Aurigae.</p>
@@ -75,7 +75,7 @@ export default function AsteroidHunter({ qid, disp, onReport }) {
             </div>
           ) : <p className="hint">This asteroid falls in snapshots that aren't loaded.</p>}
           <div className="player">
-            <button className="primary play" onClick={() => setPlaying(!playing)}>{playing ? "⏸ Pause" : "▶ Play"}</button>
+            <button className="primary play" onClick={() => setPlaying(!playing)}>{playing ? "Pause" : "Play"}</button>
             <input type="range" min="0" max={Math.max(0, seq.length - 1)} value={k} onChange={(e) => { setPlaying(false); setK(+e.target.value); }} aria-label="Snapshot" />
           </div>
         </div>

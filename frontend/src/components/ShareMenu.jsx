@@ -55,7 +55,7 @@ export default function ShareMenu({ F, disp, target, story, facts, shareURL, say
     if (!F || !F.data.length) return say("Open the Flipbook first.");
     setBusy("Making GIF…");
     let stopped = false;
-    const task = startTask({ label: "Making the animated GIF", kind: "🎞", total: F.data.length, unit: "frames", onCancel: () => { stopped = true; } });
+    const task = startTask({ label: "Making the animated GIF", kind: "", total: F.data.length, unit: "frames", onCancel: () => { stopped = true; } });
     try {
       const [lo, hi] = percentile(F.data, [3, 99.8]);
       const sets = rgb ? F.list.map((f) => rgb[f.visit]) : [];
@@ -100,7 +100,7 @@ export default function ShareMenu({ F, disp, target, story, facts, shareURL, say
       else { ctx.fillStyle = "#ffa31a"; ctx.font = "800 30px Inter, sans-serif"; ctx.fillText("SkyShift", 716, 70); }
       ctx.fillStyle = "#ffb43a"; ctx.font = "600 13px Inter, sans-serif"; ctx.fillText("EXPLORE · IDENTIFY · UNDERSTAND  ·  NASA SPHEREx", 650, 112);
       ctx.fillStyle = "#ffffff"; ctx.font = "700 40px Inter, sans-serif";
-      let y = wrap(ctx, `${story?.emoji || "✨"} ${target?.name || "A patch of sky"}`, 650, 175, 520, 46, 2);
+      let y = wrap(ctx, `${target?.name || "A patch of sky"}`, 650, 175, 520, 46, 2);
       ctx.fillStyle = "#d4d4dc"; ctx.font = "20px Inter, sans-serif";
       y = wrap(ctx, story?.tagline || "", 650, y + 4, 520, 28, 2);
       ctx.fillStyle = "#ffcf4d"; ctx.font = "600 19px Inter, sans-serif";
@@ -114,12 +114,12 @@ export default function ShareMenu({ F, disp, target, story, facts, shareURL, say
   const copy = (txt, msg) => navigator.clipboard.writeText(txt).then(() => say(msg)).catch(() => say(txt));
   return (
     <div className="shareMenu">
-      <button onClick={() => setOpen(!open)} aria-expanded={open} disabled={!!busy}>{busy || "📤 Share ▾"}</button>
+      <button onClick={() => setOpen(!open)} aria-expanded={open} disabled={!!busy}>{busy || "Share ▾"}</button>
       {open && (
         <div className="shareList" role="menu" onClick={() => setOpen(false)}>
-          <button role="menuitem" onClick={gif}>🎞 Animated GIF of the flipbook</button>
-          <button role="menuitem" onClick={card}>🖼 Picture card for social media</button>
-          <button role="menuitem" onClick={() => copy(shareURL(), "Link copied")}>🔗 Copy link to this view</button>
+          <button role="menuitem" onClick={gif}>Animated GIF of the flipbook</button>
+          <button role="menuitem" onClick={card}>Picture card for social media</button>
+          <button role="menuitem" onClick={() => copy(shareURL(), "Link copied")}>Copy link to this view</button>
           <button role="menuitem" onClick={() => copy(`<iframe src="${shareURL(true)}" width="640" height="780" style="border:0;border-radius:12px" title="SkyShift SPHEREx viewer" loading="lazy"></iframe>`, "Embed code copied")}>&lt;/&gt; Embed on a website</button>
         </div>
       )}

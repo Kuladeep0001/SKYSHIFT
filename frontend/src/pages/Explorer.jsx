@@ -381,8 +381,8 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
   const chInfo = meta && meta.channels[ch - 1];
   const chWave = chInfo && chInfo.wave ? `${chInfo.wave[0].toFixed(2)}–${chInfo.wave[1].toFixed(2)} µm` : "";
   const tabs = simple
-    ? [["blink", "▶ Flipbook"], ["timecolours", "🎨 Colour by date"], ["compare", "⇔ Before / after"], ["timemachine", "⏳ Time machine"], ["planes", "🌈 102 colours"], ["asteroids", "☄️ Asteroids"], ["listen", "🔊 Listen"]]
-    : [["blink", "Blink"], ["timecolours", "Colour by date"], ["compare", "Before / after"], ["timemachine", "⏳ Time machine"], ["wall", "6 Detectors"], ["planes", "🧊 Spectral cube (102)"], ["asteroids", "☄️ Asteroids"], ["listen", "🔊 Listen"]];
+    ? [["blink", "Flipbook"], ["timecolours", "Colour by date"], ["compare", "Before / after"], ["timemachine", "Time machine"], ["planes", "102 colours"], ["asteroids", "Asteroids"], ["listen", "Listen"]]
+    : [["blink", "Blink"], ["timecolours", "Colour by date"], ["compare", "Before / after"], ["timemachine", "Time machine"], ["wall", "6 Detectors"], ["planes", "Spectral cube (102)"], ["asteroids", "Asteroids"], ["listen", "Listen"]];
 
   return (
     <div className="explorer">
@@ -401,12 +401,11 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
             <li><span>2</span>We fetch every SPHEREx picture of that spot</li>
             <li><span>3</span>Press play and spot what moves</li>
           </ol>
-          <button className="primary tourBtn" onClick={() => setTourStep(0)}>✨ Show me something amazing (guided tour)</button>
+          <button className="primary tourBtn" onClick={() => setTourStep(0)}>Show me something amazing (guided tour)</button>
           <h2 className="center">…or start with one of the challenge's test targets</h2>
           <div className="cards">
             {TARGETS.map((t) => (
               <button key={t.id} className="tcard" onClick={() => go(t.q)}>
-                <span className="emoji">{t.emoji}</span>
                 <b>{t.label}</b>
                 <span>{t.tagline}</span>
               </button>
@@ -419,15 +418,15 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
         <section className="progress card">
           <div className="bar"><i style={{ width: `${load.total ? Math.max(4, (100 * load.done) / load.total) : 3}%` }} /></div>
           <p>{load.total ? <>Fetching <b>{load.done}</b> of <b>{load.total}</b> pictures from NASA… The first time takes 1–3 minutes, then it's instant.</> : load.message}</p>
-          <p className="fact">💡 {FACTS[fact]}</p>
+          <p className="fact">{FACTS[fact]}</p>
           <button onClick={cancelLoad} className="cancelBtn">✕ Cancel download</button>
         </section>
       )}
-      {load.phase === "error" && <section className="progress card"><p className="err">⚠ {load.message}</p></section>}
+      {load.phase === "error" && <section className="progress card"><p className="err">{load.message}</p></section>}
 
       {ready && newData && (
         <div className="newData" role="status">
-          🆕 NASA added data for this spot{newData.new_exposures ? `: ${newData.new_exposures} new pictures` : ""}
+          NASA added data for this spot{newData.new_exposures ? `: ${newData.new_exposures} new pictures` : ""}
           {newData.new_releases?.length ? ` (new release ${newData.new_releases.join(", ").replace(/spherex_/g, "").toUpperCase()})` : ""}.
           <button className="primary" onClick={showNewData}>Show them</button>
         </div>

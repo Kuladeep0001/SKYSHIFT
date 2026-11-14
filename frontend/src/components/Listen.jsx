@@ -1,4 +1,4 @@
-/* 🔊 Listen tab: the data as sound, made for blind and low-vision visitors.
+/* Listen tab: the data as sound, made for blind and low-vision visitors.
  *
  * The main tool is the brightness-vs-wavelength graph (the spectrum). It is drawn big on screen AND played:
  *   Graph sound (default): one gliding note travels along the graph, from the shortest wavelength
@@ -504,19 +504,19 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
   const sat = spec && spec.saturated_fraction > 0.5;
   return (
     <section className="listenTab" aria-labelledby="listenTitle">
-      <h2 id="listenTitle">🔊 Listen to the sky</h2>
+      <h2 id="listenTitle">Listen to the sky</h2>
       <p className="lead">Made for blind and low-vision visitors. Everything here works with the keyboard and a screen reader. Headphones help: short wavelengths play in your left ear and long ones in your right.</p>
 
       <div className="listenBtns" role="group" aria-label="Play the brightness graph">
         <button className="primary" onClick={() => (graphRun.current ? pause() : playGraph())} disabled={pts.length < 5} aria-keyshortcuts="P">
-          {playing || graphRun.current ? "⏸ Pause" : cur > 0 && cur < pts.length - 1 ? "▶ Carry on" : "▶ Play the graph"} <kbd>P</kbd>
+          {playing || graphRun.current ? "Pause" : cur > 0 && cur < pts.length - 1 ? "Carry on" : "Play the graph"} <kbd>P</kbd>
         </button>
-        <button onClick={() => stepTo(0)} disabled={!pts.length} aria-label="Go to the first point" aria-keyshortcuts="Home">⏮ Start</button>
-        <button onClick={() => stepTo(cur - 1)} disabled={!pts.length} aria-label="Previous point" aria-keyshortcuts="ArrowLeft">◀ Step</button>
-        <button onClick={() => stepTo(cur + 1)} disabled={!pts.length} aria-label="Next point" aria-keyshortcuts="ArrowRight">Step ▶</button>
-        <button onClick={describe} aria-keyshortcuts="D">🗣 Describe <kbd>D</kbd></button>
-        <button onClick={motion} disabled={!F} aria-keyshortcuts="M">🎵 Hear the motion <kbd>M</kbd></button>
-        {(busy || playing) && <button onClick={() => { halt(); setCaption("Stopped."); }} className="stopBtn" aria-keyshortcuts="Escape">■ Stop <kbd>Esc</kbd></button>}
+        <button onClick={() => stepTo(0)} disabled={!pts.length} aria-label="Go to the first point" aria-keyshortcuts="Home">Start</button>
+        <button onClick={() => stepTo(cur - 1)} disabled={!pts.length} aria-label="Previous point" aria-keyshortcuts="ArrowLeft">Step</button>
+        <button onClick={() => stepTo(cur + 1)} disabled={!pts.length} aria-label="Next point" aria-keyshortcuts="ArrowRight">Step</button>
+        <button onClick={describe} aria-keyshortcuts="D">Describe <kbd>D</kbd></button>
+        <button onClick={motion} disabled={!F} aria-keyshortcuts="M">Hear the motion <kbd>M</kbd></button>
+        {(busy || playing) && <button onClick={() => { halt(); setCaption("Stopped."); }} className="stopBtn" aria-keyshortcuts="Escape">Stop <kbd>Esc</kbd></button>}
       </div>
 
       <p className="caption big" role="status" aria-live={voice ? "off" : "polite"}>
@@ -528,7 +528,7 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
         <div className="chartBox listenChart">
           <canvas ref={canvas} role="img" aria-label={summary || "The graph is loading."} />
         </div>
-        {sat && <p className="note warn">⚠ This star is so bright it overloads SPHEREx's camera, so these values are lower limits. Pick a fainter star for a clean graph.</p>}
+        {sat && <p className="note warn">This star is so bright it overloads SPHEREx's camera, so these values are lower limits. Pick a fainter star for a clean graph.</p>}
         {pts[cur] && <p className="readout" aria-hidden="true">{pts[cur].wave.toFixed(2)} µm · {num(pts[cur].flux)} µJy{featureAt(pts[cur].wave) ? ` · ${featureAt(pts[cur].wave).name} band` : ""}</p>}
       </figure>
 

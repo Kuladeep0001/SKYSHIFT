@@ -113,7 +113,7 @@ export default function ImageViewer({ F, idx, disp, ov, target, cats, asteroids,
           const [x, y] = skyToCanvas(o.ra, o.dec, target.ra, target.dec, n, W);
           if (x < 0 || y < 0 || x > W || y > W) continue;
           ctx.beginPath(); ctx.rect(x - 10, y - 10, 20, 20); ctx.stroke();
-          ctx.fillText(`☄ ${o.name}`, x + 14, y + 5);
+          ctx.fillText(`${o.name}`, x + 14, y + 5);
         }
       } else if (!a) onNeedAsteroids(f.mjd);
     }

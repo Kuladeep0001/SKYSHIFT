@@ -42,13 +42,13 @@ export default function DisplaySettings({ view = "blink", disp, setDisp, ov, set
         {!simple && <label title="Clip bright stars">Brightness <input type="range" min="0" max="1" step="0.01" value={disp.bright} onChange={(e) => set("bright", +e.target.value)} /></label>}
         {use.cmap && (
           <select value={cmapValue} onChange={(e) => set("cmap", e.target.value)} aria-label="Colour grading">
-            {use.rgb && <option value="rgb">🌈 RGB colour</option>}<option value="gray">Grey</option>
+            {use.rgb && <option value="rgb">RGB colour</option>}<option value="gray">Grey</option>
             {!simple && <><option value="inferno">Heat</option><option value="invert">Inverted</option></>}
           </select>
         )}
       </div>
       <p className="small muted mathHelp">{use.math ? HELP[disp.math] || HELP.none
-        : <>Add / subtract pictures and the star overlays are in the <b>{simple ? "▶ Flipbook" : "Blink"}</b> tab.</>}</p>
+        : <>Add / subtract pictures and the star overlays are in the <b>{simple ? "Flipbook" : "Blink"}</b> tab.</>}</p>
       <div className="row">
         {use.overlays && <>
           <span className="lbl">Show</span>

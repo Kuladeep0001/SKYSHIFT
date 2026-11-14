@@ -41,10 +41,10 @@ export default function MetadataPanel({ target, meta, frame, flags, fov, release
       <dl className="meta">{rows.map(([k, v], i) => <div key={i} className="mrow"><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
       {fresh && (
         <div className="freshness">
-          <span>🛰 Up to date with NASA as of <b>{ago(fresh.checked_at)}</b>
+          <span>Up to date with NASA as of <b>{ago(fresh.checked_at)}</b>
             {fresh.last_update?.at ? <> · last new data {ago(fresh.last_update.at)}</> : null}
             {!simple && <> · data v{fresh.version}</>}</span>
-          <button onClick={onCheckNow} disabled={fresh.refreshing}>{fresh.refreshing ? "Updating…" : "🔄 Check for new pictures"}</button>
+          <button onClick={onCheckNow} disabled={fresh.refreshing}>{fresh.refreshing ? "Updating…" : "Check for new pictures"}</button>
           <p className="small muted">SkyShift re-checks NASA's archive automatically, so new SPHEREx releases appear here without anyone touching the code.</p>
         </div>
       )}

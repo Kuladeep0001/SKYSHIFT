@@ -2,10 +2,9 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api.js";
 
-const ICON = { mover: "🏃", variable: "💡", appeared: "✨", vanished: "🌑", transient: "☄️" };
 const BADGE = {
-  known_mover: ["✓ Known fast star", "ok"], known_star: ["✓ Known star", "ok"], known_asteroid: ["☄️ Known asteroid", "ok"],
-  likely_artefact: ["⚠ Probably glare", "wait"],
+  known_mover: ["✓ Known fast star", "ok"], known_star: ["✓ Known star", "ok"], known_asteroid: ["Known asteroid", "ok"],
+  likely_artefact: ["Probably glare", "wait"],
   unmatched: ["? Unknown: worth a look!", "new"], pending: ["… couldn't check", "wait"],
 };
 
@@ -28,7 +27,7 @@ function ReportForm({ c, v, ctx, onDone }) {
     <form className="reportForm" onSubmit={send} onClick={(e) => e.stopPropagation()}>
       <input value={nick} onChange={(e) => setNick(e.target.value)} placeholder="Your nickname (optional)" maxLength={40} aria-label="Nickname" />
       <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What did you notice? (optional)" maxLength={280} aria-label="Note" />
-      <button className="primary" disabled={busy}>{busy ? "Sending…" : "📣 Report"}</button>
+      <button className="primary" disabled={busy}>{busy ? "Sending…" : "Report"}</button>
     </form>
   );
 }
@@ -67,7 +66,7 @@ export default function CandidatesPanel({ qid, band, candidates, setCandidates, 
     <section className="card candidates">
       <h2>Find things that moved {expert && <small>detector {band === 7 ? "D5+D6" : band ? `D${band}` : "all"}</small>}</h2>
       <p className="small muted">SkyShift compares the visits, points out anything that moved or changed brightness, and checks it against other telescopes.</p>
-      <button className="primary full" onClick={run} disabled={busy || !qid}>{busy ? "Searching…" : "🔎 Find moving or changing things"}</button>
+      <button className="primary full" onClick={run} disabled={busy || !qid}>{busy ? "Searching…" : "Find moving or changing things"}</button>
       {err && <p className="err">{err}</p>}
       {candidates && !candidates.length && <p className="hint">Nothing obvious changed here. Try another detector or a bigger area.</p>}
       <ul className="candList">
@@ -77,7 +76,6 @@ export default function CandidatesPanel({ qid, band, candidates, setCandidates, 
           return (
             <li key={c.candidate_id} className={focus === c.candidate_id ? "on" : ""} onClick={() => setFocus(c.candidate_id)}>
               <div className="candHead">
-                <span className="ico">{ICON[c.kind] || "•"}</span>
                 <b>{c.candidate_id}</b>
                 <span className="kind">{c.kind}</span>
                 {label && <span className={`badge ${cls}`}>{label}</span>}
@@ -85,7 +83,7 @@ export default function CandidatesPanel({ qid, band, candidates, setCandidates, 
               <p>{c.plain_english}</p>
               {v && <p className="verify">{v.plain_english}</p>}
               {reporting === c.candidate_id ? <ReportForm c={c} v={v} ctx={ctx || {}} onDone={(m) => { setReporting(null); say && say(m); }} />
-                : <button className="linkBtn small" onClick={(e) => { e.stopPropagation(); setReporting(c.candidate_id); }}>📣 Report this find</button>}
+                : <button className="linkBtn small" onClick={(e) => { e.stopPropagation(); setReporting(c.candidate_id); }}>Report this find</button>}
               {expert && (
                 <p className="mono small muted">
                   RA {c.ra.toFixed(5)} Dec {c.dec.toFixed(5)} · S/N {c.snr} · score {c.score}

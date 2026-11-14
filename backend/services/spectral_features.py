@@ -53,8 +53,8 @@ FEATURES = [
      "Molecular hydrogen heated by shocks, e.g. in jets.", "jets from young stars"),
 ]
 
-CATEGORY_LABEL = {"water": "💧 Water", "minerals": "🪨 Rock / minerals", "carbon": "🧪 Carbon gases & ices",
-                  "organics": "🌿 Organic molecules", "hydrogen": "✨ Hot hydrogen"}
+CATEGORY_LABEL = {"water": "Water", "minerals": "Rock / minerals", "carbon": "Carbon gases & ices",
+                  "organics": "Organic molecules", "hydrogen": "Hot hydrogen"}
 
 
 def bin_spectrum(points: list[dict], channels_wave: dict[int, tuple[float, float]] | None = None) -> list[dict]:

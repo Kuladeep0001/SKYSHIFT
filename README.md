@@ -1,4 +1,4 @@
-# SkyShift 🌌 — watch the infrared sky move
+# SkyShift — watch the infrared sky move
 
 **SkyShift** is a public website for NASA's **SPHEREx** mission. Type a star's name or sky coordinates and
 SkyShift gathers every SPHEREx picture of that spot, lines them up, and plays them like a **flipbook**.
@@ -41,23 +41,23 @@ It takes about 10 minutes the first time.
 - [x] Metadata and contamination flags
 - [x] URL-based coordinate queries + embed mode
 - [x] Detection and analysis: finds movers/brightness changes, checks them against Gaia/WISE/asteroids
-- [x] 🔬 **Is it already known?** four-catalogue cross-check (Gaia DR3, 2MASS, AllWISE, SIMBAD), each compared at its own
+- [x] **Is it already known?** four-catalogue cross-check (Gaia DR3, 2MASS, AllWISE, SIMBAD), each compared at its own
   observing date, with contamination flags and an overall verdict (verification module by Meenakshi K)
 
 **Extra features**
-- [x] 🗺 **Live sky map on the home page** (Aladin Lite): the whole sky in SPHEREx false colour (dust, hot gas, stars), zoomable,
-  with the challenge targets marked. 📍 Pick a spot or ⬚ draw a square and SkyShift loads every SPHEREx picture of it
-- [x] ⏳ **Time machine**: 1950 and 1991 photographic plates, 2MASS (2000), WISE (2010), SPHEREx, with the predicted path
-- [x] 🧊 Spectral cube, 💧 molecule/mineral finder, 🃏 details card (SIMBAD, Gaia, WISE, Wikipedia)
-- [x] ☄️ **Asteroid hunter**: where each known asteroid was in every snapshot
-- [x] 🔭 **Discovery board**: report finds, vote (citizen science)
-- [x] 💬 **Ask about this object** (Qwen or any OpenAI-compatible model; built-in answers otherwise)
-- [x] ✨ **Guided tour**, 👁 **colour-blind-safe mode**
-- [x] 🔊 **Listen tab** for blind and low-vision visitors: the brightness-vs-wavelength graph is shown big *and* played as sound
+- [x] **Live sky map on the home page** (Aladin Lite): the whole sky in SPHEREx false colour (dust, hot gas, stars), zoomable,
+  with the challenge targets marked. Pick a spot or draw a square and SkyShift loads every SPHEREx picture of it
+- [x] **Time machine**: 1950 and 1991 photographic plates, 2MASS (2000), WISE (2010), SPHEREx, with the predicted path
+- [x] Spectral cube, molecule/mineral finder, details card (SIMBAD, Gaia, WISE, Wikipedia)
+- [x] **Asteroid hunter**: where each known asteroid was in every snapshot
+- [x] **Discovery board**: report finds, vote (citizen science)
+- [x] **Ask about this object** (Qwen or any OpenAI-compatible model; built-in answers otherwise)
+- [x] **Guided tour**, **colour-blind-safe mode**
+- [x] **Listen tab** for blind and low-vision visitors: the brightness-vs-wavelength graph is shown big *and* played as sound
   (higher, louder note = brighter; left ear = short wavelength, right ear = long), arrow keys read it point by point,
   pick any star from a spoken list, hear how the object moves, everything keyboard and screen-reader friendly
-- [x] 📤 Share as animated GIF, picture card, link or embed
-- [x] 🛰 Stays up to date with new NASA releases automatically; download task bar with Cancel
+- [x] Share as animated GIF, picture card, link or embed
+- [x] Stays up to date with new NASA releases automatically; download task bar with Cancel
 
 **Results on the challenge targets** (SPHEREx pictures only, then compared with the catalogues; worked out live at
 `/api/validation` and shown on the website's *How it works* page):
@@ -76,11 +76,11 @@ NASA's archive (IRSA) adds SPHEREx data every week and publishes new releases, b
 So SkyShift **asks**, cheaply and often:
 
 ```
- every 6 h   watcher ──► re-detect releases (dr1, qr3, future dr2/qr4…)  ──► new one? use it automatically
- (and when   │        ──► for every cached spot: 2-second IRSA search ──► same image list?  nothing to do
- a spot is   │                                                        └─► list changed?  download ONLY the new
+ every 6 h   watcher ──re-detect releases (dr1, qr3, future dr2/qr4…)  ──new one? use it automatically
+ (and when   │        ──for every cached spot: 2-second IRSA search ──same image list?  nothing to do
+ a spot is   │                                                        └─list changed?  download ONLY the new
  opened, or  │                                                            cutouts, rebuild, version + 1
- "check now")└──► open browsers poll every 2 min ──► "🆕 NASA added 25 new pictures. Show them"
+ "check now")└──open browsers poll every 2 min ──"NASA added 25 new pictures. Show them"
 ```
 
 - Each cached spot stores a **fingerprint** of the exact IRSA files it was built from. New exposures, a new
@@ -185,7 +185,7 @@ Keep the terminal window open while you use the site. Press **Ctrl + C** in it t
 | `address already in use` / `error while attempting to bind` | SkyShift is already running in another window. Use that one, or start with `--port 8001` and open http://localhost:8001 |
 | "IRSA may be busy, please try again" | NASA's archive is overloaded. Wait a minute and search again; pictures already downloaded are kept |
 | The sky map on the home page stays black | Wait a few seconds the first time (the colour sky is built from NASA's tiles), or pick another sky in the map's menu. If it never appears, your browser needs WebGL 2: update Chrome, Edge or Firefox, or turn on hardware acceleration (you then get a still picture instead) |
-| The assistant (💬 Ask) gives short answers | That's the built-in helper. For full answers, connect Qwen (see [Optional: AI answers with Qwen](#optional-ai-answers-with-qwen)) |
+| The assistant (Ask) gives short answers | That's the built-in helper. For full answers, connect Qwen (see [Optional: AI answers with Qwen](#optional-ai-answers-with-qwen)) |
 
 ### For developers
 

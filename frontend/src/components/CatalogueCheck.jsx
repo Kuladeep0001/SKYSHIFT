@@ -13,11 +13,11 @@ const CATS = [
 ];
 
 const VERDICT = {
-  confirmed_association: ["✅", "Known object", "good"],
-  potential_association: ["🟡", "Possibly known", "maybe"],
-  no_association: ["❓", "Not in these catalogues", "none"],
-  insufficient_evidence: ["⚪", "Couldn't tell", "none"],
-  conflicting_evidence: ["⚠️", "The catalogues disagree", "maybe"],
+  confirmed_association: ["", "Known object", "good"],
+  potential_association: ["", "Possibly known", "maybe"],
+  no_association: ["", "Not in these catalogues", "none"],
+  insufficient_evidence: ["", "Couldn't tell", "none"],
+  conflicting_evidence: ["", "The catalogues disagree", "maybe"],
 };
 
 const ROW = {
@@ -81,7 +81,7 @@ function Planets({ exo, simple }) {
   const fastest = pl[0]?.planet_parameters?.orbital_period_days;
   return (
     <div className="planets">
-      <p className="small"><span aria-hidden="true">🪐</span> <b>This star has {exo.planet_count || pl.length} known planet{(exo.planet_count || pl.length) > 1 ? "s" : ""}</b>: {names.join(", ")}
+      <p className="small"><b>This star has {exo.planet_count || pl.length} known planet{(exo.planet_count || pl.length) > 1 ? "s" : ""}</b>: {names.join(", ")}
         {simple && fastest ? <>. The closest one goes round its star in just {fastest < 10 ? fastest.toFixed(1) : Math.round(fastest)} days.</> : "."}
         <span className="muted"> (NASA Exoplanet Archive)</span></p>
       {!simple && (
@@ -142,7 +142,7 @@ export default function CatalogueCheck({ pos, pm, label, simple }) {
 
   return (
     <section className="card catCheck" aria-live="polite">
-      <h2>🔬 Is it already known? <small>Gaia · 2MASS · AllWISE · SIMBAD</small></h2>
+      <h2>Is it already known? <small>Gaia · 2MASS · AllWISE · SIMBAD</small></h2>
       {!res && !busy && (
         <>
           <p className="small">{simple
@@ -156,7 +156,7 @@ export default function CatalogueCheck({ pos, pm, label, simple }) {
       {err && <p className="err">{err} <button className="small" onClick={run}>Try again</button></p>}
       {res && (
         <>
-          <p className={`verdict ${v[2]}`}><span aria-hidden="true">{v[0]}</span> <b>{v[1]}</b></p>
+          <p className={`verdict ${v[2]}`}><b>{v[1]}</b></p>
           <p className="small">{plainVerdict(res, Object.keys(ev).length)}</p>
           {simbadSrc?.name && ev.simbad?.evidence === "confirmed_association" && (
             <p className="small">SIMBAD knows it as <a href={simbadSrc.url} target="_blank" rel="noreferrer"><b>{simbadSrc.name}</b></a>{simbadSrc.object_type ? ` (${simbadSrc.object_type})` : ""}.</p>
@@ -182,12 +182,12 @@ export default function CatalogueCheck({ pos, pm, label, simple }) {
           </table>
           {cross && cross.status !== "not_assessable" && (
             <p className="small">{cross.status === "consistent" ? "✓ The catalogue positions agree with each other once Gaia's measured motion is taken into account."
-              : cross.status === "mixed_evidence" ? "⚠ Some catalogue positions agree with Gaia and some don't."
+              : cross.status === "mixed_evidence" ? "Some catalogue positions agree with Gaia and some don't."
                 : `Catalogue positions vs Gaia: ${cross.status}.`}</p>
           )}
           <Planets exo={res.exoplanet_association} simple={simple} />
           {!simple && <Extras res={res} />}
-          {caveats.length > 0 && <ul className="small warnList">{caveats.map((c) => <li key={c}>⚠ {c}</li>)}</ul>}
+          {caveats.length > 0 && <ul className="small warnList">{caveats.map((c) => <li key={c}>{c}</li>)}</ul>}
           {!simple && (
             <details className="small"><summary>Raw result (JSON)</summary><pre className="raw">{JSON.stringify(res, null, 1)}</pre></details>
           )}

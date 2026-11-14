@@ -18,7 +18,7 @@ const ALADIN_URL = "https://cdn.jsdelivr.net/npm/aladin-lite@3.8.2/dist/aladin.j
 const MARKS = { barnard: [269.4463, 4.7682], epsindi: [331.0966, -56.8007], wise0855: [133.7598, -7.2422], rwaur: [76.9566, 30.4013], rdra: [248.1672, 66.7550] };
 
 const SURVEYS = [
-  [COLOUR_SKY, "🌌 SPHEREx colour sky (dust · gas · stars)"],
+  [COLOUR_SKY, "SPHEREx colour sky (dust · gas · stars)"],
   ["P/allWISE/color", "Infrared sky (WISE)"],
   ["P/2MASS/color", "Infrared sky (2MASS)"],
   ["P/Mellinger/color", "Visible sky (Mellinger)"],
@@ -94,9 +94,9 @@ export default function SkyHome({ onPick, fovDefault }) {
     <section className="skyHome lead-map" aria-label="Interactive map of the whole sky">
       <div className="skyTools row">
         <div className="seg" role="group" aria-label="Map tool">
-          <button className={mode === "pan" ? "on" : ""} onClick={() => setMode("pan")} title="Drag to move around, scroll to zoom">✋ Move / zoom</button>
-          <button className={mode === "point" ? "on" : ""} onClick={() => setMode("point")} title="Click a spot to load it">📍 Pick a spot</button>
-          <button className={mode === "box" ? "on" : ""} onClick={() => setMode("box")} title="Drag a square to load that area">⬚ Draw a square</button>
+          <button className={mode === "pan" ? "on" : ""} onClick={() => setMode("pan")} title="Drag to move around, scroll to zoom">Move / zoom</button>
+          <button className={mode === "point" ? "on" : ""} onClick={() => setMode("point")} title="Click a spot to load it">Pick a spot</button>
+          <button className={mode === "box" ? "on" : ""} onClick={() => setMode("box")} title="Drag a square to load that area">Draw a square</button>
         </div>
         <select value={survey} onChange={(e) => setSurvey(e.target.value)} aria-label="Background sky picture">
           {SURVEYS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -113,7 +113,7 @@ export default function SkyHome({ onPick, fovDefault }) {
             style={{ cursor: "crosshair" }} aria-label="Click or drag to choose an area" />
         )}
         {drag && <div className="skyBox" style={{ left: Math.min(drag.x0, drag.x1), top: Math.min(drag.y0, drag.y1), width: Math.abs(drag.x1 - drag.x0), height: Math.abs(drag.y1 - drag.y0) }} />}
-        {mode !== "pan" && tooWide && <div className="skyTip">Zoom in first (✋ mode + scroll): SkyShift loads areas up to 20 arcminutes wide.<br />Right now the map shows {fov > 1 ? `${fov.toFixed(0)}°` : `${(fov * 60).toFixed(0)}′`}.</div>}
+        {mode !== "pan" && tooWide && <div className="skyTip">Zoom in first (mode + scroll): SkyShift loads areas up to 20 arcminutes wide.<br />Right now the map shows {fov > 1 ? `${fov.toFixed(0)}°` : `${(fov * 60).toFixed(0)}′`}.</div>}
       </div>
       <p className="hint">
         {failed ? <><b>The whole sky as SPHEREx sees it.</b> (Your browser can't show the zoomable map, so this is a still picture. Use the search box above instead.) </>
@@ -121,7 +121,7 @@ export default function SkyHome({ onPick, fovDefault }) {
         {colour
           ? <>Infrared light is invisible, so SkyShift turns it into colours: <b style={{ color: "#ff9a6b" }}>orange-red</b> = glowing dust, <b style={{ color: "#7fe8ff" }}>cyan</b> = hot hydrogen gas, white/blue = stars. The Milky Way runs across the middle. </>
           : <>Use the menu to switch between infrared and visible-light pictures of the sky. </>}
-        {!failed && <>Orange circles are the challenge targets (click one). Zoom in, choose <b>📍 Pick a spot</b> or <b>⬚ Draw a square</b>, and SkyShift will fetch every SPHEREx picture of that area.</>}
+        {!failed && <>Orange circles are the challenge targets (click one). Zoom in, choose <b>Pick a spot</b> or <b>Draw a square</b>, and SkyShift will fetch every SPHEREx picture of that area.</>}
       </p>
     </section>
   );

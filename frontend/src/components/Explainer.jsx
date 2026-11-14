@@ -16,9 +16,9 @@ export default function Explainer({ story, target, mode, math, det, channel, chW
       <h2>What you're looking at</h2>
       {story ? (
         <>
-          <p className="storyHead"><span className="emoji">{story.emoji}</span> <b>{story.label}</b>: {story.tagline}</p>
+          <p className="storyHead"><b>{story.label}</b>: {story.tagline}</p>
           <p>{story.story}</p>
-          <p className="watch">👀 <b>Look for:</b> {story.watch}</p>
+          <p className="watch"><b>Look for:</b> {story.watch}</p>
         </>
       ) : target ? (
         <p>A patch of sky around <b>{target.name || "your coordinates"}</b>. Bright dots are stars and galaxies; dark is empty space.</p>

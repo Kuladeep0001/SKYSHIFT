@@ -31,7 +31,7 @@ export default function AskPanel({ context, speak }) {
 
   return (
     <section className="card askPanel" aria-label="Ask about this object">
-      <h2>💬 Ask about this object <small>{status ? (status.llm ? `AI: ${status.model}` : "answers from SkyShift's data") : ""}</small></h2>
+      <h2>Ask about this object <small>{status ? (status.llm ? `AI: ${status.model}` : "answers from SkyShift's data") : ""}</small></h2>
       <div className="askLog" aria-live="polite">
         {!log.length && <p className="small muted">Ask anything about {context?.name || "this spot"}. Answers use only what SkyShift measured and what catalogues say, so they won't make things up.</p>}
         {log.map((m, i) => <p key={i} className={`msg ${m.who}`}>{m.text}{m.source === "built-in" && m.who === "sky" ? "" : ""}</p>)}

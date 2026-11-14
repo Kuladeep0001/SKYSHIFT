@@ -252,13 +252,13 @@ SkyBoT returns `{ "catalog": "SkyBoT", "mjd": ..., "objects": [ { "name", "ra", 
 Same request and result as the cross-check below, plus three extra sections in each result:
 `photometric_assessment` (measurements, colours such as BP−RP / J−H / W1−W2, SED, quality warnings),
 `object_profile` (identity, other names, astrometry) and `exoplanet_association` (known planets from the
-NASA Exoplanet Archive, matched by Gaia DR3 id or position). The website's **🔬 Is it already known?** panel uses this.
+NASA Exoplanet Archive, matched by Gaia DR3 id or position). The website's **Is it already known?** panel uses this.
 
 ### `POST /api/crossmatch/`: four-catalogue cross-check only  (`routes/crossmatch.py`, owner: Meenakshi K)
 Is an object already known? Checks **Gaia DR3, 2MASS, AllWISE and SIMBAD**, each at its own observing date.
 Gaia runs first; its proper motion is used to move the position to the 2MASS (~1999) and AllWISE (2010.5)
 epochs, and the other three catalogues are then queried at the same time. Takes 5–30 s. The website shows it
-as the **🔬 Is it already known?** panel. Full design notes: [backend/VERIFICATION.md](backend/VERIFICATION.md).
+as the **Is it already known?** panel. Full design notes: [backend/VERIFICATION.md](backend/VERIFICATION.md).
 ```json
 { "candidates": [ { "candidate_id": "WISE 0855", "ra": 133.7598, "dec": -7.2422,
                     "observation_time": "2026-01-01T00:00:00Z",

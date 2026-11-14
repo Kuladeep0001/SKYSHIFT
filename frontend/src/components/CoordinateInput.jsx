@@ -30,7 +30,7 @@ export default function CoordinateInput({ initial, onGo, fov, setFov, release, s
         <span className="lbl">Try:</span>
         {TARGETS.map((t) => (
           <button key={t.id} onClick={() => { setText(t.label); onGo(t.q); }} disabled={busy} title={t.tagline}>
-            {t.emoji} {t.label}
+            {t.label}
           </button>
         ))}
       </div>

@@ -43,8 +43,6 @@ function grouped(list) {
 function Row({ t }) {
   const running = t.status === "running" || !t.status;
   const pct = t.status === "done" ? 100 : t.total ? Math.max(3, Math.round((100 * t.done) / t.total)) : null;
-  const icon = t.status === "done" ? "✅" : t.status === "failed" ? "⚠️" : t.status === "cancelled" ? "⏹" : t.kind === "update" ? "🔄"
-    : t.kind && t.kind !== "download" ? t.kind : "⬇️";
   let info;
   if (t.status === "done") info = `done in ${elapsed(t)}`;
   else if (t.status === "failed") info = `failed: ${t.detail}`;
@@ -54,7 +52,7 @@ function Row({ t }) {
   const cancel = t.onCancel && running ? () => (t.members ? t.members.forEach((m) => m.onCancel && m.onCancel()) : t.onCancel()) : null;
   return (
     <div className={`task ${t.status || "running"}`}>
-      <span className="taskIcon" aria-hidden="true">{icon}</span>
+      <span className={`taskDot ${t.status || "running"}${t.kind === "update" ? " update" : ""}`} aria-hidden="true" />
       <div className="taskBody">
         <div className="taskTop">
           <b>{t.label}{t.count > 1 ? <span className="taskCount"> ×{t.count}</span> : null}</b>
@@ -88,7 +86,7 @@ export default function TaskBar({ tasks = [] }) {
   return (
     <div className="taskBar" role="region" aria-label="Downloads and updates" aria-live="polite">
       <div className="taskHead">
-        <b>{running ? `⬇️ ${running} download${running > 1 ? "s" : ""} running` : "✅ Downloads finished"}</b>
+        <b>{running ? `${running} download${running > 1 ? "s" : ""} running` : "Downloads finished"}</b>
         {open && running > 1 && <button className="small" onClick={() => rows.forEach((t) => t.status === "running" && (t.members ? t.members.forEach((m) => m.onCancel && m.onCancel()) : t.onCancel && t.onCancel()))}>✕ Cancel all</button>}
         <button className="small" onClick={() => setOpen(!open)} aria-expanded={open} title={open ? "Hide the list" : "Show the list"}>{open ? "▾ Hide" : `▸ Show (${rows.length})`}</button>
       </div>

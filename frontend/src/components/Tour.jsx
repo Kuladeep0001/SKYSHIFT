@@ -42,9 +42,9 @@ export default function Tour({ step, setStep, ready, auto, setAuto, speak }) {
       <h3>{s.title}</h3>
       <p>{ready ? s.text : "Loading…"}</p>
       <div className="row">
-        <button onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0}>◀ Back</button>
+        <button onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0}>Back</button>
         {s.end ? <button className="primary" onClick={() => setStep(null)}>Start exploring</button>
-          : <button className="primary" onClick={() => setStep(step + 1)}>Next ▶</button>}
+          : <button className="primary" onClick={() => setStep(step + 1)}>Next</button>}
         <label className="tog small"><input type="checkbox" checked={auto} onChange={() => setAuto(!auto)} /> auto-play</label>
       </div>
     </div>

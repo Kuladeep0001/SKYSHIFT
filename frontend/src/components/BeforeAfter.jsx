@@ -29,7 +29,7 @@ export default function BeforeAfter({ F, disp, rgb }) {
       <div className="baWrap">
         <canvas ref={b} width="720" height="720" />
         <canvas ref={a} width="720" height="720" style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }} />
-        <div className="baLine" style={{ left: `${pos}%` }}><span>⇔</span></div>
+        <div className="baLine" style={{ left: `${pos}%` }}><span></span></div>
         <div className="baTag left">{monthYear(da)}</div>
         <div className="baTag right">{monthYear(db)}</div>
         <input className="baRange" type="range" min="0" max="100" value={pos} onChange={(e) => setPos(+e.target.value)}

@@ -11,7 +11,7 @@ const CHALLENGE = [
   ["Must have", "Enter RA/Dec (any format) or a star's name", "Search box (also on the home sky map: click a spot or draw a square)", go("17 57 48.5 +04 41 36")],
   ["Must have", "Retrieve SPHEREx images of that spot", "Every SPHEREx exposure from NASA IRSA (newest release first), cut out, aligned north-up and cleaned", go("Barnard's Star")],
   ["Must have", "Show images from different times", "One stacked picture per visit, with dates; every single snapshot in Expert mode", go("Barnard's Star")],
-  ["Must have", "Play them like a video", "▶ Flipbook with speed control and keyboard (Space, ← →)", go("Barnard's Star")],
+  ["Must have", "Play them like a video", "Flipbook with speed control and keyboard (Space, ← →)", go("Barnard's Star")],
   ["Extra", "Easy updates with new data releases", "Detects new SPHEREx releases and new pictures by itself, rebuilds the spot, shows \"NASA added data\"", "#about-updates"],
   ["Extra", "Creative use of the 102 bands", "RGB colour grading, 102-colour spectral cube, continuous spectrum, molecule finder, sound", go("eps Ind B", "planes", "&expert=1")],
   ["Extra", "Combine the 6 detectors", "All six stacked (deepest), \"Reddest\" (D5+D6) for brown dwarfs, 6-detector wall", go("Barnard's Star", "wall", "&expert=1")],
@@ -24,29 +24,29 @@ const CHALLENGE = [
 ];
 
 const AUDIENCES = [
-  ["🧒 Students and the public", "Simple mode, guided tour, plain-English explanations of every picture, stories for each target.", go("Barnard's Star", "", "&tour=1")],
-  ["👩‍🏫 Teachers", "Ready-made activities below: measure a star's speed, find water on a brown dwarf, hear a giant star breathe.", "#about-teach"],
-  ["🔭 Citizen scientists", "Find moving or changing things anywhere on the sky, check them against 4 catalogues, report them on the Discovery board.", "#board"],
-  ["🧑‍🔬 Astronomers", "Expert mode: single exposures, 102-colour cube, spectra with errors, light curves, flags, CSV export, REST API.", go("eps Ind B", "", "&expert=1")],
-  ["🦯 Blind and low-vision visitors", "🔊 Listen tab: the brightness graph and the motion as sound, keyboard and screen-reader friendly.", go("Barnard's Star", "listen", "&listen=1")],
-  ["🎨 Colour-blind visitors", "👁 Colour-safe switches every red/green to orange/blue.", "./"],
-  ["💻 Developers", "Open source, documented API, Docker, mock mode, embed code for any website.", "/docs"],
+  ["Students and the public", "Simple mode, guided tour, plain-English explanations of every picture, stories for each target.", go("Barnard's Star", "", "&tour=1")],
+  ["Teachers", "Ready-made activities below: measure a star's speed, find water on a brown dwarf, hear a giant star breathe.", "#about-teach"],
+  ["Citizen scientists", "Find moving or changing things anywhere on the sky, check them against 4 catalogues, report them on the Discovery board.", "#board"],
+  ["Astronomers", "Expert mode: single exposures, 102-colour cube, spectra with errors, light curves, flags, CSV export, REST API.", go("eps Ind B", "", "&expert=1")],
+  ["Blind and low-vision visitors", "Listen tab: the brightness graph and the motion as sound, keyboard and screen-reader friendly.", go("Barnard's Star", "listen", "&listen=1")],
+  ["Colour-blind visitors", "Colour-safe switches every red/green to orange/blue.", "./"],
+  ["Developers", "Open source, documented API, Docker, mock mode, embed code for any website.", "/docs"],
 ];
 
 const ACTIVITIES = [
-  ["Measure the fastest star", "Open Barnard's Star, press ▶, then 🔎 Find moving things. How many arcseconds per year does it move? How long until it crosses the full Moon's width (1800″)?", go("Barnard's Star")],
+  ["Measure the fastest star", "Open Barnard's Star, press, then Find moving things. How many arcseconds per year does it move? How long until it crosses the full Moon's width (1800″)?", go("Barnard's Star")],
   ["Find water on a failed star", "Open Epsilon Indi B and look at the spectrum: where does the line dip? Those dips at 1.4 and 1.9 µm are water vapour in a brown dwarf's air.", go("eps Ind B", "", "&expert=1")],
-  ["Hear a giant star breathe", "Open R Draconis, Before/after tab: compare the two visits. Then the 🔊 Listen tab: play the graph and describe what you hear.", go("R Dra", "compare")],
+  ["Hear a giant star breathe", "Open R Draconis, Before/after tab: compare the two visits. Then the Listen tab: play the graph and describe what you hear.", go("R Dra", "compare")],
 ];
 
 function Accuracy() {
   const [d, setD] = useState(null);
   const [err, setErr] = useState("");
   useEffect(() => { api.validation().then(setD).catch((e) => setErr(e.message)); }, []);
-  const verdictIcon = { excellent: "✅", "agrees within the error": "✅", agrees: "✅", close: "🟡", off: "⚠️", unclear: "🟡" };
+  const verdictIcon = { excellent: "", "agrees within the error": "", agrees: "", close: "", off: "", unclear: "" };
   return (
     <section className="card" id="about-accuracy">
-      <h2>📏 How accurate is SkyShift?</h2>
+      <h2>How accurate is SkyShift?</h2>
       <p>SkyShift measures the five challenge targets using <b>only SPHEREx pictures</b>, then we compare with what astronomers already know. This table is worked out live by the server each time you open this page.</p>
       {!d && !err && <p className="small muted"><span className="spin" aria-hidden="true" /> Measuring the five targets…</p>}
       {err && <p className="err">{err}</p>}
@@ -107,7 +107,7 @@ export default function About() {
       </section>
 
       <section className="card" id="about-challenge">
-        <h2>🎯 How SkyShift answers the NASA challenge</h2>
+        <h2>How SkyShift answers the NASA challenge</h2>
         <p>Every requirement of the SPHEREx challenge, and where to try it. Each link opens SkyShift at the right place.</p>
         <div className="tableScroll">
           <table className="features reqTable">
@@ -123,7 +123,7 @@ export default function About() {
       <Accuracy />
 
       <section className="card" id="about-who">
-        <h2>🤝 Who SkyShift helps</h2>
+        <h2>Who SkyShift helps</h2>
         <div className="audGrid">
           {AUDIENCES.map(([who, what, link]) => (
             <a key={who} className="aud" href={link}><b>{who}</b><span>{what}</span></a>
@@ -132,15 +132,15 @@ export default function About() {
       </section>
 
       <section className="card" id="about-teach">
-        <h2>👩‍🏫 Three classroom activities (10 minutes each)</h2>
+        <h2>Three classroom activities (10 minutes each)</h2>
         <ol className="how">
           {ACTIVITIES.map(([title, text, link]) => <li key={title}><b>{title}.</b> {text} <a href={link}>Open it →</a></li>)}
         </ol>
       </section>
 
       <section className="card" id="about-updates">
-        <h2>🛰 Always up to date</h2>
-        <p>NASA adds SPHEREx pictures every week and publishes new data releases, but it doesn't notify anyone. So SkyShift asks NASA's archive every few hours: if a new release or new pictures of a spot you've opened appear, it downloads them in the background, rebuilds that spot, and the page shows <b>"🆕 NASA added data"</b>. The newest Gaia release is picked up the same way.</p>
+        <h2>Always up to date</h2>
+        <p>NASA adds SPHEREx pictures every week and publishes new data releases, but it doesn't notify anyone. So SkyShift asks NASA's archive every few hours: if a new release or new pictures of a spot you've opened appear, it downloads them in the background, rebuilds that spot, and the page shows <b>"NASA added data"</b>. The newest Gaia release is picked up the same way.</p>
       </section>
 
       <section className="card">

@@ -3,7 +3,7 @@
 > **Merged into SkyShift.** This module came from the `verification` branch (Meenakshi K). Inside SkyShift it lives at
 > `backend/routes/crossmatch.py` (endpoint `POST /api/verification/`), `backend/models/verification.py` and
 > `backend/services/{gaia_match,twomass,allwise,simbad,crossmatch}.py`. The website shows it as the
-> **🔬 Is it already known?** panel. Changes made while merging: the AllWISE search is centred on the position at the
+> **Is it already known?** panel. Changes made while merging: the AllWISE search is centred on the position at the
 > AllWISE epoch (2010.5) instead of J2000 (fast movers such as Barnard's Star were missed); SIMBAD reports
 > `match_quality` so it can confirm a match and prefers a star over its own planet; 2MASS, AllWISE and SIMBAD are
 > queried at the same time after Gaia; IRSA timeouts are retried once; candidates may carry their own proper motion

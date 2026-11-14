@@ -4,7 +4,6 @@ export const TARGETS = [
     id: "barnard",
     label: "Barnard's Star",
     q: "Barnard's Star",
-    emoji: "🏃",
     tagline: "The fastest-moving star in our sky",
     story:
       "Just 6 light-years away, Barnard's Star races across the sky faster than any other star. It covers the width of the full Moon in about 180 years.",
@@ -15,7 +14,6 @@ export const TARGETS = [
     id: "epsindi",
     label: "Epsilon Indi B",
     q: "eps Ind B",
-    emoji: "👯",
     tagline: "Two 'failed stars' orbiting each other",
     story:
       "Two brown dwarfs, balls of gas too small to shine like the Sun, circling each other 12 light-years away. They are cool, so they glow mostly in long-wavelength infrared.",
@@ -26,7 +24,6 @@ export const TARGETS = [
     id: "wise0855",
     label: "WISE 0855",
     q: "WISE 0855",
-    emoji: "🧊",
     tagline: "The coldest brown dwarf known: freezer-cold",
     story:
       "At about −25 °C, WISE 0855 is colder than a home freezer. It gives off almost no visible light, only long-wavelength infrared heat glow, so you need an infrared telescope like SPHEREx to see it.",
@@ -37,7 +34,6 @@ export const TARGETS = [
     id: "rwaur",
     label: "RW Aurigae",
     q: "RW Aur",
-    emoji: "🐣",
     tagline: "A baby star that flickers",
     story:
       "A young star, only a few million years old, still wrapped in the gas and dust it formed from. Its brightness changes as clumps of dust pass in front of it.",
@@ -48,7 +44,6 @@ export const TARGETS = [
     id: "rdra",
     label: "R Draconis",
     q: "R Dra",
-    emoji: "💓",
     tagline: "An old giant star that pulses",
     story:
       "A swollen red giant near the end of its life. It slowly 'breathes', getting brighter and dimmer about every 8 months.",

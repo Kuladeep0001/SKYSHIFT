@@ -19,11 +19,11 @@ Each person takes ownership of their files, improves them on their own branch, a
 ```
 resolver ─┐
           ▼
-spherex.py ──► jobs.py ──► image_processing.py ──► routes/images.py ──► frontend viewer
+spherex.py ──jobs.py ──image_processing.py ──routes/images.py ──frontend viewer
                                      │
-                                     ├──► detection.py ──► routes/analysis.py ──► CandidatesPanel
+                                     ├──detection.py ──routes/analysis.py ──CandidatesPanel
                                      │                          │
-sky_catalogs.py / solar_system.py ───┴──► routes/checks.py ◄───────────────────┘
+sky_catalogs.py / solar_system.py ───┴──routes/checks.py───────────────────┘
 ```
 
 - The **frontend never waits for the backend**: `?mock=1` serves saved responses from `frontend/public/mock/`.
@@ -43,9 +43,9 @@ sky_catalogs.py / solar_system.py ───┴──► routes/checks.py ◄─�
 
 | When | Milestone | Status |
 |---|---|---|
-| Hour 0–4 | Repo, structure, docs, API contract, mock data | ✅ done |
-| Hour 4–12 | Must-haves end to end: coordinates → SPHEREx images → flipbook | ✅ done |
-| Hour 12–16 | **Deploy a public link** (Hugging Face Spaces / Render); pre-cache the 5 targets | ⏳ next |
+| Hour 0–4 | Repo, structure, docs, API contract, mock data | done |
+| Hour 4–12 | Must-haves end to end: coordinates → SPHEREx images → flipbook | done |
+| Hour 12–16 | **Deploy a public link** (Hugging Face Spaces / Render); pre-cache the 5 targets | next |
 | Hour 16–30 | Good-to-haves polished (each owner's "next improvements" column) | |
 | Hour 30–36 | Freeze features. Test on phones and slow connections; fix bugs | |
 | Hour 36–42 | Demo video (2–3 min) and slides; screenshots of each challenge target | |

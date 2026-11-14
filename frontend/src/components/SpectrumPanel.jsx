@@ -145,7 +145,7 @@ export default function SpectrumPanel({ spec, visits, detectors, loading, simple
         </>
       )}
       <div className="chartBox tall"><canvas ref={a} aria-label="Spectrum chart" /></div>
-      {spec && spec.saturated_fraction > 0.5 && <p className="note warn">⚠ This star is so bright it overloads (saturates) SPHEREx's camera, so these values are lower limits and band depths can't be measured. Click a fainter star.</p>}
+      {spec && spec.saturated_fraction > 0.5 && <p className="note warn">This star is so bright it overloads (saturates) SPHEREx's camera, so these values are lower limits and band depths can't be measured. Click a fainter star.</p>}
       {spec && spec.features?.length > 0 && (
         <table className="features">
           <thead><tr><th>Band</th><th>λ (µm)</th><th>Change</th><th>σ</th><th>Result</th></tr></thead>

@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { api, voterId } from "../lib/api.js";
 
-const KIND = { mover: "🏃 moved", variable: "💡 changed brightness", appeared: "✨ appeared", vanished: "🌑 vanished", transient: "☄️ one-off spot", asteroid: "☄️ possible asteroid", other: "❓ other" };
+const KIND = { mover: "moved", variable: "changed brightness", appeared: "appeared", vanished: "vanished", transient: "one-off spot", asteroid: "possible asteroid", other: "other" };
 
 export default function Board() {
   const [sort, setSort] = useState("top");
@@ -20,7 +20,7 @@ export default function Board() {
   return (
     <div className="about board">
       <section className="card">
-        <h1>🔭 Discovery board</h1>
+        <h1>Discovery board</h1>
         <p>Things visitors spotted in SPHEREx data: stars that moved, sources that changed brightness, spots no catalogue lists.
           Vote <b>▲ worth a look</b> or <b>▼ probably nothing</b>. The most interesting finds rise to the top, ready for astronomers to follow up.
           Report your own from <b>Find things that moved</b> on any spot.</p>

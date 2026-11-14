@@ -216,7 +216,7 @@ export default function SpectralCube({ qid, visits, disp, version }) {
               <div className="stamp"><b style={{ color: DET_COLORS[c.det - 1] }}>{c.wave?.toFixed(2)} µm</b><span>plane {k + 1} of 102 · detector D{c.det} · ≈{c.snapshots_per_pixel} snapshots per pixel</span></div>
             </div>
             <div className="player">
-              <button className="primary play" onClick={() => setPlaying(!playing)}>{playing ? "⏸ Pause" : "▶ Fly through colours"}</button>
+              <button className="primary play" onClick={() => setPlaying(!playing)}>{playing ? "Pause" : "Fly through colours"}</button>
               <input type="range" min="0" max="101" value={k} onChange={(e) => setK(+e.target.value)} aria-label="Wavelength plane" />
               <span className="mono frameLbl">{k + 1}/102</span>
             </div>

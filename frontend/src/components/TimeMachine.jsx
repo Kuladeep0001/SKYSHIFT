@@ -110,7 +110,7 @@ export default function TimeMachine({ qid, target, fov, disp, onTask }) {
     } catch (e) { setErr(e.message); } finally { onTask && onTask(null); setLoadingFull(false); }
   }
 
-  if (err) return <p className="err">⚠ {err}</p>;
+  if (err) return <p className="err">{err}</p>;
   if (!data) return <div className="progress"><div className="bar"><i style={{ width: "40%" }} className="indet" /></div><p>Fetching the same patch of sky from 1950, 1991, 2000, 2010 and today… (about 30 s the first time)</p></div>;
   if (!data.count) return <p className="hint">No older images found here. {data.notes.join(" · ")}</p>;
   const f = data.frames[Math.min(idx, data.count - 1)];
@@ -126,7 +126,7 @@ export default function TimeMachine({ qid, target, fov, disp, onTask }) {
         </div>
       </div>
       <div className="player">
-        <button className="primary play" onClick={() => setPlaying(!playing)}>{playing ? "⏸ Pause" : "▶ Play"}</button>
+        <button className="primary play" onClick={() => setPlaying(!playing)}>{playing ? "Pause" : "Play"}</button>
         <input type="range" min="0" max={data.count - 1} value={idx} onChange={(e) => { setPlaying(false); setIdx(+e.target.value); }} aria-label="Year" />
         <span className="mono frameLbl">{idx + 1}/{data.count}</span>
       </div>
@@ -142,7 +142,7 @@ export default function TimeMachine({ qid, target, fov, disp, onTask }) {
         {area.path > 0.3 && <> The dashed line is {target.name || "the target"}'s predicted path: it travelled <b>{area.path.toFixed(1)}′</b> since {FIRST_YEAR} ({Math.round((area.path / 31) * 100)}% of the full Moon's width).</>}
       </p>
       {minSpherex < 0.95 && !fullQid && (
-        <button onClick={loadFull} disabled={loadingFull}>{loadingFull ? "Loading SPHEREx for the whole area…" : `🛰 Fill in SPHEREx for the whole ${area.fov}′ area (bigger download)`}</button>
+        <button onClick={loadFull} disabled={loadingFull}>{loadingFull ? "Loading SPHEREx for the whole area…" : `Fill in SPHEREx for the whole ${area.fov}′ area (bigger download)`}</button>
       )}
     </div>
   );
