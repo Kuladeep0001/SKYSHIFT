@@ -99,7 +99,7 @@ h2.mt { margin-top: 14px; }
 .row label, .settings label { color: var(--muted); font-size: 14px; display: flex; align-items: center; gap: 6px; }
 .lbl { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
 .spacer { flex: 1; }
-.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: -4px -4px 10px; padding: 0 4px; overflow-x: auto; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); margin: -4px -4px 10px; padding: 0 4px; }
 .tabs button { background: none; border: none; border-bottom: 3px solid transparent; border-radius: 0; color: var(--muted); padding: 9px 13px; font-weight: 600; white-space: nowrap; }
 .tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; flex-wrap: wrap; }
@@ -259,6 +259,35 @@ table.features tr.notseen { opacity: .5; }
 .stopBtn { background: #3a1520 !important; border-color: #ff6b8b !important; }
 .caption { background: #0a1222; border-radius: 8px; padding: 10px 12px; min-height: 48px; font-size: 15px; margin: 10px 0; }
 .listen details ul { padding-left: 18px; }
+/* the Listen tab: large text, big targets, strong contrast */
+.tabs button.listenTabBtn { color: var(--accent); }
+.listenTab { font-size: 16px; line-height: 1.55; }
+.listenTab h2 { font-size: 22px; margin: 2px 0 6px; text-transform: none; letter-spacing: 0; color: var(--text); }
+.listenTab .keys { margin-top: 4px; }
+.listenTab .lead { color: var(--text); margin: 0 0 10px; }
+.listenTab .keys { display: flex; flex-wrap: wrap; gap: 6px 16px; list-style: none; padding: 0; margin: 0 0 12px; color: var(--muted); font-size: 14px; }
+.listenTab kbd { font: 12px var(--mono); background: #0a1222; border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; color: var(--text); }
+.listenTab .pick { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px 10px; margin: 0 0 12px; }
+.listenTab .pick legend { font-weight: 700; padding: 0 6px; }
+.listenTab .pick label { display: block; padding: 7px 8px; border-radius: 8px; cursor: pointer; }
+.listenTab .pick label.on { background: rgba(255, 181, 71, .14); outline: 1px solid var(--accent); }
+.listenTab .pick input { width: 18px; height: 18px; vertical-align: -3px; margin-right: 6px; accent-color: var(--accent); }
+.listenTab .listenBtns button { font-size: 17px; padding: 12px 16px; min-height: 48px; }
+.listenTab button:focus-visible, .listenTab input:focus-visible, .listenTab select:focus-visible, .listenTab summary:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.listenOpts { gap: 10px 18px; margin: 12px 0 0; flex-wrap: wrap; }
+.listenOpts label { display: flex; align-items: center; gap: 6px; }
+.listenOpts select { font-size: 15px; padding: 6px 8px; }
+.caption.big { font-size: 18px; min-height: 64px; border: 1px solid var(--line); }
+.listenGraph { margin: 0 0 10px; }
+.listenGraph figcaption { font-size: 16px; margin-bottom: 6px; }
+.chartBox.listenChart { height: 360px; }
+.listenTab .readout { font: 600 18px var(--mono); color: #ffd166; margin: 6px 0 0; text-align: center; }
+.listenTab details { margin: 8px 0; }
+.listenTab details summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+.listenTab details p, .listenTab details ul { margin: 6px 0; }
+.listenTab table tr.cur { background: rgba(255, 209, 102, .16); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 700px) { .chartBox.listenChart { height: 260px; } .listenTab .listenBtns button { flex: 1 1 45%; } }
 
 /* --- sky home --- */
 .skyHome { margin: 10px auto 24px; text-align: left; }

@@ -87,7 +87,9 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
   const say = (m) => { setToast(m); setTimeout(() => setToast(""), 2600); };
 
   // Simple mode only has the flipbook and before/after views.
-  useEffect(() => { if (simple && !["blink", "movers", "compare", "timecolours", "planes", "timemachine", "asteroids"].includes(view)) setView("blink"); if (simple) setMode("visit"); }, [simple]);
+  useEffect(() => { if (simple && !["blink", "movers", "compare", "timecolours", "planes", "timemachine", "asteroids", "listen"].includes(view)) setView("blink"); if (simple) setMode("visit"); }, [simple]);
+  // Listen mode (header button) opens the Listen tab, made for blind and low-vision visitors.
+  useEffect(() => { if (listenMode) setView("listen"); }, [listenMode]);
 
   /* ---------------------------------------------------------- loading */
   const startLoad = useCallback(async (t, fovNow, rel) => {
@@ -172,7 +174,7 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
     let alive = true;
     (async () => {
       try {
-        if (view === "blink" || view === "compare" || view === "timecolours") {
+        if (view === "blink" || view === "compare" || view === "timecolours" || view === "listen") {
           const m = view === "blink" ? mode : "visit";
           const res = await api.frames(qid, { mode: m, det: m === "channel" ? 0 : det, channel: m === "channel" ? ch : 0 });
           if (!alive) return;
@@ -181,7 +183,7 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
           setF(dec); setIdx(0);
           if (!dec.data.length) say(m === "channel" ? `No snapshot caught this spot in colour plane ${ch}. Try a neighbouring one.` : "No pictures for this choice.");
           // RGB colour grading needs every detector of every visit
-          if (disp.cmap === "rgb" && !wallF && view !== "timecolours") {
+          if (disp.cmap === "rgb" && !wallF && view !== "timecolours" && view !== "listen") {
             const all = await api.frames(qid, { mode: "visitdet" });
             if (alive) setWallF(decodeFrames(all));
           }
@@ -200,13 +202,14 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
 
   // play loop
   useEffect(() => {
-    if (!playing || !count || ["planes", "compare", "timecolours"].includes(view) || disp.math === "sum") return;
+    if (!playing || !count || ["planes", "compare", "timecolours", "listen"].includes(view) || disp.math === "sum") return;
     const h = setInterval(() => setIdx((i) => (i + 1) % count), 1000 / fps);
     return () => clearInterval(h);
   }, [playing, fps, count, view, disp.math]);
 
   // keyboard: space / arrows
   useEffect(() => {
+    if (view === "listen") return;          // the Listen tab has its own keys
     const k = (e) => {
       if (e.target.tagName === "INPUT" && e.target.type === "text") return;
       if (e.code === "Space") { e.preventDefault(); setPlaying((p) => !p); }
@@ -215,7 +218,7 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
     };
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
-  }, [count]);
+  }, [count, view]);
 
   // keep the URL in sync so any view can be shared or embedded
   useEffect(() => {
@@ -307,13 +310,6 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
       setObjPos({ ra: sp.ra, dec: sp.dec, mjd: mid, name: null });
     } catch (e) { say(e.message); } finally { setSpecLoading(false); }
   };
-  const getSpectrum = async () => {
-    if (spec) return spec;
-    const c = (meta.n_pix - 1) >> 1;
-    const sp = await api.spectrum(qid, c, c);
-    setSpec(sp);
-    return sp;
-  };
   const frame = F && F.list[Math.min(idx, F.data.length - 1)];
   const selFlags = useMemo(() => {
     if (!spec || !frame || !frame.members) return null;
@@ -377,8 +373,8 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
   const chInfo = meta && meta.channels[ch - 1];
   const chWave = chInfo && chInfo.wave ? `${chInfo.wave[0].toFixed(2)}–${chInfo.wave[1].toFixed(2)} µm` : "";
   const tabs = simple
-    ? [["blink", "▶ Flipbook"], ["movers", "👻 Movers only"], ["timecolours", "🎨 Colour by date"], ["compare", "⇔ Before / after"], ["timemachine", "⏳ Time machine"], ["planes", "🌈 102 colours"], ["asteroids", "☄️ Asteroids"]]
-    : [["blink", "Blink"], ["movers", "👻 Movers only"], ["timecolours", "Colour by date"], ["compare", "Before / after"], ["timemachine", "⏳ Time machine"], ["wall", "6 Detectors"], ["color", "Infrared colour"], ["planes", "🧊 Spectral cube (102)"], ["asteroids", "☄️ Asteroids"]];
+    ? [["blink", "▶ Flipbook"], ["movers", "👻 Movers only"], ["timecolours", "🎨 Colour by date"], ["compare", "⇔ Before / after"], ["timemachine", "⏳ Time machine"], ["planes", "🌈 102 colours"], ["asteroids", "☄️ Asteroids"], ["listen", "🔊 Listen"]]
+    : [["blink", "Blink"], ["movers", "👻 Movers only"], ["timecolours", "Colour by date"], ["compare", "Before / after"], ["timemachine", "⏳ Time machine"], ["wall", "6 Detectors"], ["color", "Infrared colour"], ["planes", "🧊 Spectral cube (102)"], ["asteroids", "☄️ Asteroids"], ["listen", "🔊 Listen"]];
 
   return (
     <div className="explorer">
@@ -440,7 +436,8 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
           <section className="stage card">
             {!embed && (
               <div className="tabs" role="tablist">
-                {tabs.map(([k, label]) => <button key={k} className={view === k ? "on" : ""} onClick={() => setView(k)}>{label}</button>)}
+                {tabs.map(([k, label]) => <button key={k} role="tab" aria-selected={view === k} className={`${view === k ? "on" : ""} ${k === "listen" ? "listenTabBtn" : ""}`}
+                  title={k === "listen" ? "For blind and low-vision visitors: hear the brightness graph and the motion" : undefined} onClick={() => setView(k)}>{label}</button>)}
               </div>
             )}
 
@@ -486,13 +483,15 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
             {view === "timemachine" && <TimeMachine qid={qid} target={target} fov={fov} disp={disp} onTask={setTmTask} />}
             {view === "asteroids" && <AsteroidHunter qid={qid} disp={disp} />}
             {view === "movers" && <MoversOnly qid={qid} det={det} version={dataVersion} onPixel={onPixel} />}
+            {view === "listen" && <Listen target={target} story={story} F={F && F.mode === "visit" ? F : null} sel={sel}
+              spec={spec} loading={specLoading} onPixel={onPixel} candidates={candidates} />}
 
-            {!["planes", "compare", "timecolours", "timemachine", "asteroids", "movers"].includes(view) && (
+            {!["planes", "compare", "timecolours", "timemachine", "asteroids", "movers", "listen"].includes(view) && (
               <Controls playing={playing} setPlaying={setPlaying} idx={idx} count={count} setIdx={setIdx} fps={fps} setFps={setFps} disabled={!count} />
             )}
             {view === "blink" && <Timeline meta={meta} frame={frame} mode={F?.mode} simple={simple}
               onPick={(v) => { const k = F?.list.findIndex((f) => f.visit === v); if (k >= 0) setIdx(k); }} />}
-            {!embed && (
+            {!embed && view !== "listen" && (
               <DisplaySettings disp={disp} setDisp={setDisp} ov={ov} setOv={setOv} simple={simple}
                 share={{ F, disp, target, story, facts: shareFacts, shareURL, say, rgb: useRGB ? rgbSets : null }} />
             )}
@@ -500,7 +499,6 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
 
           {!embed && (
             <aside className="side">
-              {listenMode && <Listen target={target} story={story} F={F && F.mode === "visit" ? F : null} sel={sel} getSpectrum={getSpectrum} listenFirst />}
               <Explainer story={story} target={target} mode={view === "compare" ? "visit" : mode} math={disp.math} det={det}
                 channel={ch} chWave={chWave} view={view} simple={simple} />
               <CandidatesPanel qid={qid} band={det} candidates={candidates} setCandidates={setCandidates}
@@ -512,7 +510,6 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
                 releases={meta.status?.releases || []} selFlags={selFlags} simple={simple} fresh={fresh} onCheckNow={checkNow} />
               <ObjectCard pos={objPos} simple={simple} onLoaded={setDetails} />
               <SpectrumPanel spec={spec} visits={meta.visits} detectors={meta.detectors} loading={specLoading} simple={simple} />
-              {!listenMode && <Listen target={target} story={story} F={F && F.mode === "visit" ? F : null} sel={sel} getSpectrum={getSpectrum} />}
               <SkyMap target={target} fov={fov} onLoadHere={goCoords} />
             </aside>
           )}

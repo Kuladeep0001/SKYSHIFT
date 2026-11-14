@@ -51,7 +51,7 @@ export default function App() {
         <button className={`listenToggle ${safe ? "on" : ""}`} onClick={() => setSafe(!safe)} aria-pressed={safe}
           title="Colour-blind-safe colours everywhere (orange/blue instead of red/green)">👁 Colour-safe</button>
         <button className={`listenToggle ${listen ? "on" : ""}`} onClick={() => setListen(!listen)} aria-pressed={listen}
-          title="Listen mode: the data is described and played as sound (for blind and low-vision users)">🔊 Listen mode</button>
+          title="Listen mode: opens the Listen tab, where the brightness graph and the motion are played as sound, and reads answers aloud (for blind and low-vision visitors)">🔊 Listen mode</button>
         <div className="modeSwitch" role="group" aria-label="Simple or expert mode">
           <button className={!expert ? "on" : ""} onClick={() => setExpert(false)} title="Plain-English view for everyone">Simple</button>
           <button className={expert ? "on" : ""} onClick={() => setExpert(true)} title="All the science tools">Expert</button>

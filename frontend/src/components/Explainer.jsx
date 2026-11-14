@@ -3,7 +3,8 @@ import Term from "./Term.jsx";
 
 export default function Explainer({ story, target, mode, math, det, channel, chWave, view, simple }) {
   let howBuilt;
-  if (view === "compare") howBuilt = <>Left side: the <b>first</b> visit. Right side: the <b>last</b> visit. Drag the handle to compare. Anything that shifts or changes brightness is interesting.</>;
+  if (view === "listen") howBuilt = <>The <b>Listen</b> tab turns the data into sound. The graph shows how bright the object is at each infrared colour, and the sound plays it from left to right: a <b>higher, louder note means brighter</b>.</>;
+  else if (view === "compare") howBuilt = <>Left side: the <b>first</b> visit. Right side: the <b>last</b> visit. Drag the handle to compare. Anything that shifts or changes brightness is interesting.</>;
   else if (math === "first" || math === "prev") howBuilt = <>You're seeing each picture <b>minus the {math === "first" ? "first" : "previous"} one</b>. <b className="orange">Orange</b> = there now, <b className="blue">blue</b> = was there before. A <b>blue and orange pair</b> side by side means it <b>moved</b>. A lone blob means it changed brightness.</>;
   else if (math === "sum") howBuilt = <>All pictures are <b>added together</b>, so faint things show up better. Moving things get smeared, though.</>;
   else if (mode === "exposure") howBuilt = <>Each picture is <b>one single snapshot</b>, taken minutes to days apart. Good for catching fast things like asteroids.</>;

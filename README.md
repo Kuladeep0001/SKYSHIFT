@@ -49,7 +49,10 @@ It takes about 10 minutes the first time.
 - [x] ☄️ **Asteroid hunter**: where each known asteroid was in every snapshot
 - [x] 🔭 **Discovery board**: report finds, vote (citizen science)
 - [x] 💬 **Ask about this object** (Qwen or any OpenAI-compatible model; built-in answers otherwise)
-- [x] ✨ **Guided tour**, 🔊 **Listen mode** (sonification + narration), 👁 **colour-blind-safe mode**
+- [x] ✨ **Guided tour**, 👁 **colour-blind-safe mode**
+- [x] 🔊 **Listen tab** for blind and low-vision visitors: the brightness-vs-wavelength graph is shown big *and* played as sound
+  (higher, louder note = brighter; left ear = short wavelength, right ear = long), arrow keys read it point by point,
+  pick any star from a spoken list, hear how the object moves, everything keyboard and screen-reader friendly
 - [x] 📤 Share as animated GIF, picture card, link or embed
 - [x] 🛰 Stays up to date with new NASA releases automatically; download task bar with Cancel
 
