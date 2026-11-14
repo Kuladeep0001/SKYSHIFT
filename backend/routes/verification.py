@@ -496,11 +496,6 @@ async def verify_candidates(request: VerificationRequest):
 
                 catalogue_results["simbad"] = result
 
-        assessment, evidence_summary = build_evidence_summary(
-            catalogue_results
-        )
-
-
         cross_catalogue_association = crossmatch_catalogues(
             catalogue_results=catalogue_results,
             matching_radius_arcsec=request.search_radius_arcsec,

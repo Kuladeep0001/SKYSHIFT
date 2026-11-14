@@ -8,17 +8,11 @@ import astropy.units as u
 
 def safe_float(value):
     """Convert a value to a finite float, or return None."""
-
     try:
         number = float(value)
-
-        if math.isfinite(number):
-            return number
-
+        return number if math.isfinite(number) else None
     except (TypeError, ValueError):
-        pass
-
-    return None
+        return None
 
 
 def propagate_position(
@@ -35,15 +29,7 @@ def propagate_position(
     pmra is assumed to be mu_alpha*cos(dec), in mas/year.
     No parallax or radial-velocity correction is applied.
     """
-
-    if (
-        ra is None
-        or dec is None
-        or pmra is None
-        or pmdec is None
-        or from_epoch is None
-        or to_epoch is None
-    ):
+    if None in (ra, dec, pmra, pmdec, from_epoch, to_epoch):
         return None
 
     try:
@@ -59,10 +45,7 @@ def propagate_position(
             new_obstime=Time(to_epoch, format="jyear")
         )
 
-        return (
-            propagated.ra.deg,
-            propagated.dec.deg,
-        )
+        return propagated.ra.deg, propagated.dec.deg
 
     except (ValueError, TypeError, u.UnitConversionError):
         return None
@@ -70,16 +53,8 @@ def propagate_position(
 
 def angular_separation_arcsec(ra1, dec1, ra2, dec2):
     """Calculate angular separation between two sky positions."""
-
-    first = SkyCoord(
-        ra=ra1 * u.deg,
-        dec=dec1 * u.deg,
-    )
-
-    second = SkyCoord(
-        ra=ra2 * u.deg,
-        dec=dec2 * u.deg,
-    )
+    first = SkyCoord(ra=ra1 * u.deg, dec=dec1 * u.deg)
+    second = SkyCoord(ra=ra2 * u.deg, dec=dec2 * u.deg)
 
     return first.separation(second).arcsec
 
@@ -90,7 +65,6 @@ def classify_separation(separation_arcsec, radius_arcsec):
 
     These are screening categories, not statistical confidence levels.
     """
-
     if separation_arcsec <= radius_arcsec:
         return "consistent"
 
@@ -101,8 +75,7 @@ def classify_separation(separation_arcsec, radius_arcsec):
 
 
 def get_gaia_reference(gaia_result):
-    """Extract a confirmed Gaia source and its astrometry."""
-
+    """Extract a confirmed Gaia source, proper motion and uncertainties."""
     if not gaia_result:
         return None
 
@@ -116,6 +89,7 @@ def get_gaia_reference(gaia_result):
 
     catalogue_position = source.get("catalogue_position") or {}
     proper_motion = source.get("proper_motion") or {}
+    uncertainties = source.get("astrometric_uncertainties") or {}
 
     ra = safe_float(catalogue_position.get("ra"))
     dec = safe_float(catalogue_position.get("dec"))
@@ -134,6 +108,109 @@ def get_gaia_reference(gaia_result):
         "epoch": epoch,
         "pmra": pmra,
         "pmdec": pmdec,
+        "ra_error_mas": safe_float(
+            uncertainties.get("ra_error_mas")
+        ),
+        "dec_error_mas": safe_float(
+            uncertainties.get("dec_error_mas")
+        ),
+        "pmra_error_mas_yr": safe_float(
+            uncertainties.get("pmra_error_mas_yr")
+        ),
+        "pmdec_error_mas_yr": safe_float(
+            uncertainties.get("pmdec_error_mas_yr")
+        ),
+    }
+
+
+def propagate_gaia_uncertainty(gaia_reference, target_epoch):
+    """
+    Approximate Gaia positional uncertainty at a target epoch.
+
+    Variance = position variance + (time difference)^2 * PM variance.
+
+    Assumes independent position and proper-motion errors.
+    Gaia covariance terms are not included.
+    """
+    required = (
+        gaia_reference.get("ra_error_mas"),
+        gaia_reference.get("dec_error_mas"),
+        gaia_reference.get("pmra_error_mas_yr"),
+        gaia_reference.get("pmdec_error_mas_yr"),
+    )
+
+    if any(value is None for value in required):
+        return None
+
+    delta_years = target_epoch - gaia_reference["epoch"]
+
+    ra_variance = (
+        gaia_reference["ra_error_mas"] ** 2
+        + (delta_years * gaia_reference["pmra_error_mas_yr"]) ** 2
+    )
+
+    dec_variance = (
+        gaia_reference["dec_error_mas"] ** 2
+        + (delta_years * gaia_reference["pmdec_error_mas_yr"]) ** 2
+    )
+
+    return {
+        "ra_arcsec": math.sqrt(ra_variance) / 1000.0,
+        "dec_arcsec": math.sqrt(dec_variance) / 1000.0,
+        "epoch_jyear": target_epoch,
+        "method": "position_and_proper_motion_error_propagation",
+        "covariance_included": False,
+    }
+
+
+def calculate_normalized_separation(
+    ra1,
+    dec1,
+    ra2,
+    dec2,
+    sigma_ra_arcsec,
+    sigma_dec_arcsec,
+):
+    """
+    Calculate a two-dimensional normalized positional separation.
+
+    RA offset is projected onto the local tangent plane using
+    cos(mean declination).
+
+    Assumes independent RA and Dec errors.
+    """
+    if (
+        sigma_ra_arcsec is None
+        or sigma_dec_arcsec is None
+        or sigma_ra_arcsec <= 0
+        or sigma_dec_arcsec <= 0
+    ):
+        return None
+
+    delta_ra_deg = (ra2 - ra1 + 180.0) % 360.0 - 180.0
+    mean_dec_rad = math.radians((dec1 + dec2) / 2.0)
+
+    delta_ra_arcsec = (
+        delta_ra_deg * math.cos(mean_dec_rad) * 3600.0
+    )
+    delta_dec_arcsec = (dec2 - dec1) * 3600.0
+
+    chi_square = (
+        (delta_ra_arcsec / sigma_ra_arcsec) ** 2
+        + (delta_dec_arcsec / sigma_dec_arcsec) ** 2
+    )
+
+    return {
+        "delta_ra_tangent_plane_arcsec": delta_ra_arcsec,
+        "delta_dec_arcsec": delta_dec_arcsec,
+        "chi_square": chi_square,
+        "normalized_separation": math.sqrt(chi_square),
+        "degrees_of_freedom": 2,
+        "interpretation": (
+            "Two-dimensional positional discrepancy in combined "
+            "standard-error units. Assumes independent coordinate "
+            "errors and does not include astrometric covariance."
+        ),
     }
 
 
@@ -146,39 +223,52 @@ def compare_with_gaia(
     """
     Compare one catalogue source with the confirmed Gaia source.
 
-    The Gaia position is propagated to the epoch of the other
-    catalogue's position whenever that epoch is known.
-    """
+    The geometric comparison is retained as a diagnostic even if
+    the catalogue's own matcher rejected the source.
 
+    association_accepted indicates whether the catalogue's own
+    matching service accepted the source.
+    """
     if not catalogue_result:
         return {
             "status": "not_checked",
+            "association_accepted": False,
             "reason": "This catalogue was not queried.",
         }
 
     if gaia_reference is None:
         return {
             "status": "not_assessable",
+            "association_accepted": False,
             "reason": (
                 "A confirmed Gaia match with usable proper motion "
                 "is required as the astrometric reference."
             ),
         }
 
+    catalogue_match_status = catalogue_result.get("status")
+    catalogue_match_quality = catalogue_result.get("match_quality")
+
+    # Only an explicit match_found from the catalogue service
+    # counts as an accepted catalogue association.
+    association_accepted = (
+        catalogue_match_status == "match_found"
+        and catalogue_match_quality in (None, "within_radius")
+    )
+
     source = catalogue_result.get("nearest_source") or {}
 
     if not source:
         return {
             "status": "no_source_to_compare",
+            "catalogue_match_status": catalogue_match_status,
+            "catalogue_match_quality": catalogue_match_quality,
+            "association_accepted": False,
             "reason": (
                 "The catalogue did not return a source with "
                 "coordinates for cross-catalogue comparison."
             ),
         }
-
-    gaia_ra = gaia_reference["ra"]
-    gaia_dec = gaia_reference["dec"]
-    gaia_epoch = gaia_reference["epoch"]
 
     comparison_epoch = None
     source_ra = None
@@ -188,7 +278,6 @@ def compare_with_gaia(
 
     # 2MASS: compare at the individual source's observation epoch.
     if catalogue == "2mass":
-
         position = source.get("position") or {}
 
         source_ra = safe_float(position.get("ra"))
@@ -214,7 +303,6 @@ def compare_with_gaia(
     # AllWISE: use its fitted position at the motion-fit reference
     # epoch. Do not use its apparent motion as true proper motion.
     elif catalogue == "allwise":
-
         motion_fit = source.get("motion_fit") or {}
 
         reference_position = (
@@ -241,52 +329,57 @@ def compare_with_gaia(
             ),
         }
 
-    # SIMBAD: use its J2000 position. We only compare it if its
-    # coordinates and reference epoch are available.
+    # SIMBAD: use its original catalogue position and assumed epoch.
     elif catalogue == "simbad":
-
         position = source.get("position") or {}
 
         source_ra = safe_float(position.get("ra"))
         source_dec = safe_float(position.get("dec"))
+
         comparison_epoch = safe_float(
             position.get("reference_epoch")
         )
 
         position_description = "SIMBAD catalogue position"
 
-        # SIMBAD positional uncertainties are not currently
-        # included in the service response.
         position_uncertainty = None
 
     else:
         return {
             "status": "unsupported_catalogue",
+            "catalogue_match_status": catalogue_match_status,
+            "catalogue_match_quality": catalogue_match_quality,
+            "association_accepted": False,
             "reason": f"Unsupported catalogue: {catalogue}",
         }
 
     if None in (source_ra, source_dec, comparison_epoch):
         return {
             "status": "not_assessable",
+            "catalogue_match_status": catalogue_match_status,
+            "catalogue_match_quality": catalogue_match_quality,
+            "association_accepted": False,
             "reason": (
                 "The catalogue source does not provide a usable "
                 "position and reference epoch."
             ),
         }
 
-    # Propagate Gaia to the epoch of the catalogue position.
     propagated_gaia = propagate_position(
-        gaia_ra,
-        gaia_dec,
+        gaia_reference["ra"],
+        gaia_reference["dec"],
         gaia_reference["pmra"],
         gaia_reference["pmdec"],
-        gaia_epoch,
+        gaia_reference["epoch"],
         comparison_epoch,
     )
 
     if propagated_gaia is None:
         return {
             "status": "not_assessable",
+            "catalogue_match_status": catalogue_match_status,
+            "catalogue_match_quality": catalogue_match_quality,
+            "association_accepted": False,
             "reason": (
                 "Gaia's position could not be propagated to "
                 "the catalogue source epoch."
@@ -307,29 +400,97 @@ def compare_with_gaia(
         matching_radius_arcsec,
     )
 
+    uncertainty_comparison = None
+
+    if catalogue == "allwise":
+        gaia_uncertainty = propagate_gaia_uncertainty(
+            gaia_reference,
+            comparison_epoch,
+        )
+
+        allwise_ra_error = position_uncertainty.get("ra_arcsec")
+        allwise_dec_error = position_uncertainty.get("dec_arcsec")
+
+        if (
+            gaia_uncertainty is not None
+            and allwise_ra_error is not None
+            and allwise_dec_error is not None
+        ):
+            combined_ra_error = math.hypot(
+                gaia_uncertainty["ra_arcsec"],
+                allwise_ra_error,
+            )
+
+            combined_dec_error = math.hypot(
+                gaia_uncertainty["dec_arcsec"],
+                allwise_dec_error,
+            )
+
+            normalized = calculate_normalized_separation(
+                comparison_ra,
+                comparison_dec,
+                source_ra,
+                source_dec,
+                combined_ra_error,
+                combined_dec_error,
+            )
+
+            if normalized is not None:
+                uncertainty_comparison = {
+                    "gaia_position_uncertainty": gaia_uncertainty,
+                    "catalogue_position_uncertainty": {
+                        "ra_arcsec": allwise_ra_error,
+                        "dec_arcsec": allwise_dec_error,
+                    },
+                    "combined_uncertainty": {
+                        "ra_arcsec": combined_ra_error,
+                        "dec_arcsec": combined_dec_error,
+                    },
+                    **normalized,
+                    "method": (
+                        "Approximate two-dimensional normalized "
+                        "separation using propagated Gaia and "
+                        "AllWISE positional uncertainties."
+                    ),
+                    "covariance_included": False,
+                }
+
     return {
+        # Geometric result, not the catalogue's acceptance decision.
         "status": classification,
+        "geometric_status": classification,
+
         "catalogue": catalogue,
+        "catalogue_match_status": catalogue_match_status,
+        "catalogue_match_quality": catalogue_match_quality,
+        "association_accepted": association_accepted,
+
         "source_identifier": (
             source.get("source_id")
             or source.get("designation")
             or source.get("main_id")
             or source.get("oid")
         ),
+
         "position_description": position_description,
         "comparison_epoch_jyear": comparison_epoch,
+
         "gaia_position_at_comparison_epoch": {
             "ra": comparison_ra,
             "dec": comparison_dec,
         },
+
         "catalogue_position": {
             "ra": source_ra,
             "dec": source_dec,
         },
+
         "separation_arcsec": round(separation, 4),
         "matching_radius_arcsec": matching_radius_arcsec,
         "position_uncertainty": position_uncertainty,
-        "uncertainty_weighted": False,
+        "uncertainty_comparison": uncertainty_comparison,
+        "uncertainty_weighted": uncertainty_comparison is not None,
+
         "reason": (
             "Positions are geometrically consistent within the "
             "matching radius."
@@ -351,10 +512,12 @@ def crossmatch_catalogues(
     """
     Compare available catalogue sources against a confirmed Gaia source.
 
-    Gaia is used as the astrometric reference. This is not a
-    complete all-pairs cross-identification algorithm.
-    """
+    Gaia is the astrometric reference. This is not a complete
+    all-pairs cross-identification algorithm.
 
+    Geometric comparisons are retained as diagnostics, but only
+    catalogue-accepted matches contribute to the overall status.
+    """
     gaia_result = catalogue_results.get("gaia")
     gaia_reference = get_gaia_reference(gaia_result)
 
@@ -373,7 +536,6 @@ def crossmatch_catalogues(
     comparisons = {}
 
     for catalogue in ("2mass", "allwise", "simbad"):
-
         if catalogue not in catalogue_results:
             continue
 
@@ -384,30 +546,52 @@ def crossmatch_catalogues(
             matching_radius_arcsec=matching_radius_arcsec,
         )
 
-    assessed = [
-        item.get("status")
+    # Only accepted catalogue matches contribute to the overall
+    # cross-catalogue consistency assessment.
+    accepted_comparisons = [
+        item
         for item in comparisons.values()
-        if item.get("status") in (
+        if item.get("association_accepted") is True
+        and item.get("status") in (
             "consistent",
             "borderline",
             "inconsistent",
         )
     ]
 
-    if not assessed:
+    assessed_statuses = [
+        item.get("status")
+        for item in accepted_comparisons
+    ]
+
+    if not assessed_statuses:
         overall_status = "not_assessable"
 
-    elif "inconsistent" in assessed and "consistent" in assessed:
+    elif (
+        "inconsistent" in assessed_statuses
+        and "consistent" in assessed_statuses
+    ):
         overall_status = "mixed_evidence"
 
-    elif "consistent" in assessed:
+    elif "inconsistent" in assessed_statuses:
+        overall_status = "inconsistent"
+
+    elif "consistent" in assessed_statuses:
         overall_status = "consistent"
 
-    elif "borderline" in assessed:
+    else:
         overall_status = "borderline"
 
-    else:
-        overall_status = "inconsistent"
+    rejected_catalogues = [
+        catalogue
+        for catalogue, item in comparisons.items()
+        if item.get("association_accepted") is False
+    ]
+
+    uncertainty_weighted = any(
+        item.get("uncertainty_weighted", False)
+        for item in comparisons.values()
+    )
 
     return {
         "status": overall_status,
@@ -415,11 +599,18 @@ def crossmatch_catalogues(
         "reference_source_id": gaia_reference["source_id"],
         "reference_epoch_jyear": gaia_reference["epoch"],
         "comparisons": comparisons,
-        "uncertainty_weighted": False,
+        "accepted_catalogue_comparisons": len(accepted_comparisons),
+        "rejected_catalogues": rejected_catalogues,
+        "uncertainty_weighted": uncertainty_weighted,
         "method": (
             "Geometric positional comparison using Gaia proper "
             "motion to propagate the Gaia position to each "
-            "catalogue source epoch. No statistical uncertainty "
-            "weighting is applied."
+            "catalogue source epoch. Geometric comparisons are "
+            "retained as diagnostics, but only catalogue-accepted "
+            "matches contribute to the overall status. Where "
+            "positional uncertainties are available, an approximate "
+            "normalized separation is also calculated. The "
+            "uncertainty calculation assumes independent coordinate "
+            "errors and ignores covariance."
         ),
     }

@@ -2,6 +2,7 @@
 import csv
 import io
 import math
+from datetime import timezone
 
 import httpx
 import astropy.units as u
@@ -15,10 +16,10 @@ SIMBAD_SERVERS = [
     "https://simbad.harvard.edu/simbad/sim-tap/sync"
 ]
 
+# Assumed reference epoch for SIMBAD coordinates when no
+# source-specific reference epoch is available.
 SIMBAD_EPOCH = 2000.0
 
-# Search radius for retrieving possible SIMBAD objects.
-# Final matching is performed separately.
 SEARCH_RADIUS_DEG = 5.0 / 60.0
 
 
@@ -61,14 +62,16 @@ def angular_separation(ra1, dec1, ra2, dec2):
 
 def propagate_simbad_position(source, target_year):
     """
-    SIMBAD coordinates are treated as J2000 for this lookup.
+    Propagate a SIMBAD position from the assumed J2000 epoch.
 
-    Proper motions are in mas/year. SIMBAD pmra is mu_alpha*cos(dec).
+    SIMBAD pmra is interpreted as mu_alpha*cos(dec), in mas/year.
+
+    The J2000 reference epoch is an assumption because the current
+    query does not retrieve source-specific astrometric epochs.
+    No parallax or radial-velocity correction is applied.
     """
-
     ra = source["ra"]
     dec = source["dec"]
-
     pmra = source["pmra"]
     pmdec = source["pmdec"]
 
@@ -110,10 +113,7 @@ async def tap_query(client, server, adql):
 
 
 async def query_simbad_rows(client, adql):
-    """
-    Try SIMBAD Strasbourg first, then the Harvard mirror.
-    """
-
+    """Try SIMBAD Strasbourg first, then the Harvard mirror."""
     last_error = None
 
     for server in SIMBAD_SERVERS:
@@ -128,10 +128,7 @@ async def query_simbad_rows(client, adql):
 
 
 async def get_alternative_names(client, server, oid):
-    """
-    Retrieve alternative identifiers for a SIMBAD object.
-    """
-
+    """Retrieve alternative identifiers for a SIMBAD object."""
     try:
         rows = await tap_query(
             client,
@@ -162,15 +159,13 @@ async def simbad_match(
     """
     Find the closest SIMBAD object to a candidate.
 
-    Checks both:
-    - Position propagated from J2000 to observation epoch.
-    - Original SIMBAD catalogue position.
+    If proper motion is available, compare using the propagated
+    position at the candidate observation epoch.
 
-    Returns the nearest valid result.
+    If proper motion is unavailable, use the original catalogue
+    position and explicitly mark that no epoch correction occurred.
     """
-
     if observation_time.tzinfo is None:
-        from datetime import timezone
         observation_time = observation_time.replace(
             tzinfo=timezone.utc
         )
@@ -235,7 +230,6 @@ async def simbad_match(
     best_match_type = None
 
     for row in rows:
-
         source_ra = safe_float(row.get("ra"))
         source_dec = safe_float(row.get("dec"))
 
@@ -257,37 +251,36 @@ async def simbad_match(
                 )
             )
 
-            propagated_separation = angular_separation(
-                ra, dec, moved_ra, moved_dec
+            # Use exactly one position for matching:
+            # propagated if proper motion is available,
+            # original otherwise.
+            if propagated:
+                comparison_ra = moved_ra
+                comparison_dec = moved_dec
+                match_type = "propagated_position"
+            else:
+                comparison_ra = source_ra
+                comparison_dec = source_dec
+                match_type = "catalogue_position_no_proper_motion"
+
+            separation = angular_separation(
+                ra,
+                dec,
+                comparison_ra,
+                comparison_dec
             )
 
-            original_separation = angular_separation(
-                ra, dec, source_ra, source_dec
-            )
-
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, u.UnitConversionError):
             continue
-
-        # A catalogue coordinate may itself have been supplied
-        # by the user, so consider both positions.
-        if not propagated:
-            separation = original_separation
-            match_type = "catalogue_position_no_proper_motion"
-
-        elif original_separation < propagated_separation:
-            separation = original_separation
-            match_type = "original_catalogue_position"
-
-        else:
-            separation = propagated_separation
-            match_type = "propagated_position"
 
         if separation < best_separation:
             best_separation = separation
-            best = row
+            best = row.copy()
             best["propagated_ra"] = moved_ra
             best["propagated_dec"] = moved_dec
             best["proper_motion_applied"] = propagated
+            best["comparison_ra"] = comparison_ra
+            best["comparison_dec"] = comparison_dec
             best_match_type = match_type
 
     if best is None:
@@ -347,7 +340,8 @@ async def simbad_match(
         "position": {
             "ra": safe_float(best.get("ra")),
             "dec": safe_float(best.get("dec")),
-            "reference_epoch": SIMBAD_EPOCH
+            "reference_epoch": SIMBAD_EPOCH,
+            "reference_epoch_assumed": True
         },
 
         "propagated_position": {
@@ -380,14 +374,20 @@ async def simbad_match(
     if best_separation <= search_radius_arcsec:
         return {
             "status": "match_found",
+            "match_quality": "within_radius",
             "matching_radius_arcsec": search_radius_arcsec,
             "nearest_source": source,
-            "message": "A SIMBAD object was found within the matching radius."
+            "message": (
+                "A SIMBAD object was found within the matching radius."
+            )
         }
 
     return {
         "status": "no_match",
+        "match_quality": "outside_radius",
         "matching_radius_arcsec": search_radius_arcsec,
         "nearest_source": source,
-        "message": "The nearest SIMBAD object is outside the matching radius."
+        "message": (
+            "The nearest SIMBAD object is outside the matching radius."
+        )
     }

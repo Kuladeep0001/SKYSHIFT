@@ -13,14 +13,10 @@ from astropy.time import Time
 GAIA_TAP = "https://gea.esac.esa.int/tap-server/tap/sync"
 
 GAIA_EPOCH = 2016.0
-
-# Search region: 0.04 degrees = 2.4 arcminutes.
-# This is deliberately wider than the final matching radius.
 GAIA_QUERY_RADIUS_DEG = 0.04
 
 
 def safe_float(value):
-    """Convert a catalogue value to a finite float."""
     try:
         number = float(value)
         return number if math.isfinite(number) else None
@@ -29,7 +25,6 @@ def safe_float(value):
 
 
 def observation_year(observation_time):
-    """Convert an ISO timestamp to decimal Julian year."""
     if observation_time.tzinfo is None:
         observation_time = observation_time.replace(
             tzinfo=timezone.utc
@@ -39,7 +34,6 @@ def observation_year(observation_time):
 
 
 def propagate_position(source, target_year):
-    """Propagate Gaia DR3 coordinates from J2016.0 to target epoch."""
 
     ra = source["ra"]
     dec = source["dec"]
@@ -66,7 +60,7 @@ def propagate_position(source, target_year):
 
 
 def angular_separation(ra1, dec1, ra2, dec2):
-    """Angular separation in arcseconds."""
+
     first = SkyCoord(ra=ra1 * u.deg, dec=dec1 * u.deg)
     second = SkyCoord(ra=ra2 * u.deg, dec=dec2 * u.deg)
 
@@ -74,17 +68,20 @@ def angular_separation(ra1, dec1, ra2, dec2):
 
 
 async def query_gaia(ra, dec):
-    """Retrieve Gaia DR3 sources in the wider search region."""
 
     adql = f"""
         SELECT
             source_id,
             ra,
             dec,
+            ra_error,
+            dec_error,
             parallax,
             parallax_error,
             pmra,
             pmdec,
+            pmra_error,
+            pmdec_error,
             phot_g_mean_mag,
             bp_rp,
             teff_gspphot,
@@ -104,6 +101,7 @@ async def query_gaia(ra, dec):
 
     try:
         async with httpx.AsyncClient() as client:
+
             response = await client.post(
                 GAIA_TAP,
                 data={
@@ -127,10 +125,6 @@ async def query_gaia(ra, dec):
 
 
 def calculate_distance(source):
-    """
-    Estimate distance from Gaia parallax only when the parallax
-    is positive and has signal-to-noise ratio greater than five.
-    """
 
     parallax = source["parallax"]
     error = source["parallax_error"]
@@ -156,7 +150,6 @@ def calculate_distance(source):
 
 
 def format_source(source, separation, target_year, propagated):
-    """Format the nearest Gaia source and its properties."""
 
     pmra = source["pmra"]
     pmdec = source["pmdec"]
@@ -205,6 +198,14 @@ def format_source(source, separation, target_year, propagated):
             "radial_velocity_km_s": source["radial_velocity"]
         },
 
+        "astrometric_uncertainties": {
+            "ra_error_mas": source["ra_error"],
+            "dec_error_mas": source["dec_error"],
+            "pmra_error_mas_yr": source["pmra_error"],
+            "pmdec_error_mas_yr": source["pmdec_error"],
+            "parallax_error_mas": source["parallax_error"]
+        },
+
         "distance": calculate_distance(source)
     }
 
@@ -215,13 +216,6 @@ async def gaia_match(
     observation_time,
     search_radius_arcsec=6.0
 ):
-    """
-    Find the nearest Gaia DR3 source.
-
-    A source is a match only if its propagated position is inside
-    search_radius_arcsec. The nearest source is returned regardless
-    of whether it qualifies as a match.
-    """
 
     year = observation_year(observation_time)
 
@@ -237,7 +231,9 @@ async def gaia_match(
     if not rows:
         return {
             "status": "no_match",
-            "message": "No Gaia sources were returned in the wider search region.",
+            "message": (
+                "No Gaia sources were returned in the wider search region."
+            ),
             "nearest_source": None
         }
 
@@ -251,10 +247,14 @@ async def gaia_match(
             "source_id": row.get("source_id"),
             "ra": safe_float(row.get("ra")),
             "dec": safe_float(row.get("dec")),
+            "ra_error": safe_float(row.get("ra_error")),
+            "dec_error": safe_float(row.get("dec_error")),
             "parallax": safe_float(row.get("parallax")),
             "parallax_error": safe_float(row.get("parallax_error")),
             "pmra": safe_float(row.get("pmra")),
             "pmdec": safe_float(row.get("pmdec")),
+            "pmra_error": safe_float(row.get("pmra_error")),
+            "pmdec_error": safe_float(row.get("pmdec_error")),
             "g_mag": safe_float(row.get("phot_g_mean_mag")),
             "bp_rp": safe_float(row.get("bp_rp")),
             "teff": safe_float(row.get("teff_gspphot")),
@@ -282,6 +282,7 @@ async def gaia_match(
             continue
 
         if separation < nearest_separation:
+
             nearest_separation = separation
             nearest_source = source.copy()
 
@@ -293,7 +294,10 @@ async def gaia_match(
     if nearest_source is None:
         return {
             "status": "inconclusive",
-            "message": "Gaia returned rows, but no valid source positions could be evaluated.",
+            "message": (
+                "Gaia returned rows, but no valid source positions "
+                "could be evaluated."
+            ),
             "nearest_source": None
         }
 
@@ -304,17 +308,20 @@ async def gaia_match(
         nearest_propagated
     )
 
-    
     borderline_margin_arcsec = 1.0
 
     if nearest_separation <= search_radius_arcsec:
+
         status = "match_found"
         match_quality = "within_radius"
-        message = "A Gaia source was found within the matching radius."
+        message = (
+            "A Gaia source was found within the matching radius."
+        )
 
     elif nearest_separation <= (
         search_radius_arcsec + borderline_margin_arcsec
     ):
+
         status = "no_match"
         match_quality = "borderline"
         message = (
@@ -323,9 +330,12 @@ async def gaia_match(
         )
 
     else:
+
         status = "no_match"
         match_quality = "outside_radius"
-        message = "The nearest Gaia source is outside the matching radius."
+        message = (
+            "The nearest Gaia source is outside the matching radius."
+        )
 
     return {
         "status": status,
