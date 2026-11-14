@@ -479,7 +479,7 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
               onPixel={onPixel} simple={simple} fov={fov} rgb={useRGB ? rgbSets : null} />}
             {view === "compare" && <BeforeAfter F={F} disp={disp} rgb={useRGB ? rgbSets : null} />}
             {view === "timecolours" && <TimeColours F={F} disp={disp} onPixel={onPixel} focusXY={sel} />}
-            {view === "wall" && <DetectorWall F={wallF} idx={idx} disp={disp} detectors={meta.detectors} colour={false} onPixel={onPixel} />}
+            {view === "wall" && <DetectorWall F={wallF} idx={idx} disp={disp} detectors={meta.detectors} onPixel={onPixel} />}
             {view === "planes" && <SpectralCube qid={qid} visits={meta.visits} disp={disp} version={dataVersion} />}
             {view === "timemachine" && <TimeMachine qid={qid} target={target} fov={fov} disp={disp} onTask={setTmTask} />}
             {view === "asteroids" && <AsteroidHunter qid={qid} disp={disp} />}
@@ -492,7 +492,7 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
             {view === "blink" && <Timeline meta={meta} frame={frame} mode={F?.mode} simple={simple}
               onPick={(v) => { const k = F?.list.findIndex((f) => f.visit === v); if (k >= 0) setIdx(k); }} />}
             {!embed && view !== "listen" && (
-              <DisplaySettings disp={disp} setDisp={setDisp} ov={ov} setOv={setOv} simple={simple}
+              <DisplaySettings view={view} disp={disp} setDisp={setDisp} ov={ov} setOv={setOv} simple={simple}
                 share={{ F, disp, target, story, facts: shareFacts, shareURL, say, rgb: useRGB ? rgbSets : null }} />
             )}
           </section>
