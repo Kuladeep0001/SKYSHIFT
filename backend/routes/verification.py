@@ -17,6 +17,17 @@ from backend.services.photometric_validation import (
 )
 from backend.services.object_profile import build_object_profile
 from backend.services.exoplanet_archive import exoplanet_host_match
+from backend.routes.crossmatch import candidate_motion_reference, gaia_confirmed
+
+
+def motion_reference(candidate, gaia_result):
+    """Gaia's match when confirmed; otherwise the object's own motion if it was sent
+    (objects too faint for Gaia, such as the brown dwarf WISE 0855)."""
+    if gaia_confirmed(gaia_result):
+        return gaia_result
+    if candidate.pmra_mas_yr is not None and candidate.pmdec_mas_yr is not None:
+        return candidate_motion_reference(candidate)
+    return gaia_result
 
 
 
@@ -508,7 +519,7 @@ async def verify_candidates(request: VerificationRequest):
                     dec=candidate.dec,
                     observation_time=candidate.observation_time,
                     search_radius_arcsec=request.search_radius_arcsec,
-                    gaia_result=catalogue_results.get("gaia"),
+                    gaia_result=motion_reference(candidate, catalogue_results.get("gaia")),
                 )
 
                 catalogue_results["2mass"] = result
@@ -520,7 +531,7 @@ async def verify_candidates(request: VerificationRequest):
                     dec=candidate.dec,
                     observation_time=candidate.observation_time,
                     search_radius_arcsec=request.search_radius_arcsec,
-                    gaia_result=catalogue_results.get("gaia"),
+                    gaia_result=motion_reference(candidate, catalogue_results.get("gaia")),
                 )
 
                 catalogue_results["allwise"] = result

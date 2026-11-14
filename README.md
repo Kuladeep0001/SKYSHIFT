@@ -251,7 +251,7 @@ INTEGRATION_PLAN.md         who owns what, dependencies, milestones
 |---|---|---|
 | UI 1 — dashboard, layout, coordinate input | _add name_ | `App.jsx`, `pages/`, `CoordinateInput.jsx` |
 | UI 2 — image viewer, timeline, playback | _add name_ | `components/` |
-| Verification — Gaia/WISE cross-matching | _add name_ | `services/gaia.py`, `routes/verification.py` |
+| Verification — catalogue cross-matching, photometry, exoplanets | Meenakshi K | `services/gaia.py`, `services/{twomass,allwise,simbad,crossmatch,photometric_validation,object_profile,exoplanet_archive}.py`, `routes/verification.py`, `routes/crossmatch.py` |
 | Feature dev 1 — SPHEREx retrieval, processing, comparison | _add name_ | `services/spherex.py`, `routes/images.py`, `services/image_processing.py` |
 | Feature dev 2 — detection and analysis | _add name_ | `services/detection.py`, `routes/analysis.py` |
 | Integration lead — API, integration, tests, deployment | _add name_ | `main.py`, `models/`, `tests/`, Docker |

@@ -11,6 +11,13 @@
 
 A backend system for analysing SPHEREx observations, identifying astronomical sources, and verifying candidate detections against existing astronomical catalogues.
 
+> **Update (after the exoplanet/photometry merge):** `services/gaia.py` and `routes/verification.py` now hold this
+> module (Gaia matcher, full verification at `POST /api/verification/`), and the cross-check alone is at
+> `POST /api/crossmatch/`. `services/gaia_match.py` just re-exports `services/gaia.py`. SkyShift's overlay code moved
+> to `services/sky_catalogs.py` and `routes/checks.py`. The merge had brought back older copies of `allwise.py`,
+> `twomass.py` and part of `simbad.py`/`models/verification.py`; the fixes listed above were put back on top.
+> **Before editing, run `git pull origin main`** so you start from the newest files.
+
 ## Overview
 
 Planet X & SPHEREx aims to make astronomical discoveries more accessible by analysing SPHEREx infrared observations and comparing detected sources with existing astronomical data.

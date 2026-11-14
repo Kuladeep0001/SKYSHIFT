@@ -15,7 +15,7 @@ import time
 import traceback
 from collections import deque
 
-from . import gaia, jobs, spherex
+from . import jobs, sky_catalogs, spherex
 
 WATCH_HOURS = float(os.environ.get("SKYSHIFT_WATCH_HOURS", 6))
 STATE: dict = {"enabled": WATCH_HOURS > 0, "every_hours": WATCH_HOURS, "running": False, "last_run": None,
@@ -41,7 +41,7 @@ def run_once() -> dict:
             summary["new_releases"] = sorted(after - before)
             _log(f"New SPHEREx release found: {', '.join(summary['new_releases'])}")
         try:
-            g = gaia.gaia_release(force=True)
+            g = sky_catalogs.gaia_release(force=True)
             summary["gaia"] = g["release"]
         except Exception:
             pass
@@ -85,5 +85,5 @@ def start() -> None:
 
 def status() -> dict:
     return {**{k: v for k, v in STATE.items() if k != "log"}, "log": list(STATE["log"]),
-            "releases": spherex.releases(), "gaia": gaia.gaia_release()["release"],
+            "releases": spherex.releases(), "gaia": sky_catalogs.gaia_release()["release"],
             "cached_spots": len(jobs.cached_ids())}

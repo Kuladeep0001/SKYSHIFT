@@ -71,6 +71,51 @@ function highlights(key, r) {
   return null;
 }
 
+const MJ_TO_EARTH = 317.8;
+
+/* Known planets of this star (NASA Exoplanet Archive, matched by Gaia ID or position). */
+function Planets({ exo, simple }) {
+  if (!exo || exo.status !== "match_found" || !exo.planets?.length) return null;
+  const pl = [...exo.planets].sort((a, b) => (a.planet_parameters?.orbital_period_days || 9e9) - (b.planet_parameters?.orbital_period_days || 9e9));
+  const names = pl.map((x) => x.planet_name);
+  const fastest = pl[0]?.planet_parameters?.orbital_period_days;
+  return (
+    <div className="planets">
+      <p className="small"><span aria-hidden="true">🪐</span> <b>This star has {exo.planet_count || pl.length} known planet{(exo.planet_count || pl.length) > 1 ? "s" : ""}</b>: {names.join(", ")}
+        {simple && fastest ? <>. The closest one goes round its star in just {fastest < 10 ? fastest.toFixed(1) : Math.round(fastest)} days.</> : "."}
+        <span className="muted"> (NASA Exoplanet Archive)</span></p>
+      {!simple && (
+        <table className="features catTable">
+          <thead><tr><th>Planet</th><th>Orbit (days)</th><th>Size (Earths)</th><th>Mass (Earths)</th></tr></thead>
+          <tbody>{pl.map((x) => {
+            const q = x.planet_parameters || {};
+            return (
+              <tr key={x.planet_name}><td>{x.planet_name}</td><td className="mono">{q.orbital_period_days != null ? q.orbital_period_days.toFixed(2) : "–"}</td>
+                <td className="mono">{q.radius_earth_radii != null ? q.radius_earth_radii.toFixed(2) : "–"}</td>
+                <td className="mono">{q.mass_jupiter_masses != null ? (q.mass_jupiter_masses * MJ_TO_EARTH).toFixed(2) : "–"}</td></tr>
+            );
+          })}</tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+/* Expert extras from the verification module: colours across catalogues and other names. */
+function Extras({ res }) {
+  const colours = Object.values(res.photometric_assessment?.colours || {});
+  const names = res.object_profile?.identity?.alternative_names || [];
+  if (!colours.length && !names.length) return null;
+  return (
+    <>
+      {colours.length > 0 && (
+        <p className="small"><b>Colours:</b> {colours.map((c) => `${c.name} ${c.value?.toFixed(2)}${c.quality && c.quality !== "usable" ? " (uncertain)" : ""}`).join(" · ")}</p>
+      )}
+      {names.length > 0 && <p className="small muted"><b>Also known as:</b> {names.slice(0, 8).join(", ")}</p>}
+    </>
+  );
+}
+
 export default function CatalogueCheck({ pos, pm, label, simple }) {
   const [res, setRes] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -91,7 +136,7 @@ export default function CatalogueCheck({ pos, pm, label, simple }) {
 
   const ev = res?.evidence_summary?.catalogues || {};
   const v = res && (VERDICT[res.assessment] || VERDICT.insufficient_evidence);
-  const caveats = res ? [...new Set(Object.values(ev).flatMap((c) => c.photometric_caveats || []))] : [];
+  const caveats = res ? [...new Set([...Object.values(ev).flatMap((c) => c.photometric_caveats || []), ...(simple ? [] : res.photometric_assessment?.warnings || [])])] : [];
   const cross = res?.cross_catalogue_association;
   const simbadSrc = res?.catalogue_results?.simbad?.nearest_source;
 
@@ -140,6 +185,8 @@ export default function CatalogueCheck({ pos, pm, label, simple }) {
               : cross.status === "mixed_evidence" ? "⚠ Some catalogue positions agree with Gaia and some don't."
                 : `Catalogue positions vs Gaia: ${cross.status}.`}</p>
           )}
+          <Planets exo={res.exoplanet_association} simple={simple} />
+          {!simple && <Extras res={res} />}
           {caveats.length > 0 && <ul className="small warnList">{caveats.map((c) => <li key={c}>⚠ {c}</li>)}</ul>}
           {!simple && (
             <details className="small"><summary>Raw result (JSON)</summary><pre className="raw">{JSON.stringify(res, null, 1)}</pre></details>

@@ -12,7 +12,7 @@ import time
 from functools import lru_cache
 from urllib.parse import quote
 
-from . import gaia as cat
+from . import sky_catalogs as cat
 from .spherex import SESSION
 
 SIMBAD_TAP = ["https://simbad.cds.unistra.fr/simbad/sim-tap/sync", "https://simbad.harvard.edu/simbad/sim-tap/sync"]

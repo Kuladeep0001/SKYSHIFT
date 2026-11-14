@@ -227,6 +227,7 @@ async def simbad_match(
 
     best = None
     best_separation = float("inf")
+    best_rank = float("inf")
     best_match_type = None
 
     for row in rows:
@@ -273,7 +274,12 @@ async def simbad_match(
         except (ValueError, TypeError, u.UnitConversionError):
             continue
 
-        if separation < best_separation:
+        # Planets ("Pl") sit exactly on their host star (e.g. Barnard's Star c):
+        # rank them behind the star itself.
+        rank = separation + (1.0 if (row.get("otype") or "").strip().startswith("Pl") else 0.0)
+
+        if rank < best_rank:
+            best_rank = rank
             best_separation = separation
             best = row.copy()
             best["propagated_ra"] = moved_ra

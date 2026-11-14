@@ -11,7 +11,7 @@ Each person takes ownership of their files, improves them on their own branch, a
 | **UI 2**: viewer, timeline, playback | `frontend-viewer` | `components/ImageViewer.jsx`, `Timeline.jsx`, `Controls.jsx`, `BeforeAfter.jsx`, `DetectorWall.jsx`, `SpectralCube.jsx`, `SpectrumPanel.jsx` | Flipbook, overlays, before/after slider, 6 detectors, 102 planes, spectra | Zoom/pan on the picture, GIF export, smoother blink transitions |
 | **Feature dev 1**: SPHEREx retrieval and processing | `feature-spherex-retrieval`, `feature-image-processing` | `services/spherex.py`, `services/image_processing.py`, `services/jobs.py`, `routes/images.py` | IRSA search, parallel cutouts, cache, alignment, background removal, stacking, compare | Faster loads (fewer/larger cutouts, progressive frames), PSF-matched subtraction |
 | **Feature dev 2**: detection and analysis | `feature-detection` | `services/detection.py`, `routes/analysis.py` | Movers + brightness changes; Barnard 10.36″/yr, Eps Ind B 4.45″/yr | Use all visit pairs, asteroid tracklets, ML artefact filter (XGBoost) |
-| **Verification** (Meenakshi K) | `verification` (merged) | `services/gaia.py`, `services/solar_system.py`, `routes/verification.py`; cross-check: `routes/crossmatch.py`, `models/verification.py`, `services/{gaia_match,twomass,allwise,simbad,crossmatch}.py` | Gaia DR3 (moved to the date), AllWISE, SkyBoT; four-catalogue epoch-aware cross-check with evidence summary | CatWISE2020 motions, photometric SEDs from 2MASS + AllWISE + SPHEREx, NASA Exoplanet Archive |
+| **Verification** (Meenakshi K) | `verification` (merged) | `services/gaia.py`, `routes/verification.py` (/api/verification/), `routes/crossmatch.py` (/api/crossmatch/), `services/{photometric_validation,object_profile,exoplanet_archive}.py`; SkyShift's own overlay/candidate checks live in `services/sky_catalogs.py` + `routes/checks.py` (Integration lead) so the two never overwrite each other; also `models/verification.py`, `services/{gaia_match,twomass,allwise,simbad,crossmatch}.py` | Gaia DR3 (moved to the date), AllWISE, SkyBoT; four-catalogue epoch-aware cross-check with evidence summary | CatWISE2020 motions, photometric SEDs from 2MASS + AllWISE + SPHEREx, NASA Exoplanet Archive |
 | **Integration lead** | `main` | `backend/main.py`, `models/schemas.py`, `routes/metadata.py`, `tests/`, `Dockerfile`, docs | Routes wired, 20 tests, Docker, mock data | Deployment, CI (run tests on every PR), keep API docs in sync |
 
 ## How the pieces depend on each other
@@ -23,7 +23,7 @@ spherex.py ──► jobs.py ──► image_processing.py ──► routes/imag
                                      │
                                      ├──► detection.py ──► routes/analysis.py ──► CandidatesPanel
                                      │                          │
-gaia.py / solar_system.py ───────────┴──► routes/verification.py ◄─────────────┘
+sky_catalogs.py / solar_system.py ───┴──► routes/checks.py ◄───────────────────┘
 ```
 
 - The **frontend never waits for the backend**: `?mock=1` serves saved responses from `frontend/public/mock/`.

@@ -205,7 +205,7 @@ Known asteroids/comets (IMCCE SkyBoT, one search per observing day, propagated t
 ```
 `kind`: `mover` | `variable` | `appeared` | `vanished` | `transient` (only with `include_transients`).
 
-## Verification  (`routes/verification.py`, owner: Verification developer)
+## Website checks  (`routes/checks.py`, SkyShift; uses `services/sky_catalogs.py`)
 
 ### `POST /api/verification/gaia`
 One candidate (format from the team plan) → one result:
@@ -248,7 +248,13 @@ Overlay data. `radius` in degrees (≤ 0.5). `skybot` needs `mjd`.
 ```
 SkyBoT returns `{ "catalog": "SkyBoT", "mjd": ..., "objects": [ { "name", "ra", "dec", "class", "mag", "dra", "ddec" } ] }`.
 
-### `POST /api/verification/`: four-catalogue cross-check  (`routes/crossmatch.py`, owner: Meenakshi K)
+### `POST /api/verification/`: full catalogue verification  (`routes/verification.py`, owner: Meenakshi K)
+Same request and result as the cross-check below, plus three extra sections in each result:
+`photometric_assessment` (measurements, colours such as BP−RP / J−H / W1−W2, SED, quality warnings),
+`object_profile` (identity, other names, astrometry) and `exoplanet_association` (known planets from the
+NASA Exoplanet Archive, matched by Gaia DR3 id or position). The website's **🔬 Is it already known?** panel uses this.
+
+### `POST /api/crossmatch/`: four-catalogue cross-check only  (`routes/crossmatch.py`, owner: Meenakshi K)
 Is an object already known? Checks **Gaia DR3, 2MASS, AllWISE and SIMBAD**, each at its own observing date.
 Gaia runs first; its proper motion is used to move the position to the 2MASS (~1999) and AllWISE (2010.5)
 epochs, and the other three catalogues are then queried at the same time. Takes 5–30 s. The website shows it

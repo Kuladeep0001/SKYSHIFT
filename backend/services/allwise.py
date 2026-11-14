@@ -6,9 +6,19 @@ import math
 import httpx
 from astropy.time import Time
 
+from backend.services.irsa_gator import gator_rows
+
 
 IRSA_TAP = "https://irsa.ipac.caltech.edu/TAP/sync"
 ALLWISE_TABLE = "allwise_p3as_psd"
+
+GATOR_COLUMNS = [
+    "designation", "source_id", "ra", "dec", "sigra", "sigdec",
+    "ra_pm", "dec_pm", "sigra_pm", "sigdec_pm", "pmra", "sigpmra", "pmdec", "sigpmdec",
+    "rchi2_pm", "w1rchi2_pm", "w2rchi2_pm", "pmcode",
+    "w1mpro", "w1sigmpro", "w1snr", "w2mpro", "w2sigmpro", "w2snr",
+    "w1mjdmean", "w2mjdmean", "ph_qual", "cc_flags", "ext_flg", "var_flg", "nb", "na",
+]
 
 ZERO_POINTS_JY = {
     "W1": 309.540,
@@ -418,6 +428,24 @@ def format_motion_fit(row):
 
 
 async def query_allwise(ra, dec, radius_arcsec):
+    """Query IRSA TAP; IRSA is sometimes slow, so a timeout or dropped connection is tried once more."""
+
+    # Fast path: IRSA Gator cone search on the same table (TAP can take a minute when busy).
+    rows = await gator_rows("allwise_p3as_psd", ra, dec, radius_arcsec, GATOR_COLUMNS)
+
+    if rows is not None:
+        return rows
+
+    for attempt in range(2):
+        rows = await _query_allwise_once(ra, dec, radius_arcsec)
+
+        if rows != "retry":
+            return rows
+
+    return None
+
+
+async def _query_allwise_once(ra, dec, radius_arcsec):
     """Query the AllWISE Source Catalog through IRSA TAP."""
 
     radius_deg = radius_arcsec / 3600.0
@@ -474,7 +502,7 @@ async def query_allwise(ra, dec, radius_arcsec):
     }
 
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=45.0) as client:
 
             response = await client.get(
                 IRSA_TAP,
@@ -494,11 +522,11 @@ async def query_allwise(ra, dec, radius_arcsec):
 
     except httpx.TimeoutException as error:
         print("AllWISE TIMEOUT ERROR:", repr(error))
-        return None
+        return "retry"
 
     except httpx.RequestError as error:
         print("AllWISE CONNECTION ERROR:", repr(error))
-        return None
+        return "retry"
 
     except csv.Error as error:
         print("AllWISE CSV ERROR:", repr(error))
@@ -522,10 +550,13 @@ async def allwise_match(
 
     candidate_epoch = float(Time(observation_time).jyear)
 
-    # Use a confirmed Gaia association for the initial J2000 search.
+    # Use a confirmed Gaia association for the initial search, propagated
+    # to the AllWISE epoch (MJD 55400, ~2010.5). AllWISE positions are from
+    # ~2010, so a J2000 search position misses fast movers such as
+    # Barnard's Star, which moved ~110 arcsec between 2000 and 2010.
     search_position_2000 = propagate_gaia_to_epoch(
         gaia_result,
-        2000.0,
+        ALLWISE_MOTION_EPOCH,
     )
 
     if search_position_2000 is not None:
@@ -759,7 +790,7 @@ async def allwise_match(
         "search_position": {
             "ra": search_ra,
             "dec": search_dec,
-            "epoch": 2000.0 if gaia_available else candidate_epoch,
+            "epoch": ALLWISE_MOTION_EPOCH if gaia_available else candidate_epoch,
             "position_basis": position_basis,
         },
         "nearest_source": nearest_source,
