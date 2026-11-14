@@ -19,6 +19,10 @@ import SpectralCube from "../components/SpectralCube.jsx";
 import SkyMap from "../components/SkyMap.jsx";
 import SpectrumPanel from "../components/SpectrumPanel.jsx";
 import TaskBar from "../components/TaskBar.jsx";
+import AskPanel from "../components/AskPanel.jsx";
+import AsteroidHunter from "../components/AsteroidHunter.jsx";
+import TimeMachine from "../components/TimeMachine.jsx";
+import Tour, { TOUR } from "../components/Tour.jsx";
 import Timeline from "../components/Timeline.jsx";
 import { api, loadImages } from "../lib/api.js";
 import { decodeFrames, mainVisitsOnly } from "../lib/frames.js";
@@ -33,7 +37,7 @@ const FACTS = [
   "Barnard's Star moves the width of the full Moon across the sky in about 180 years.",
 ];
 
-export default function Explorer({ expert, embed, listenMode }) {
+export default function Explorer({ expert, embed, listenMode, tourStep, setTourStep }) {
   const simple = !expert;
   const [target, setTarget] = useState(null);
   const [fov, setFov] = useState(+params.get("fov") || 6);
@@ -62,6 +66,11 @@ export default function Explorer({ expert, embed, listenMode }) {
   const [focus, setFocus] = useState(null);
   const [toast, setToast] = useState("");
   const [objPos, setObjPos] = useState(null);
+  const [details, setDetails] = useState(null);     // details card data (for the assistant and share card)
+  const [checks, setChecks] = useState({});         // verification results of found candidates
+  const [tmTask, setTmTask] = useState(null);       // time-machine download task (for the task bar)
+  const [detectSignal, setDetectSignal] = useState(0);
+  const [tourAuto, setTourAuto] = useState(false);
   const [fresh, setFresh] = useState(null);        // freshness info from the server
   const [dataVersion, setDataVersion] = useState(0); // version of the data currently on screen
   const [newData, setNewData] = useState(null);     // set when the server has a newer version
@@ -76,7 +85,7 @@ export default function Explorer({ expert, embed, listenMode }) {
   const say = (m) => { setToast(m); setTimeout(() => setToast(""), 2600); };
 
   // Simple mode only has the flipbook and before/after views.
-  useEffect(() => { if (simple && !["blink", "compare", "timecolours", "planes"].includes(view)) setView("blink"); if (simple) setMode("visit"); }, [simple]);
+  useEffect(() => { if (simple && !["blink", "compare", "timecolours", "planes", "timemachine", "asteroids"].includes(view)) setView("blink"); if (simple) setMode("visit"); }, [simple]);
 
   /* ---------------------------------------------------------- loading */
   const startLoad = useCallback(async (t, fovNow, rel) => {
@@ -84,7 +93,7 @@ export default function Explorer({ expert, embed, listenMode }) {
     setLoad({ phase: "loading", done: 0, total: 0, message: "Asking NASA which SPHEREx pictures cover this spot…" });
     loadingId.current = null; loadStart.current = Date.now(); setNewData(null); setFresh(null);
     setQid(null); setMeta(null); setF(null); setWallF(null);
-    setSel(null); setSpec(null); setCandidates(null); setFocus(null); setCats({}); setAsteroids({}); setObjPos(null);
+    setSel(null); setSpec(null); setCandidates(null); setFocus(null); setCats({}); setAsteroids({}); setObjPos(null); setDetails(null); setChecks({});
     astPending.current = new Set();
     const rad = (fovNow / 60) * 0.75 + 0.01;
     for (const name of ["gaia", "allwise"]) {
@@ -134,11 +143,12 @@ export default function Explorer({ expert, embed, listenMode }) {
   useEffect(() => {
     api.releases().then(setReleases).catch(() => {});
     const ra = parseFloat(params.get("ra")), dec = parseFloat(params.get("dec"));
-    if (Number.isFinite(ra) && Number.isFinite(dec)) {
-      const t = { ra, dec, name: params.get("q"), query: params.get("q") };
+    if (params.get("q")) go(params.get("q"));   // a name: look it up again so we also know how it moves
+    else if (Number.isFinite(ra) && Number.isFinite(dec)) {
+      const t = { ra, dec, name: null, query: null };
       setTarget(t);
       startLoad(t, fov, release);
-    } else if (params.get("q")) go(params.get("q"));
+    }
   }, []);
 
   // reload if area or release changes after a target is loaded
@@ -215,6 +225,21 @@ export default function Explorer({ expert, embed, listenMode }) {
     history.replaceState(null, "", `${location.pathname}?${p}${location.hash}`);
   }, [target, fov, release, view, mode, det, ch, disp.math, expert, embed]);
 
+  /* --------------------------------------------------------- guided tour */
+  const tour = tourStep != null ? TOUR[tourStep] : null;
+  const tourReady = !!tour && load.phase === "ready" && (!tour.q || target?.query === tour.q);
+  useEffect(() => {
+    if (!tour) return;
+    if (tour.q && target?.query !== tour.q) go(tour.q);
+  }, [tourStep]);
+  useEffect(() => {
+    if (!tourReady) return;
+    if (tour.view) setView(tour.view);
+    if (tour.det !== undefined) setDet(tour.det);
+    if (tour.math) setDisp((d) => ({ ...d, math: tour.math }));
+    if (tour.action === "detect") setDetectSignal((x) => x + 1);
+  }, [tourReady, tourStep]);
+
   /* ------------------------------------------- cancel / stay up to date */
   const cancelLoad = async () => {
     const id = loadingId.current;
@@ -256,6 +281,7 @@ export default function Explorer({ expert, embed, listenMode }) {
   const tasks = [];
   if (load.phase === "loading") tasks.push({ id: "load", label: `Fetching ${target?.name || "this spot"} from NASA`, detail: load.message,
     done: load.done, total: load.total, startedAt: loadStart.current, onCancel: cancelLoad });
+  if (tmTask) tasks.push(tmTask);
   if (fresh?.refreshing) tasks.push({ id: "refresh", kind: "update", label: "New SPHEREx pictures found: updating this spot",
     done: fresh.refresh_progress?.done || 0, total: fresh.refresh_progress?.total || 0,
     onCancel: () => api.cancel(qid).then(() => say("Update cancelled.")).catch(() => {}) });
@@ -317,13 +343,33 @@ export default function Explorer({ expert, embed, listenMode }) {
     a.click();
   };
 
+  /* ------------------------------------- facts for sharing and the assistant */
+  const moverFind = (candidates || []).find((c) => c.kind === "mover");
+  const moverCheck = moverFind && checks[moverFind.candidate_id];
+  const shareFacts = [];
+  if (meta?.visits?.length) shareFacts.push(`Photographed in ${meta.visits.length} visits by NASA SPHEREx, ${meta.visits[0].start.slice(0, 7)} – ${meta.visits[meta.visits.length - 1].end.slice(0, 7)}`);
+  if (moverFind) shareFacts.push(`Measured moving ${moverFind.motion.total_arcsec_yr.toFixed(2)}″ per year${moverCheck?.verification_status === "known_mover" ? " (confirmed by catalogues)" : ""}`);
+  const distLy = details?.simbad?.distance_ly || details?.gaia?.distance_ly;
+  if (distLy) shareFacts.push(`About ${distLy < 1000 ? distLy.toFixed(1) : Math.round(distLy).toLocaleString()} light-years away`);
+  const seenFeats = (spec?.features || []).filter((f) => f.status === "likely" || f.status === "possible");
+  if (seenFeats.length) shareFacts.push(`Spectrum hints: ${[...new Set(seenFeats.map((f) => f.species))].slice(0, 3).join(", ")}`);
+  const askContext = {
+    name: target?.name || "this spot", ra: target?.ra, dec: target?.dec, story: story?.story,
+    pm_arcsec_yr: target ? Math.hypot(target.pmra || 0, target.pmdec || 0) / 1000 || null : null,
+    details: details ? { summary: details.summary, distance_ly: distLy || null, type: details.simbad?.type,
+      spectral_type: details.simbad?.spectral_type, wikipedia: details.wikipedia?.extract?.slice(0, 900) } : null,
+    features: seenFeats.map((f) => ({ name: f.name, status: f.status, change_pct: f.change_pct, plain_english: f.plain_english })),
+    finds: (candidates || []).slice(0, 6).map((c) => ({ kind: c.kind, plain_english: c.plain_english, verification: checks[c.candidate_id]?.plain_english || "" })),
+    visits: meta?.visits || [], view,
+  };
+
   /* ------------------------------------------------------------ render */
   const ready = load.phase === "ready" && meta;
   const chInfo = meta && meta.channels[ch - 1];
   const chWave = chInfo && chInfo.wave ? `${chInfo.wave[0].toFixed(2)}–${chInfo.wave[1].toFixed(2)} µm` : "";
   const tabs = simple
-    ? [["blink", "▶ Flipbook"], ["timecolours", "🎨 Colour by date"], ["compare", "⇔ Before / after"], ["planes", "🌈 102 colours"]]
-    : [["blink", "Blink"], ["timecolours", "Colour by date"], ["compare", "Before / after"], ["wall", "6 Detectors"], ["color", "Infrared colour"], ["planes", "🧊 Spectral cube (102)"]];
+    ? [["blink", "▶ Flipbook"], ["timecolours", "🎨 Colour by date"], ["compare", "⇔ Before / after"], ["timemachine", "⏳ Time machine"], ["planes", "🌈 102 colours"], ["asteroids", "☄️ Asteroids"]]
+    : [["blink", "Blink"], ["timecolours", "Colour by date"], ["compare", "Before / after"], ["timemachine", "⏳ Time machine"], ["wall", "6 Detectors"], ["color", "Infrared colour"], ["planes", "🧊 Spectral cube (102)"], ["asteroids", "☄️ Asteroids"]];
 
   return (
     <div className="explorer">
@@ -341,6 +387,7 @@ export default function Explorer({ expert, embed, listenMode }) {
             <li><span>2</span>We fetch every SPHEREx picture of that spot</li>
             <li><span>3</span>Press play and spot what moves</li>
           </ol>
+          <button className="primary tourBtn" onClick={() => setTourStep(0)}>✨ Show me something amazing (guided tour)</button>
           <SkyHome fovDefault={fov} onPick={(p) => (p.q ? go(p.q) : goCoords(p.ra, p.dec, p.fov))} />
           <h2 className="center">…or start with one of the challenge's test targets</h2>
           <div className="cards">
@@ -420,17 +467,17 @@ export default function Explorer({ expert, embed, listenMode }) {
             {view === "timecolours" && <TimeColours F={F} disp={disp} onPixel={onPixel} focusXY={sel} />}
             {(view === "wall" || view === "color") && <DetectorWall F={wallF} idx={idx} disp={disp} detectors={meta.detectors} colour={view === "color"} onPixel={onPixel} />}
             {view === "planes" && <SpectralCube qid={qid} visits={meta.visits} disp={disp} version={dataVersion} />}
+            {view === "timemachine" && <TimeMachine qid={qid} target={target} fov={fov} disp={disp} onTask={setTmTask} />}
+            {view === "asteroids" && <AsteroidHunter qid={qid} disp={disp} />}
 
-            {!["planes", "compare", "timecolours"].includes(view) && (
+            {!["planes", "compare", "timecolours", "timemachine", "asteroids"].includes(view) && (
               <Controls playing={playing} setPlaying={setPlaying} idx={idx} count={count} setIdx={setIdx} fps={fps} setFps={setFps} disabled={!count} />
             )}
             {view === "blink" && <Timeline meta={meta} frame={frame} mode={F?.mode} simple={simple}
               onPick={(v) => { const k = F?.list.findIndex((f) => f.visit === v); if (k >= 0) setIdx(k); }} />}
             {!embed && (
               <DisplaySettings disp={disp} setDisp={setDisp} ov={ov} setOv={setOv} simple={simple}
-                onCopyLink={() => copy(shareURL(false), "Link copied")}
-                onCopyEmbed={() => copy(`<iframe src="${shareURL(true)}" width="640" height="780" style="border:0;border-radius:12px" title="SkyShift SPHEREx viewer" loading="lazy"></iframe>`, "Embed code copied")}
-                onSavePng={savePng} />
+                share={{ F, disp, target, story, facts: shareFacts, shareURL, say }} />
             )}
           </section>
 
@@ -440,11 +487,13 @@ export default function Explorer({ expert, embed, listenMode }) {
               <Explainer story={story} target={target} mode={view === "compare" ? "visit" : mode} math={disp.math} det={det}
                 channel={ch} chWave={chWave} view={view} simple={simple} />
               <CandidatesPanel qid={qid} band={det} candidates={candidates} setCandidates={setCandidates}
-                focus={focus} setFocus={focusCand} expert={expert} />
+                focus={focus} setFocus={focusCand} expert={expert} autoRun={detectSignal} onChecks={setChecks}
+                ctx={{ qid, fov, target: target?.name }} say={say} />
+              <AskPanel context={askContext} speak={listenMode} />
               <MetadataPanel target={target} meta={meta} frame={view === "blink" ? frame : null}
                 flags={view === "blink" && F ? F.flags[Math.min(idx, F.flags.length - 1)] : null} fov={fov}
                 releases={meta.status?.releases || []} selFlags={selFlags} simple={simple} fresh={fresh} onCheckNow={checkNow} />
-              <ObjectCard pos={objPos} simple={simple} />
+              <ObjectCard pos={objPos} simple={simple} onLoaded={setDetails} />
               <SpectrumPanel spec={spec} visits={meta.visits} detectors={meta.detectors} loading={specLoading} simple={simple} />
               {!listenMode && <Listen target={target} story={story} F={F && F.mode === "visit" ? F : null} sel={sel} getSpectrum={getSpectrum} />}
               <SkyMap target={target} fov={fov} onLoadHere={goCoords} />
@@ -452,6 +501,7 @@ export default function Explorer({ expert, embed, listenMode }) {
           )}
         </div>
       )}
+      {tour && <Tour step={tourStep} setStep={setTourStep} ready={tourReady} auto={tourAuto} setAuto={setTourAuto} speak={listenMode} />}
       <TaskBar tasks={tasks} />
       <div className={`toast ${toast ? "show" : ""}`}>{toast}</div>
     </div>

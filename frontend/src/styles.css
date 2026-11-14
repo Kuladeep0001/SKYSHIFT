@@ -313,3 +313,59 @@ p.center, .center { text-align: center; }
 @media (max-width: 900px) { .cubeMain { grid-template-columns: 1fr; } }
 
 table.features tr.ambiguous td:last-child { color: var(--muted); font-style: italic; }
+
+/* --- time machine --- */
+.stamp b.year { font-size: 44px; line-height: 1; color: var(--accent); }
+.yearStrip { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+.yearStrip button { display: flex; flex-direction: column; align-items: center; padding: 5px 10px; line-height: 1.15; }
+.yearStrip button small { color: var(--muted); font-size: 11px; }
+.yearStrip button.on { border-color: var(--accent); background: #2a2008; }
+.bar i.indet { animation: slide 1.2s infinite ease-in-out; }
+
+/* --- asteroid hunter --- */
+.astList ul { list-style: none; padding: 0; margin: 0; max-height: 560px; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+.astList li { background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; font-size: 13.5px; }
+.astList li.on { border-color: var(--ast); }
+.astList li span { color: var(--muted); font-size: 12.5px; }
+.astList li em { font-style: normal; font-size: 12px; color: #5f7193; }
+.astList li em.ok { color: #6fe3c4; }
+
+/* --- assistant --- */
+.askLog { max-height: 300px; overflow: auto; display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.msg { margin: 0; padding: 8px 11px; border-radius: 10px; font-size: 14px; max-width: 92%; }
+.msg.you { align-self: flex-end; background: #22345a; }
+.msg.sky { align-self: flex-start; background: #10283a; border-left: 3px solid var(--accent2); }
+.askChips { margin-bottom: 8px; }
+.askChips button { font-size: 12.5px; padding: 4px 10px; }
+.askPanel .search input { padding: 9px 12px; font-size: 14px; }
+
+/* --- share --- */
+.shareMenu { position: relative; }
+.shareList { position: absolute; right: 0; bottom: 110%; z-index: 30; background: #101b31; border: 1px solid #33476e; border-radius: 10px; padding: 6px;
+  display: flex; flex-direction: column; gap: 4px; min-width: 270px; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+.shareList button { text-align: left; background: transparent; border-color: transparent; }
+.shareList button:hover { background: var(--panel2); }
+
+/* --- tour --- */
+.tourBtn { font-size: 17px; padding: 12px 22px; margin: 4px 0 18px; }
+.tourCard { position: fixed; left: 20px; bottom: 20px; width: min(420px, calc(100vw - 40px)); z-index: 46; background: #101b31; border: 2px solid var(--accent);
+  border-radius: 14px; padding: 14px 16px; box-shadow: 0 12px 40px rgba(0,0,0,.6); }
+.tourCard h3 { margin: 4px 0 6px; font-size: 19px; }
+.tourCard p { margin: 0 0 10px; color: #d5deee; font-size: 15px; }
+.tourTop { display: flex; justify-content: space-between; align-items: center; }
+.linkBtn { background: none; border: none; color: var(--accent2); padding: 2px 4px; cursor: pointer; text-decoration: underline; font: inherit; }
+.linkBtn.small { font-size: 12.5px; }
+
+/* --- discovery board --- */
+.reportForm { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.reportForm input { flex: 1; min-width: 120px; padding: 6px 9px; font-size: 13px; cursor: text; }
+.finds { display: flex; flex-direction: column; gap: 10px; }
+.find { display: flex; gap: 14px; }
+.votes { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.votes button { padding: 2px 10px; }
+.votes button.on { background: var(--accent); color: #1a1100; }
+.findBody { flex: 1; min-width: 0; }
+.findBody p { margin: 6px 0; }
+
+@media (max-width: 1600px) { .tagline { display: none; } }
+@media (max-width: 1300px) { .top nav a { padding: 6px 8px; } .listenToggle { padding: 6px 10px; } }

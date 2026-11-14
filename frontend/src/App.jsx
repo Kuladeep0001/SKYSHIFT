@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import { api } from "./lib/api.js";
 import About from "./pages/About.jsx";
+import Board from "./pages/Board.jsx";
+import { setColourSafe } from "./lib/render.js";
 import Explorer from "./pages/Explorer.jsx";
 
 const params = new URLSearchParams(location.search);
@@ -14,14 +16,19 @@ function readExpert() {
 
 export default function App() {
   const [expert, setExpert] = useState(readExpert);
-  const [page, setPage] = useState(location.hash === "#about" ? "about" : "explore");
+  const pageOf = () => (location.hash === "#about" ? "about" : location.hash === "#board" ? "board" : "explore");
+  const [page, setPage] = useState(pageOf);
+  const [tourStep, setTourStep] = useState(params.get("tour") === "1" ? 0 : null);
+  const [safe, setSafe] = useState(() => { try { return localStorage.getItem("skyshift-cvd") === "1"; } catch (_) { return false; } });
+  setColourSafe(safe);
   const [listen, setListen] = useState(params.get("listen") === "1");
 
   useEffect(() => {
     try { localStorage.setItem("skyshift-expert", expert ? "1" : "0"); } catch (_) { /* private mode */ }
   }, [expert]);
+  useEffect(() => { try { localStorage.setItem("skyshift-cvd", safe ? "1" : "0"); } catch (_) { /* private mode */ } }, [safe]);
   useEffect(() => {
-    const h = () => setPage(location.hash === "#about" ? "about" : "explore");
+    const h = () => setPage(pageOf());
     window.addEventListener("hashchange", h);
     return () => window.removeEventListener("hashchange", h);
   }, []);
@@ -37,8 +44,12 @@ export default function App() {
         <span className="tagline">Watch the infrared sky move · NASA SPHEREx</span>
         <nav>
           <a href="#" className={page === "explore" ? "on" : ""} onClick={(e) => { e.preventDefault(); location.hash = ""; }}>Explore</a>
+          <a href="#board" className={page === "board" ? "on" : ""}>Discovery board</a>
           <a href="#about" className={page === "about" ? "on" : ""}>How it works</a>
+          <a href="#" onClick={(e) => { e.preventDefault(); location.hash = ""; setTourStep(0); }}>✨ Tour</a>
         </nav>
+        <button className={`listenToggle ${safe ? "on" : ""}`} onClick={() => setSafe(!safe)} aria-pressed={safe}
+          title="Colour-blind-safe colours everywhere (orange/blue instead of red/green)">👁 Colour-safe</button>
         <button className={`listenToggle ${listen ? "on" : ""}`} onClick={() => setListen(!listen)} aria-pressed={listen}
           title="Listen mode: the data is described and played as sound (for blind and low-vision users)">🔊 Listen mode</button>
         <div className="modeSwitch" role="group" aria-label="Simple or expert mode">
@@ -47,8 +58,9 @@ export default function App() {
         </div>
       </header>
       {api.mock && <div className="mockBanner">Mock mode: showing saved sample data (no backend needed)</div>}
-      <main style={{ display: page === "about" ? "none" : "block" }}><Explorer expert={expert} listenMode={listen} /></main>
+      <main style={{ display: page === "explore" ? "block" : "none" }}><Explorer safe={safe} expert={expert} listenMode={listen} tourStep={tourStep} setTourStep={setTourStep} /></main>
       {page === "about" && <main><About /></main>}
+      {page === "board" && <main><Board /></main>}
       <footer className="foot">
         Real data from NASA's SPHEREx (via IRSA), ESA Gaia and NASA WISE. Built for the NASA Space Apps Challenge 2026 ·{" "}
         <a href="https://github.com/Kuladeep0001/SKYSHIFT" target="_blank" rel="noreferrer">GitHub</a> · <a href="/docs">API</a>

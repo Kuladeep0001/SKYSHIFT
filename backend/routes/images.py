@@ -12,7 +12,7 @@ from fastapi.responses import Response
 from ..models.schemas import (CompareRequest, CompareResponse, ImageInfo, ImageQuery, ImageQueryResponse,
                               Progress)
 from ..services import image_processing as im
-from ..services import jobs
+from ..services import archival, jobs
 from ..services import spectral_features as sf
 
 router = APIRouter(prefix="/api/images", tags=["images"])
@@ -124,6 +124,99 @@ def cube(query_id: str, visit: int = -1):
     return {"n": c["n"], "planes": 102, "visit": visit, "version": job.version, "pix_arcsec": im.PIX_ARCSEC,
             "exposures_used": c["exposures_used"], "channels": c["channels"], "dtype": "float16",
             "data": to16(c["cube"]), "err": to16(c["err"])}
+
+
+@lru_cache(maxsize=16)
+def _history_v(query_id: str, version: int, ra: float, dec: float, fov: float):
+    job = ready_or_409(query_id)
+    h = archival.history(ra, dec, fov)
+    gra, gdec = h["grid"]
+    frames = [dict(f) for f in h["frames"]]
+    infos, imgs, _ = im.group_frames(job.arrays, job.meta, "visit", 0, 0, -1)
+    big = max((f["n_exp"] for f in infos), default=0)
+    for f, img in zip(infos, imgs):
+        if f["n_exp"] < 0.25 * big:
+            continue  # only the big twice-a-year visits
+        on = archival.spherex_on_grid(img, job.ra, job.dec, job.fov, gra, gdec)
+        frames.append({"survey": "spherex", "label": "SPHEREx", "band": "infrared 0.75–5 µm (all detectors)",
+                       "mjd": f["mjd"], "date": f["date"][:10], "year": round(2000 + (f["mjd"] - 51544.5) / 365.25, 2),
+                       "coverage": round(float(np.isfinite(on).mean()), 3), "image": on})
+    return {"n": h["n"], "scale_arcsec": h["scale_arcsec"], "frames": frames, "notes": h["notes"]}
+
+
+@router.get("/{query_id}/history")
+def history(query_id: str, ra: float = Query(..., ge=0, lt=360), dec: float = Query(..., ge=-90, le=90),
+            fov: float = Query(12, ge=2, le=30)):
+    """Time machine: this patch in older surveys (1950s and 1990s photographic plates, 2MASS ~2000,
+    WISE 2010) plus SPHEREx, all on one north-up grid (240 x 240 px). The first call can take ~20 s.
+    SPHEREx only covers the area that was loaded for `query_id`; outside it the pixels are empty (NaN)."""
+    job = ready_or_409(query_id)
+    h = _history_v(query_id, job.version, round(ra, 4), round(dec, 4), round(fov, 1))
+    frames = h["frames"]
+    data = np.stack([f["image"] for f in frames]).astype(np.float32) if frames else np.zeros((0, h["n"], h["n"]), np.float32)
+    return {"n": h["n"], "scale_arcsec": h["scale_arcsec"], "count": len(frames), "notes": h["notes"],
+            "center": {"ra": ra, "dec": dec}, "fov": fov,
+            "frames": [{k: v for k, v in f.items() if k != "image"} for f in frames],
+            "data": base64.b64encode(data.tobytes()).decode()}
+
+
+@lru_cache(maxsize=16)
+def _asteroids_v(query_id: str, version: int):
+    """Known asteroids/comets inside the picture at the moment of each snapshot (IMCCE SkyBoT).
+
+    One SkyBoT search per observing day (wide enough to catch anything that drifts in during that day),
+    then each object's position is moved along its predicted track to the exact time of every snapshot.
+    """
+    import math
+    from concurrent.futures import ThreadPoolExecutor
+    from ..services import solar_system
+    job = ready_or_409(query_id)
+    wcs = im.make_grid(job.ra, job.dec, job.fov)[0]
+    n = int(job.arrays["flux"].shape[-1])
+    days: dict[int, list[dict]] = {}
+    for m in job.meta:
+        days.setdefault(int(m["mjd"]), []).append(m)
+    radius = job.fov / 60 * 0.75 + 0.25
+
+    def look(day):
+        try:
+            return day, solar_system.skybot(round(job.ra, 4), round(job.dec, 4), round(radius, 3), day + 0.5)
+        except Exception:
+            return day, {"objects": []}
+
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        results = dict(ex.map(look, sorted(days)))
+    objs: dict[str, dict] = {}
+    for day, res in results.items():
+        mid = day + 0.5
+        for o in res.get("objects", []):
+            for m in days[day]:
+                dt_h = (m["mjd"] - mid) * 24
+                dec = o["dec"] + o["ddec"] * dt_h / 3600
+                ra = o["ra"] + o["dra"] * dt_h / 3600 / max(1e-6, math.cos(math.radians(o["dec"])))
+                x, y = wcs.world_to_pixel_values(ra, dec)
+                x, y = float(x), float(y)
+                if not (0 <= x < n and 0 <= y < n):
+                    continue
+                if not np.isfinite(job.arrays["flux"][m["i"], int(y), int(x)]):
+                    continue  # that snapshot doesn't cover this pixel
+                rec = objs.setdefault(o["name"], {"name": o["name"], "number": o["num"], "class": o["class"],
+                                                  "mag": o["mag"], "rate_arcsec_h": round(math.hypot(o["dra"], o["ddec"]), 1),
+                                                  "appearances": []})
+                rec["appearances"].append({"i": m["i"], "mjd": m["mjd"], "date": m["date"], "det": m["det"],
+                                           "x": round(x, 2), "y": round(y, 2), "ra": round(ra, 6), "dec": round(dec, 6)})
+    out = sorted(objs.values(), key=lambda o: o["mag"])
+    for o in out:
+        o["appearances"].sort(key=lambda a: a["mjd"])
+        o["visible_guess"] = o["mag"] < 17.5  # roughly SPHEREx's single-snapshot limit for asteroids
+    return {"objects": out, "days_checked": len(days), "radius_deg": round(radius, 3)}
+
+
+@router.get("/{query_id}/asteroids")
+def asteroids(query_id: str):
+    """Known asteroids and comets that crossed this picture during SPHEREx's snapshots, with their position in each."""
+    job = ready_or_409(query_id)
+    return _asteroids_v(query_id, job.version)
 
 
 @router.get("/{query_id}/frames")

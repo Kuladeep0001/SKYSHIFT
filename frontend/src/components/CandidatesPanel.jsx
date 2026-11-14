@@ -1,5 +1,5 @@
 /* "Find moving things for me": runs detection, then checks each find against Gaia/WISE. */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api.js";
 
 const ICON = { mover: "🏃", variable: "💡", appeared: "✨", vanished: "🌑", transient: "☄️" };
@@ -9,11 +9,39 @@ const BADGE = {
   unmatched: ["? Unknown: worth a look!", "new"], pending: ["… couldn't check", "wait"],
 };
 
-export default function CandidatesPanel({ qid, band, candidates, setCandidates, focus, setFocus, expert }) {
+function ReportForm({ c, v, ctx, onDone }) {
+  const [nick, setNick] = useState(() => { try { return localStorage.getItem("skyshift-nick") || ""; } catch (_) { return ""; } });
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const send = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      try { localStorage.setItem("skyshift-nick", nick); } catch (_) { /* private mode */ }
+      const r = await api.report({ ra: c.ra, dec: c.dec, fov: ctx.fov, query_id: ctx.qid, x: c.x, y: c.y, kind: c.kind,
+        verification: v?.verification_status || null, summary: `${c.plain_english} ${v ? v.plain_english : ""}`.trim().slice(0, 600),
+        note, nickname: nick, target: ctx.target || "" });
+      onDone(r.merged_with_existing ? "Someone already reported this. Your report counts as a vote! See the Discovery board." : "Reported! It's on the Discovery board for others to check.");
+    } catch (err) { onDone(`Couldn't report: ${err.message}`); } finally { setBusy(false); }
+  };
+  return (
+    <form className="reportForm" onSubmit={send} onClick={(e) => e.stopPropagation()}>
+      <input value={nick} onChange={(e) => setNick(e.target.value)} placeholder="Your nickname (optional)" maxLength={40} aria-label="Nickname" />
+      <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What did you notice? (optional)" maxLength={280} aria-label="Note" />
+      <button className="primary" disabled={busy}>{busy ? "Sending…" : "📣 Report"}</button>
+    </form>
+  );
+}
+
+export default function CandidatesPanel({ qid, band, candidates, setCandidates, focus, setFocus, expert, autoRun, onChecks, ctx, say }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [checks, setChecks] = useState({});
   const [checking, setChecking] = useState(false);
+  const [reporting, setReporting] = useState(null);
+  const lastSignal = useRef(autoRun);  // only react to NEW requests (not when the panel remounts)
+  useEffect(() => { if (autoRun && autoRun !== lastSignal.current) { lastSignal.current = autoRun; run(); } }, [autoRun]);
+  useEffect(() => { onChecks && onChecks(checks); }, [checks]);
 
   async function run() {
     setBusy(true); setErr(""); setChecks({}); setFocus(null);
@@ -56,6 +84,8 @@ export default function CandidatesPanel({ qid, band, candidates, setCandidates, 
               </div>
               <p>{c.plain_english}</p>
               {v && <p className="verify">{v.plain_english}</p>}
+              {reporting === c.candidate_id ? <ReportForm c={c} v={v} ctx={ctx || {}} onDone={(m) => { setReporting(null); say && say(m); }} />
+                : <button className="linkBtn small" onClick={(e) => { e.stopPropagation(); setReporting(c.candidate_id); }}>📣 Report this find</button>}
               {expert && (
                 <p className="mono small muted">
                   RA {c.ra.toFixed(5)} Dec {c.dec.toFixed(5)} · S/N {c.snr} · score {c.score}

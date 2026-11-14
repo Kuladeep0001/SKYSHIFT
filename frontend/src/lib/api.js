@@ -37,6 +37,13 @@ export const api = {
   spectrum: (id, x, y) => (MOCK ? mock("spectrum") : request(`/api/images/${id}/spectrum?x=${x}&y=${y}&r=1`)),
   compare: (body) => (MOCK ? mock("compare") : post("/api/images/compare", body)),
   detect: (body) => (MOCK ? mock("detections") : post("/api/detections/run", body)),
+  history: (id, ra, dec, fov) => (MOCK ? mock("history") : request(`/api/images/${id}/history?ra=${ra.toFixed(5)}&dec=${dec.toFixed(5)}&fov=${fov}`)),
+  asteroids: (id) => (MOCK ? mock("asteroids") : request(`/api/images/${id}/asteroids`)),
+  finds: (sort = "top") => (MOCK ? Promise.resolve({ total: 0, finds: [] }) : request(`/api/finds?sort=${sort}&voter=${voterId()}`)),
+  report: (find) => post("/api/finds", { ...find, voter: voterId() }),
+  vote: (id, value) => post(`/api/finds/${id}/vote`, { voter: voterId(), value }),
+  ask: (question, context) => (MOCK ? Promise.resolve({ answer: "Ask works with the backend running.", source: "built-in" }) : post("/api/ask", { question, context })),
+  askStatus: () => (MOCK ? Promise.resolve({ llm: false }) : request("/api/ask/status")),
   cube: (id, visit = -1) => (MOCK ? mock("cube") : request(`/api/images/${id}/cube?visit=${visit}`)),
   features: (spectrum) => (MOCK ? Promise.resolve({ features: [] }) : post("/api/detections/features", { spectrum })),
   checkNow: (id) => (MOCK ? Promise.resolve({ result: { checked: true, changed: false }, freshness: {} }) : post(`/api/images/${id}/check`, {})),
@@ -47,6 +54,15 @@ export const api = {
     MOCK ? mock(`catalog_${name}`).catch(() => ({ stars: [], objects: [] }))
       : request(`/api/catalog/${name}?ra=${ra}&dec=${dec}&radius=${radius.toFixed(3)}${mjd ? `&mjd=${mjd.toFixed(3)}` : ""}`),
 };
+
+/* A random id for this browser, so each person gets one vote per find (no accounts, nothing personal). */
+export function voterId() {
+  try {
+    let v = localStorage.getItem("skyshift-voter");
+    if (!v) { v = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now()).replace(/-/g, ""); localStorage.setItem("skyshift-voter", v); }
+    return v;
+  } catch (_) { return "anon" + String(Math.random()).slice(2, 12); }
+}
 
 /* Start a query and wait until the images are ready, reporting progress. */
 export async function loadImages({ ra, dec, fov, release }, onProgress, isCancelled) {
