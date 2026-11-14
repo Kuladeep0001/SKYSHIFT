@@ -143,6 +143,23 @@ Also returned (for the continuous spectrum and molecule finder):
 `status`: `likely` (≥5σ, right sign) · `possible` (≥3σ) · `not seen`. Bands covered: water vapour/ice, hydrated
 minerals, olivine/pyroxene (rock), CO₂ ice, CO, CH₄, PAH, hydrogen lines (Paβ, Brγ, Brα), H₂.
 
+### `GET /api/images/{query_id}/cube?visit=-1`
+**Spectral cube**: 102 planes x n x n. Each plane holds ONE wavelength band over the whole area. SPHEREx's filter
+changes colour across every snapshot, so every *pixel* of every snapshot is sent to the plane matching the
+wavelength that pixel saw, then averaged (1/variance weights). `visit=-1` = all dates (deepest); a visit number =
+that visit only (compare the same colour at different dates).
+```json
+{ "n": 59, "planes": 102, "visit": -1, "version": 1, "pix_arcsec": 6.15, "exposures_used": 458, "dtype": "float16",
+  "channels": [ { "channel": 41, "det": 3, "wave": 1.8995, "wave_lo": 1.877, "wave_hi": 1.922, "coverage": 1.0, "snapshots_per_pixel": 6.1 } ],
+  "data": "<base64 float16, planes x n x n, MJy/sr, row 0 = south>", "err": "<base64 float16, 1-sigma>" }
+```
+Pick a pixel or box and read it through all 102 planes to get its spectrum (done in the browser:
+`frontend/src/components/SpectralCube.jsx`, `boxSpectrum`).
+
+### `POST /api/detections/features`
+Find water/CO2/CO/CH4/hydrogen/mineral bands in any spectrum (e.g. an area from the cube).
+Body `{ "spectrum": [ { "wave": 1.40, "flux": 812.4, "err": 35.1 }, ... ] }` → `{ "features": [ ...same format as above... ] }`
+
 ### `POST /api/images/compare`
 ```json
 { "query_id": "4c0040ed821b835e", "epoch_a": null, "epoch_b": null, "band": 0, "op": "subtract" }

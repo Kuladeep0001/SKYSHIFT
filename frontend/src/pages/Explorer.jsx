@@ -15,7 +15,7 @@ import ObjectCard from "../components/ObjectCard.jsx";
 import SkyHome from "../components/SkyHome.jsx";
 import TimeColours from "../components/TimeColours.jsx";
 import MetadataPanel from "../components/MetadataPanel.jsx";
-import PlanesGrid from "../components/PlanesGrid.jsx";
+import SpectralCube from "../components/SpectralCube.jsx";
 import SkyMap from "../components/SkyMap.jsx";
 import SpectrumPanel from "../components/SpectrumPanel.jsx";
 import TaskBar from "../components/TaskBar.jsx";
@@ -78,7 +78,7 @@ export default function Explorer({ expert, embed, listenMode }) {
   const say = (m) => { setToast(m); setTimeout(() => setToast(""), 2600); };
 
   // Simple mode only has the flipbook and before/after views.
-  useEffect(() => { if (simple && !["blink", "compare", "timecolours"].includes(view)) setView("blink"); if (simple) setMode("visit"); }, [simple]);
+  useEffect(() => { if (simple && !["blink", "compare", "timecolours", "planes"].includes(view)) setView("blink"); if (simple) setMode("visit"); }, [simple]);
 
   /* ---------------------------------------------------------- loading */
   const startLoad = useCallback(async (t, fovNow, rel) => {
@@ -173,9 +173,6 @@ export default function Explorer({ expert, embed, listenMode }) {
         } else if (view === "wall" || view === "color") {
           if (!wallF) { const res = await api.frames(qid, { mode: "visitdet" }); if (alive) setWallF(decodeFrames(res)); }
           setIdx(0);
-        } else if (view === "planes") {
-          const res = await api.frames(qid, { mode: "planes", visit: planeVisit });
-          if (alive) setPlanesF(decodeFrames(res));
         }
       } catch (e) { say(e.message); }
     })();
@@ -327,8 +324,8 @@ export default function Explorer({ expert, embed, listenMode }) {
   const chInfo = meta && meta.channels[ch - 1];
   const chWave = chInfo && chInfo.wave ? `${chInfo.wave[0].toFixed(2)}–${chInfo.wave[1].toFixed(2)} µm` : "";
   const tabs = simple
-    ? [["blink", "▶ Flipbook"], ["timecolours", "🎨 Colour by date"], ["compare", "⇔ Before / after"]]
-    : [["blink", "Blink"], ["timecolours", "Colour by date"], ["compare", "Before / after"], ["wall", "6 Detectors"], ["color", "Infrared colour"], ["planes", "102 Colours"]];
+    ? [["blink", "▶ Flipbook"], ["timecolours", "🎨 Colour by date"], ["compare", "⇔ Before / after"], ["planes", "🌈 102 colours"]]
+    : [["blink", "Blink"], ["timecolours", "Colour by date"], ["compare", "Before / after"], ["wall", "6 Detectors"], ["color", "Infrared colour"], ["planes", "🧊 Spectral cube (102)"]];
 
   return (
     <div className="explorer">
@@ -423,15 +420,14 @@ export default function Explorer({ expert, embed, listenMode }) {
             {view === "compare" && <BeforeAfter F={F} disp={disp} />}
             {view === "timecolours" && <TimeColours F={F} disp={disp} onPixel={onPixel} focusXY={sel} />}
             {(view === "wall" || view === "color") && <DetectorWall F={wallF} idx={idx} disp={disp} detectors={meta.detectors} colour={view === "color"} onPixel={onPixel} />}
-            {view === "planes" && <PlanesGrid F={planesF} channels={meta.channels} disp={disp} visits={meta.visits} visit={planeVisit}
-              setVisit={setPlaneVisit} onPick={(c) => { setCh(c); setMode("channel"); setView("blink"); }} />}
+            {view === "planes" && <SpectralCube qid={qid} visits={meta.visits} disp={disp} version={dataVersion} />}
 
             {!["planes", "compare", "timecolours"].includes(view) && (
               <Controls playing={playing} setPlaying={setPlaying} idx={idx} count={count} setIdx={setIdx} fps={fps} setFps={setFps} disabled={!count} />
             )}
             {view === "blink" && <Timeline meta={meta} frame={frame} mode={F?.mode} simple={simple}
               onPick={(v) => { const k = F?.list.findIndex((f) => f.visit === v); if (k >= 0) setIdx(k); }} />}
-            {!embed && view !== "planes" && (
+            {!embed && (
               <DisplaySettings disp={disp} setDisp={setDisp} ov={ov} setOv={setOv} simple={simple}
                 onCopyLink={() => copy(shareURL(false), "Link copied")}
                 onCopyEmbed={() => copy(`<iframe src="${shareURL(true)}" width="640" height="780" style="border:0;border-radius:12px" title="SkyShift SPHEREx viewer" loading="lazy"></iframe>`, "Embed code copied")}

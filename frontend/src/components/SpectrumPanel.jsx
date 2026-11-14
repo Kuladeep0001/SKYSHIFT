@@ -10,7 +10,7 @@ const SHORT = { H2O: "H₂O", "H2O ice": "H₂O ice", "OH/H2O in rock": "hydrate
   CO: "CO", "CO gas": "CO", CH4: "CH₄", "organic molecules": "PAH", H: "H", H2: "H₂" };
 
 /* Draw known bands behind the data, and detector edges along the bottom. */
-const bandsPlugin = {
+export const bandsPlugin = {
   id: "bands",
   beforeDatasetsDraw(chart, _a, opts) {
     const { ctx, chartArea: a, scales: { x } } = chart;

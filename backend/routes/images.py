@@ -1,7 +1,10 @@
 """SPHEREx images: query a patch of sky, get aligned frames, compare epochs. Owner: Feature developer 1."""
 from __future__ import annotations
 
+import base64
 from functools import lru_cache
+
+import numpy as np
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import Response
@@ -97,6 +100,30 @@ def cancel_download(query_id: str):
     """Stop downloading this spot. Pictures already downloaded are kept, so asking again resumes."""
     job = job_or_404(query_id)
     return {**jobs.cancel(job), "status": job.state}
+
+
+@lru_cache(maxsize=12)
+def _cube_v(query_id: str, version: int, visit: int):
+    job = ready_or_409(query_id)
+    return im.build_cube(job.arrays, job.meta, visit)
+
+
+@router.get("/{query_id}/cube")
+def cube(query_id: str, visit: int = -1):
+    """Spectral cube: 102 planes x n x n, each plane ONE wavelength band over the whole area.
+
+    Every pixel of every snapshot goes to the plane matching the wavelength that pixel saw, then all
+    snapshots in a plane are averaged. `visit=-1` = all dates; a visit number = that visit only.
+    Pixels are float16 (base64), row 0 = south. `data` = brightness (MJy/sr), `err` = 1-sigma.
+    """
+    job = ready_or_409(query_id)
+    if visit >= 0 and visit not in {m["visit"] for m in job.meta}:
+        raise HTTPException(400, {"status": "error", "error": "bad_visit", "message": f"no visit {visit}"})
+    c = _cube_v(query_id, job.version, visit)
+    to16 = lambda a: base64.b64encode(np.nan_to_num(a, nan=np.nan).astype(np.float16).tobytes()).decode()
+    return {"n": c["n"], "planes": 102, "visit": visit, "version": job.version, "pix_arcsec": im.PIX_ARCSEC,
+            "exposures_used": c["exposures_used"], "channels": c["channels"], "dtype": "float16",
+            "data": to16(c["cube"]), "err": to16(c["err"])}
 
 
 @router.get("/{query_id}/frames")

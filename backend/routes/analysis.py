@@ -5,6 +5,7 @@ from fastapi import APIRouter
 
 from ..models.schemas import DetectionRequest, DetectionResponse
 from ..services import detection, jobs
+from ..services import spectral_features as sf
 from ..services import image_processing as im
 from .images import ready_or_409
 
@@ -40,6 +41,17 @@ def plain_english(c: dict, meta: list[dict]) -> str:
     if c.get("saturated"):
         text += " (This star is so bright it overloads the camera, so treat the numbers as rough.)"
     return text
+
+
+@router.post("/features")
+def features(body: dict):
+    """Look for water, CO2, CO, methane, hydrogen and mineral bands in ANY spectrum.
+
+    Body: {"spectrum": [{"wave": um, "flux": number, "err": number}, ...]} (e.g. an area picked in the cube).
+    """
+    pts = [p for p in body.get("spectrum", []) if p.get("flux") is not None and p.get("err") is not None and p.get("wave")]
+    pts = [{**p, "err": max(float(p["err"]), 1e-6)} for p in pts]
+    return {"features": sf.measure_features(sorted(pts, key=lambda p: p["wave"]))}
 
 
 @router.post("/run", response_model=DetectionResponse)

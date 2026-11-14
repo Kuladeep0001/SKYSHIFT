@@ -376,3 +376,63 @@ def render_png(img: np.ndarray, diverging: bool = False, contrast: float = 0.55)
     buf = BytesIO()
     im_.save(buf, format="PNG")
     return buf.getvalue()
+
+
+# ------------------------------------------------------------ spectral cube ---
+
+def channel_map(det: int, wave: np.ndarray, ranges: dict) -> np.ndarray:
+    """Per-pixel channel index (0..101) for one exposure, from its per-pixel wavelength map. -1 = no data."""
+    if det not in ranges:
+        return np.full(wave.shape, -1, np.int32)
+    lo, hi = ranges[det]
+    with np.errstate(invalid="ignore", divide="ignore"):
+        k = np.floor(BANDS_PER_DET * np.log(wave / lo) / np.log(hi / lo))
+    ok = np.isfinite(k)
+    k = np.clip(np.where(ok, k, 0), 0, BANDS_PER_DET - 1).astype(np.int32)
+    return np.where(ok, (det - 1) * BANDS_PER_DET + k, -1)
+
+
+def build_cube(arrays: dict, meta: list, visit: int = -1) -> dict:
+    """A spectral cube: 102 planes, each holding ONE wavelength band over the whole area.
+
+    SPHEREx's filter makes the wavelength change across every snapshot. So instead of putting a whole
+    snapshot into one plane, every PIXEL of every snapshot is sent to the plane that matches the wavelength
+    that pixel actually saw. All snapshots landing in the same plane are averaged (weighted by 1/variance).
+    visit = -1 uses every date; a visit number builds the cube from that visit only.
+    """
+    flux, var, wave = arrays["flux"], arrays["var"], arrays["wave"]
+    n = flux.shape[-1]
+    nn = n * n
+    ranges = det_ranges(meta)
+    num = np.zeros(102 * nn)
+    den = np.zeros(102 * nn)
+    cnt = np.zeros(102 * nn)
+    pix = np.arange(nn)
+    used = 0
+    for i, m in enumerate(meta):
+        if visit >= 0 and m["visit"] != visit:
+            continue
+        f, v = flux[i].ravel(), var[i].ravel()
+        ch = channel_map(m["det"], wave[i], ranges).ravel()
+        ok = np.isfinite(f) & np.isfinite(v) & (v > 0) & (ch >= 0)
+        if not ok.any():
+            continue
+        idx = ch[ok] * nn + pix[ok]
+        w = 1.0 / v[ok]
+        num += np.bincount(idx, weights=f[ok] * w, minlength=102 * nn)
+        den += np.bincount(idx, weights=w, minlength=102 * nn)
+        cnt += np.bincount(idx, minlength=102 * nn)
+        used += 1
+    with np.errstate(invalid="ignore", divide="ignore"):
+        cube = np.where(den > 0, num / den, np.nan).reshape(102, n, n).astype(np.float32)
+        err = np.where(den > 0, 1.0 / np.sqrt(den), np.nan).reshape(102, n, n).astype(np.float32)
+    cnt = cnt.reshape(102, n, n)
+    chans = []
+    for ch in range(1, 103):
+        w = channel_wave(ch, ranges)
+        cov = float((cnt[ch - 1] > 0).mean())
+        chans.append({"channel": ch, "det": (ch - 1) // BANDS_PER_DET + 1,
+                      "wave": round(math.sqrt(w[0] * w[1]), 4) if w else None,
+                      "wave_lo": round(w[0], 4) if w else None, "wave_hi": round(w[1], 4) if w else None,
+                      "coverage": round(cov, 3), "snapshots_per_pixel": round(float(cnt[ch - 1][cnt[ch - 1] > 0].mean()), 1) if cov else 0})
+    return {"cube": cube, "err": err, "channels": chans, "n": n, "exposures_used": used}

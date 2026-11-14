@@ -32,7 +32,7 @@ Built for the **NASA Space Apps Challenge 2026**.
 **Good to have**
 - [x] Selectable field of view (2′–20′)
 - [x] Compare or subtract images from different epochs (before/after slider, − first, − previous, add all)
-- [x] Explore the 102 infrared bands (grid of all 102 + "same colour over time")
+- [x] Explore the 102 infrared bands: a true **spectral cube** (each plane = one wavelength over the whole area), 3D stack, fly-through, area spectrum
 - [x] Combine data from the six detector arrays (stacked per visit, 6-panel wall, infrared colour)
 - [x] Gaia and WISE overlays (Gaia moved to each picture's date)
 - [x] Metadata and contamination flags

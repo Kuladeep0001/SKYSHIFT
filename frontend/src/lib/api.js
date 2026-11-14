@@ -37,6 +37,8 @@ export const api = {
   spectrum: (id, x, y) => (MOCK ? mock("spectrum") : request(`/api/images/${id}/spectrum?x=${x}&y=${y}&r=1`)),
   compare: (body) => (MOCK ? mock("compare") : post("/api/images/compare", body)),
   detect: (body) => (MOCK ? mock("detections") : post("/api/detections/run", body)),
+  cube: (id, visit = -1) => (MOCK ? mock("cube") : request(`/api/images/${id}/cube?visit=${visit}`)),
+  features: (spectrum) => (MOCK ? Promise.resolve({ features: [] }) : post("/api/detections/features", { spectrum })),
   checkNow: (id) => (MOCK ? Promise.resolve({ result: { checked: true, changed: false }, freshness: {} }) : post(`/api/images/${id}/check`, {})),
   cancel: (id) => (MOCK ? Promise.resolve({ cancelled: true }) : post(`/api/images/${id}/cancel`, {})),
   updates: () => (MOCK ? Promise.resolve({ log: [] }) : request("/api/updates")),

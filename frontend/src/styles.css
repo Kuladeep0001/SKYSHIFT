@@ -292,3 +292,22 @@ h2.center { justify-content: center; margin-top: 8px; }
 .freshness { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 13.5px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 .freshness p { margin: 0; }
 @media (prefers-reduced-motion: reduce) { .task .bar i.indet { animation: none; } }
+
+/* --- spectral cube --- */
+.cubeMain { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+.cubeCanvas { width: min(100%, 60vh); }
+.cubeCanvas canvas { touch-action: none; }
+.rainbow { display: flex; height: 10px; margin-top: 6px; border-radius: 4px; overflow: hidden; cursor: pointer; }
+.rainbow i { flex: 1; }
+.stackBox { display: flex; flex-direction: column; align-items: center; }
+.stack { position: relative; width: 160px; height: 160px; margin: 120px auto 150px; transform-style: preserve-3d;
+  transform: rotateX(58deg) rotateZ(-38deg); }
+.layer { position: absolute; inset: 0; border: 2px solid; border-radius: 4px; background: #000; cursor: pointer; transition: transform .2s, box-shadow .2s; }
+.layer canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; opacity: .92; }
+.layer span { position: absolute; right: -66px; bottom: 0; font: 10px var(--mono); transform: rotateZ(38deg); white-space: nowrap; }
+.layer.on { box-shadow: 0 0 0 3px #ffb547, 0 0 24px rgba(255, 181, 71, .6); }
+.layer:hover { box-shadow: 0 0 0 2px #fff; }
+.cubeSpec { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.planesGrid figure.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+p.center, .center { text-align: center; }
+@media (max-width: 900px) { .cubeMain { grid-template-columns: 1fr; } }
