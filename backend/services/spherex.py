@@ -12,6 +12,7 @@ import hashlib
 import io
 import json
 import os
+import random
 import re
 import time
 import warnings
@@ -159,9 +160,14 @@ def fetch_cutout(url: str, ra: float, dec: float, size: float) -> Path:
     if path.exists():
         return path
     last: Exception | None = None
-    for attempt in range(3):
+    waits = [2, 5, 10, 20]  # IRSA answers "503 Server busy, retry later" under load: back off and retry
+    for attempt in range(len(waits) + 1):
         try:
             r = SESSION.get(url, params={"center": f"{ra:.6f},{dec:.6f}", "size": f"{size}"}, timeout=180)
+            if r.status_code in (429, 502, 503, 504) and attempt < len(waits):
+                ra_hdr = r.headers.get("Retry-After", "")
+                time.sleep(min(60, int(ra_hdr)) if ra_hdr.isdigit() else waits[attempt] + random.random() * 2)
+                continue
             r.raise_for_status()
             if len(r.content) < 2880:
                 raise IOError(f"IRSA returned a tiny response: {r.content[:80]!r}")
@@ -173,7 +179,8 @@ def fetch_cutout(url: str, ra: float, dec: float, size: float) -> Path:
                 out.writeto(tmp, overwrite=True)
                 os.replace(tmp, path)
             return path
-        except Exception as e:  # network hiccups are common; retry a couple of times
+        except Exception as e:  # network hiccups are common; retry a few times
             last = e
-            time.sleep(1 + 2 * attempt)
-    raise last  # type: ignore[misc]
+            if attempt < len(waits):
+                time.sleep(waits[attempt] + random.random() * 2)
+    raise last or IOError("IRSA stayed busy")  # type: ignore[misc]

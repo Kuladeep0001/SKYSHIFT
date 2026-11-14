@@ -37,6 +37,7 @@ JOBDIR.mkdir(parents=True, exist_ok=True)
 JOB_POOL = ThreadPoolExecutor(max_workers=2)
 CHECK_POOL = ThreadPoolExecutor(max_workers=2)
 DL_POOL = ThreadPoolExecutor(max_workers=16)  # parallel downloads from IRSA
+RETRY_POOL = ThreadPoolExecutor(max_workers=4)  # second, gentler pass for downloads IRSA refused while busy
 LOCK = threading.Lock()
 MAX_FOV = 20.0  # arcmin
 CHECK_EVERY = float(os.environ.get("SKYSHIFT_CHECK_MINUTES", 60)) * 60  # re-check a spot opened after this long
@@ -193,25 +194,40 @@ def _build(ra: float, dec: float, fov: float, items: list[dict], progress=None,
         d.update(det=it["det"], em_min=it["em_min"], em_max=it["em_max"], release=it["release"], obs_id=it["obs_id"])
         return d
 
-    futs = [DL_POOL.submit(work, it) for it in items]
     results, failed = [], 0
-    for f in as_completed(futs):
-        if cancel_event is not None and cancel_event.is_set():
-            for g in futs:
-                g.cancel()  # drop everything still waiting in the queue
-            raise Cancelled()
-        ok = True
-        try:
-            d = f.result()
-            if np.isfinite(d["flux"]).mean() > 0.05:
-                results.append(d)
-        except Cancelled:
-            raise
-        except Exception:
-            ok = False
-            failed += 1
-        if progress:
-            progress(ok)
+
+    def run_pass(batch, pool, last_pass):
+        """Download a batch; returns the items that failed (reported as failed only on the last pass)."""
+        nonlocal failed
+        futs = {pool.submit(work, it): it for it in batch}
+        again = []
+        for f in as_completed(futs):
+            if cancel_event is not None and cancel_event.is_set():
+                for g in futs:
+                    g.cancel()  # drop everything still waiting in the queue
+                raise Cancelled()
+            try:
+                d = f.result()
+                if np.isfinite(d["flux"]).mean() > 0.05:
+                    results.append(d)
+            except Cancelled:
+                raise
+            except Exception:
+                if not last_pass:
+                    again.append(futs[f])
+                    continue
+                failed += 1
+                if progress:
+                    progress(False)
+                continue
+            if progress:
+                progress(True)
+        return again
+
+    again = run_pass(items, DL_POOL, False)
+    if again:  # IRSA was busy: try the leftovers once more, slowly
+        time.sleep(5)
+        run_pass(again, RETRY_POOL, True)
     if not results:
         raise IOError("Downloads failed. IRSA may be busy, please try again.")
     results.sort(key=lambda d: (d["mjd"], d["det"]))
