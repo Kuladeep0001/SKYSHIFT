@@ -26,7 +26,7 @@ export default function SkyMap({ target, fov, onLoadHere }) {
         if (!alive || al.current) return;
         al.current = aladinModule.aladin(div.current, { survey, fov: 0.4, showReticle: true, showZoomControl: true,
           showFullscreenControl: true, showLayersControl: true, showGotoControl: false, showFrame: false });
-        overlay.current = aladinModule.graphicOverlay({ color: "#ffb547", lineWidth: 2 });
+        overlay.current = aladinModule.graphicOverlay({ color: "#ffa31a", lineWidth: 2 });
         al.current.addOverlay(overlay.current);
         sync();
       } catch (e) {

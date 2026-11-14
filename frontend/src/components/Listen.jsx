@@ -309,9 +309,9 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
         },
         scales: {
           x: { type: "linear", min: 0.7, max: 5.05, title: { display: true, text: "Wavelength (µm):  shorter  ←   →  longer", color: "#e6ecf5", font: big },
-            grid: { color: "#22324f" }, ticks: { color: "#e6ecf5", font: big } },
+            grid: { color: "#262833" }, ticks: { color: "#e6ecf5", font: big } },
           y: { title: { display: true, text: "Brightness = flux (µJy)", color: "#e6ecf5", font: big },
-            grid: { color: "#22324f" }, ticks: { color: "#e6ecf5", font: big } },
+            grid: { color: "#262833" }, ticks: { color: "#e6ecf5", font: big } },
         },
         onClick: (evt, _e, ch) => {          // click the graph: jump there and hear that point
           const w = ch.scales.x.getValueForPixel(evt.x);

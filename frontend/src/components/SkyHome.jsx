@@ -48,7 +48,7 @@ export default function SkyHome({ onPick, fovDefault }) {
           showLayersControl: false, showGotoControl: true, showFrame: true, showCooGridControl: true,
           showProjectionControl: false, showSimbadPointerControl: false, showStatusBar: false,
         });
-        const cat = A.current.catalog({ name: "Challenge targets", sourceSize: 18, color: "#ffb547", shape: "circle", displayLabel: true, labelColumn: "name", labelColor: "#ffb547", labelFont: "13px Inter" });
+        const cat = A.current.catalog({ name: "Challenge targets", sourceSize: 18, color: "#ffa31a", shape: "circle", displayLabel: true, labelColumn: "name", labelColor: "#ffa31a", labelFont: "13px Inter" });
         al.current.addCatalog(cat);
         cat.addSources(TARGETS.map((t) => A.current.source(MARKS[t.id][0], MARKS[t.id][1], { name: t.label, q: t.q })));
         al.current.on("objectClicked", (o) => { if (o && o.data && o.data.q) onPick({ q: o.data.q }); });

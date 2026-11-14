@@ -93,6 +93,7 @@ function Accuracy() {
 export default function About() {
   return (
     <div className="about">
+      <div className="brandBanner"><img src="/logo.png" alt="SkyShift: Explore. Identify. Understand." /></div>
       <section className="card">
         <h1>How SkyShift works</h1>
         <ol className="how">

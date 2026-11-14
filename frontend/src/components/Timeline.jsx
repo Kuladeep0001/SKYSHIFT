@@ -20,8 +20,8 @@ export default function Timeline({ meta, frame, mode, onPick, simple }) {
     if (mode !== "exposure" && frame.visit !== undefined) {
       const a = ex.filter((e) => e.visit === frame.visit);
       const x0 = x(Math.min(...a.map((e) => e.mjd))) - 5, x1 = x(Math.max(...a.map((e) => e.mjd))) + 5;
-      cur = <rect x={x0} y="2" width={Math.max(10, x1 - x0)} height={H - 18} rx="5" fill="#ffb547" opacity=".22" />;
-    } else cur = <rect x={x(frame.mjd) - 1.5} y="2" width="3" height={H - 18} fill="#ffb547" />;
+      cur = <rect x={x0} y="2" width={Math.max(10, x1 - x0)} height={H - 18} rx="5" fill="#ffa31a" opacity=".22" />;
+    } else cur = <rect x={x(frame.mjd) - 1.5} y="2" width="3" height={H - 18} fill="#ffa31a" />;
   }
   return (
     <div ref={ref} className="timelineWrap">
@@ -36,7 +36,7 @@ export default function Timeline({ meta, frame, mode, onPick, simple }) {
           </g>;
         })}
         {ex.map((e) => <circle key={e.i} cx={x(e.mjd)} cy={y(e.det)} r={simple ? 3 : 2.3}
-          fill={simple ? "#8fa0bd" : DET_COLORS[e.det - 1]} opacity=".85" />)}
+          fill={simple ? "#a2a3b2" : DET_COLORS[e.det - 1]} opacity=".85" />)}
       </svg>
       {simple && <p className="hint small">Each dot is one snapshot. The clumps are visits, about every 6 months.</p>}
     </div>

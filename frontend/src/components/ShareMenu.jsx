@@ -8,12 +8,12 @@ import { startTask } from "../lib/tasks.js";
 const SIZE = 480;
 
 function stamp(ctx, w, lines) {
-  ctx.fillStyle = "rgba(6,11,22,.72)";
+  ctx.fillStyle = "rgba(4,5,10,.74)";
   ctx.fillRect(0, 0, w, 52);
   ctx.fillStyle = "#fff"; ctx.font = "700 22px Inter, sans-serif"; ctx.fillText(lines[0], 12, 26);
-  ctx.fillStyle = "#c4d0e6"; ctx.font = "13px Inter, sans-serif"; ctx.fillText(lines[1] || "", 12, 45);
-  ctx.fillStyle = "rgba(6,11,22,.72)"; ctx.fillRect(0, w - 24, w, 24);
-  ctx.fillStyle = "#ffb547"; ctx.font = "600 12px Inter, sans-serif"; ctx.fillText("SkyShift · NASA SPHEREx", 10, w - 8);
+  ctx.fillStyle = "#d4d4dc"; ctx.font = "13px Inter, sans-serif"; ctx.fillText(lines[1] || "", 12, 45);
+  ctx.fillStyle = "rgba(4,5,10,.74)"; ctx.fillRect(0, w - 24, w, 24);
+  ctx.fillStyle = "#ffa31a"; ctx.font = "600 12px Inter, sans-serif"; ctx.fillText("SkyShift · NASA SPHEREx", 10, w - 8);
 }
 
 function download(blob, name) {
@@ -90,18 +90,22 @@ export default function ShareMenu({ F, disp, target, story, facts, shareURL, say
       const src = document.querySelector(".stage canvas");
       const c = document.createElement("canvas"); c.width = 1200; c.height = 630;
       const ctx = c.getContext("2d");
-      const g = ctx.createLinearGradient(0, 0, 1200, 630); g.addColorStop(0, "#0b1426"); g.addColorStop(1, "#13234a");
+      const g = ctx.createLinearGradient(0, 0, 1200, 630); g.addColorStop(0, "#04050a"); g.addColorStop(1, "#1a0f06");
       ctx.fillStyle = g; ctx.fillRect(0, 0, 1200, 630);
       if (src) ctx.drawImage(src, 15, 15, 600, 600);
-      ctx.fillStyle = "#ffb547"; ctx.font = "800 30px Inter, sans-serif"; ctx.fillText("SkyShift", 650, 70);
-      ctx.fillStyle = "#8fa0bd"; ctx.font = "16px Inter, sans-serif"; ctx.fillText("Watch the infrared sky move · NASA SPHEREx", 650, 96);
+      const load = (u) => new Promise((ok) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null); im.src = u; });
+      const [mark, word] = await Promise.all([load("/logo-mark.png"), load("/logo-word.png")]);
+      if (mark) ctx.drawImage(mark, 648, 30, 58, 58);
+      if (word) ctx.drawImage(word, 716, 48, 230, 230 * word.height / word.width);
+      else { ctx.fillStyle = "#ffa31a"; ctx.font = "800 30px Inter, sans-serif"; ctx.fillText("SkyShift", 716, 70); }
+      ctx.fillStyle = "#ffb43a"; ctx.font = "600 13px Inter, sans-serif"; ctx.fillText("EXPLORE · IDENTIFY · UNDERSTAND  ·  NASA SPHEREx", 650, 112);
       ctx.fillStyle = "#ffffff"; ctx.font = "700 40px Inter, sans-serif";
-      let y = wrap(ctx, `${story?.emoji || "✨"} ${target?.name || "A patch of sky"}`, 650, 165, 520, 46, 2);
-      ctx.fillStyle = "#c4d0e6"; ctx.font = "20px Inter, sans-serif";
+      let y = wrap(ctx, `${story?.emoji || "✨"} ${target?.name || "A patch of sky"}`, 650, 175, 520, 46, 2);
+      ctx.fillStyle = "#d4d4dc"; ctx.font = "20px Inter, sans-serif";
       y = wrap(ctx, story?.tagline || "", 650, y + 4, 520, 28, 2);
-      ctx.fillStyle = "#53d8c4"; ctx.font = "600 19px Inter, sans-serif";
+      ctx.fillStyle = "#ffcf4d"; ctx.font = "600 19px Inter, sans-serif";
       for (const f of (facts || []).slice(0, 4)) y = wrap(ctx, `• ${f}`, 650, y + 14, 520, 26, 3);
-      ctx.fillStyle = "#5f7193"; ctx.font = "14px Inter, sans-serif"; ctx.fillText("Real data: NASA/IPAC IRSA (SPHEREx), ESA Gaia, NASA WISE", 650, 600);
+      ctx.fillStyle = "#707282"; ctx.font = "14px Inter, sans-serif"; ctx.fillText("Real data: NASA/IPAC IRSA (SPHEREx), ESA Gaia, NASA WISE", 650, 600);
       const blob = await new Promise((r) => c.toBlob(r, "image/png"));
       await shareOrDownload(blob, `skyshift_${name}_card.png`, `${target?.name || "The sky"} on SkyShift`, (facts || []).join(" · "), shareURL(), say);
     } finally { setBusy(""); }

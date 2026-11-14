@@ -31,7 +31,7 @@ export const bandsPlugin = {
         ctx.fillText(SHORT[f.species] || f.species, 0, 0); ctx.restore();
       }
     }
-    ctx.setLineDash([2, 4]); ctx.strokeStyle = "rgba(143,160,189,.35)"; ctx.font = "10px JetBrains Mono, monospace"; ctx.fillStyle = "#5f7193";
+    ctx.setLineDash([2, 4]); ctx.strokeStyle = "rgba(143,160,189,.35)"; ctx.font = "10px JetBrains Mono, monospace"; ctx.fillStyle = "#707282";
     for (const [d, [lo]] of Object.entries(opts.detectors || {})) {
       const px = x.getPixelForValue(lo);
       if (px < a.left || px > a.right) continue;
@@ -43,8 +43,8 @@ export const bandsPlugin = {
 };
 
 function axis(title, log, min, max) {
-  return { type: log ? "logarithmic" : "linear", min, max, title: { display: true, text: title, color: "#8fa0bd", font: { size: 12 } },
-    grid: { color: "#1b2943" }, border: { color: "#33476e" }, ticks: { color: "#8fa0bd", font: { family: "JetBrains Mono", size: 10 } } };
+  return { type: log ? "logarithmic" : "linear", min, max, title: { display: true, text: title, color: "#a2a3b2", font: { size: 12 } },
+    grid: { color: "#1f2029" }, border: { color: "#3a3b47" }, ticks: { color: "#a2a3b2", font: { family: "JetBrains Mono", size: 10 } } };
 }
 
 export default function SpectrumPanel({ spec, visits, detectors, loading, simple }) {
@@ -63,10 +63,10 @@ export default function SpectrumPanel({ spec, visits, detectors, loading, simple
     const good = binned.filter((p) => !p.saturated || spec.saturated_fraction > 0.5);
     const up = good.map((p) => ({ x: p.wave, y: p.flux + p.err })), dn = good.map((p) => ({ x: p.wave, y: Math.max(p.flux - p.err, log ? 1e-3 : -1e12) }));
     const ds = [
-      { label: "±1σ", data: up, borderWidth: 0, pointRadius: 0, fill: "+1", backgroundColor: "rgba(255,181,71,.18)", order: 3 },
+      { label: "±1σ", data: up, borderWidth: 0, pointRadius: 0, fill: "+1", backgroundColor: "rgba(255,163,26,.18)", order: 3 },
       { label: "_lo", data: dn, borderWidth: 0, pointRadius: 0, fill: false, order: 3 },
       { label: "All visits (median per channel)", data: good.map((p) => ({ x: p.wave, y: p.flux, tip: `ch ${p.channel} · ${p.wave.toFixed(3)} µm · ${p.flux.toFixed(1)} ± ${p.err.toFixed(1)} µJy · n=${p.n}${p.saturated ? " · saturated" : ""}` })),
-        borderColor: "#ffb547", borderWidth: 2, pointRadius: 1.8, pointBackgroundColor: "#ffb547", tension: 0, order: 1 },
+        borderColor: "#ffa31a", borderWidth: 2, pointRadius: 1.8, pointBackgroundColor: "#ffa31a", tension: 0, order: 1 },
     ];
     if (byVisit && spec.binned_by_visit) {
       Object.entries(spec.binned_by_visit).forEach(([v, pts], j) => {
@@ -81,7 +81,7 @@ export default function SpectrumPanel({ spec, visits, detectors, loading, simple
     const opts = {
       animation: false, maintainAspectRatio: false, parsing: false, interaction: { mode: "nearest", intersect: false },
       plugins: {
-        legend: { labels: { color: "#8fa0bd", boxWidth: 12, font: { size: 10.5 }, filter: (l) => !l.text.startsWith("_") } },
+        legend: { labels: { color: "#a2a3b2", boxWidth: 12, font: { size: 10.5 }, filter: (l) => !l.text.startsWith("_") } },
         tooltip: { callbacks: { label: (c) => c.raw.tip || "" } },
         bands: { features: spec.features, detectors, showAll: allBands },
       },
@@ -102,8 +102,8 @@ export default function SpectrumPanel({ spec, visits, detectors, loading, simple
     charts.current.push(new Chart(b.current, {
       type: "scatter", data: { datasets: lds },
       options: { animation: false, maintainAspectRatio: false, parsing: false,
-        plugins: { legend: { labels: { color: "#8fa0bd", boxWidth: 10, font: { size: 10.5 } } }, tooltip: { callbacks: { label: (c) => c.raw.tip } } },
-        scales: { x: { ...axis("Date", false), ticks: { color: "#8fa0bd", font: { size: 10 }, callback: (v) => new Date((v - 40587) * 864e5).toISOString().slice(0, 7) } },
+        plugins: { legend: { labels: { color: "#a2a3b2", boxWidth: 10, font: { size: 10.5 } } }, tooltip: { callbacks: { label: (c) => c.raw.tip } } },
+        scales: { x: { ...axis("Date", false), ticks: { color: "#a2a3b2", font: { size: 10 }, callback: (v) => new Date((v - 40587) * 864e5).toISOString().slice(0, 7) } },
           y: { ...axis("Flux density (µJy)", log), ...(log ? {} : { min: lo - pad, max: hi + pad }) } } },
     }));
     return () => charts.current.forEach((c) => c.destroy());

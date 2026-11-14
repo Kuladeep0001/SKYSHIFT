@@ -127,7 +127,7 @@ export default function SpectralCube({ qid, visits, disp, version }) {
     if (b) {
       const ctx = canvas.current.getContext("2d"), s = W / cube.n;
       const x0 = Math.min(b.x0, b.x1), x1 = Math.max(b.x0, b.x1), y0 = Math.min(b.y0, b.y1), y1 = Math.max(b.y0, b.y1);
-      ctx.strokeStyle = "#ffb547"; ctx.lineWidth = 2;
+      ctx.strokeStyle = "#ffa31a"; ctx.lineWidth = 2;
       ctx.strokeRect(x0 * s, (cube.n - 1 - y1) * s, (x1 - x0 + 1) * s, (y1 - y0 + 1) * s);
     }
   }, [cube, lims, k, box, drag, disp.contrast, disp.bright, disp.cmap]);
@@ -155,18 +155,18 @@ export default function SpectralCube({ qid, visits, disp, version }) {
     }
     ds.push({ label: resid ? "Difference from the smooth curve (%)" : (visit < 0 ? "All dates" : `Visit ${visit + 1}`),
       data: spec.map((p, i) => ({ x: p.wave, y: val(p, i), tip: `plane ${p.channel} · ${p.wave.toFixed(3)} µm · ${p.flux.toFixed(1)} ± ${p.err.toFixed(1)} µJy` })),
-      borderColor: "#ffb547", borderWidth: 2, pointRadius: spec.map((p) => (p.channel === k + 1 ? 6 : 1.8)),
-      pointBackgroundColor: spec.map((p) => (p.channel === k + 1 ? "#ffffff" : "#ffb547")) });
+      borderColor: "#ffa31a", borderWidth: 2, pointRadius: spec.map((p) => (p.channel === k + 1 ? 6 : 1.8)),
+      pointBackgroundColor: spec.map((p) => (p.channel === k + 1 ? "#ffffff" : "#ffa31a")) });
     if (!resid) ds.push({ label: "Smooth curve", data: spec.map((p, i) => ({ x: p.wave, y: cont[i] })), borderColor: "rgba(143,160,189,.7)", borderDash: [5, 4], borderWidth: 1.2, pointRadius: 0 });
     others.forEach(({ v, pts }, j) => pts && !resid && ds.push({ label: `Visit ${v.visit + 1} (${v.start.slice(0, 7)})`,
       data: pts.map((p) => ({ x: p.wave, y: p.flux, tip: `visit ${v.visit + 1} · ${p.wave.toFixed(3)} µm · ${p.flux.toFixed(1)} µJy` })),
       borderColor: VISIT_COLORS[(j + 1) % 6], borderWidth: 1.2, pointRadius: 0 }));
-    const ax = (t) => ({ title: { display: true, text: t, color: "#8fa0bd" }, grid: { color: "#1b2943" }, ticks: { color: "#8fa0bd", font: { family: "JetBrains Mono", size: 10 } } });
+    const ax = (t) => ({ title: { display: true, text: t, color: "#a2a3b2" }, grid: { color: "#1f2029" }, ticks: { color: "#a2a3b2", font: { family: "JetBrains Mono", size: 10 } } });
     chart.current = new Chart(chartEl.current, {
       type: "line", data: { datasets: ds }, plugins: [bandsPlugin],
       options: { animation: false, maintainAspectRatio: false, parsing: false,
         onClick: (_e, els) => { if (els.length) { const p = spec[els[0].index]; if (p) setK(p.channel - 1); } },
-        plugins: { legend: { labels: { color: "#8fa0bd", boxWidth: 12, font: { size: 10.5 }, filter: (l) => !l.text.startsWith("_") } },
+        plugins: { legend: { labels: { color: "#a2a3b2", boxWidth: 12, font: { size: 10.5 }, filter: (l) => !l.text.startsWith("_") } },
           tooltip: { callbacks: { label: (c) => c.raw.tip || `${c.raw.y.toFixed(1)}` } },
           bands: { features, detectors: Object.fromEntries([1, 2, 3, 4, 5, 6].map((d) => [d, [cube.channels[(d - 1) * 17].wave_lo]])), showAll: false } },
         scales: { x: { type: "linear", min: 0.7, max: 5.05, ...ax("Wavelength λ (µm)") }, y: ax(resid ? "Difference from smooth (%)" : "Flux density Fν (µJy)") } },
@@ -274,12 +274,12 @@ function StackLayer({ cube, i, lims, disp, box, on, z, onPick }) {
     if (box) {
       const ctx = ref.current.getContext("2d"), s = ref.current.width / cube.n;
       const x0 = Math.min(box.x0, box.x1), x1 = Math.max(box.x0, box.x1), y0 = Math.min(box.y0, box.y1), y1 = Math.max(box.y0, box.y1);
-      ctx.strokeStyle = "#ffb547"; ctx.lineWidth = 3;
+      ctx.strokeStyle = "#ffa31a"; ctx.lineWidth = 3;
       ctx.strokeRect(x0 * s, (cube.n - 1 - y1) * s, (x1 - x0 + 1) * s, (y1 - y0 + 1) * s);
     }
   }, [cube, i, lims, box, disp.contrast, disp.bright, disp.cmap]);
   return (
-    <div className={`layer ${on ? "on" : ""}`} style={{ transform: `translateZ(${z * 13}px)`, zIndex: z, borderColor: on ? "#ffb547" : DET_COLORS[ch.det - 1] }}
+    <div className={`layer ${on ? "on" : ""}`} style={{ transform: `translateZ(${z * 13}px)`, zIndex: z, borderColor: on ? "#ffa31a" : DET_COLORS[ch.det - 1] }}
       onClick={onPick} title={`Plane ${i + 1}: ${ch.wave?.toFixed(2)} µm`}>
       <canvas ref={ref} width="160" height="160" />
       <span style={{ color: DET_COLORS[ch.det - 1] }}>{ch.wave?.toFixed(2)} µm</span>

@@ -80,9 +80,9 @@ export default function TimeMachine({ qid, target, fov, disp, onTask }) {
       ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); ctx.setLineDash([]);
       data.frames.forEach((g, j) => {
         const [x, y] = toXY(...posAt(target, g.year));
-        ctx.strokeStyle = j === k ? "#ffb547" : "rgba(83,216,196,.6)"; ctx.lineWidth = j === k ? 3 : 1.5;
+        ctx.strokeStyle = j === k ? "#ffa31a" : "rgba(83,216,196,.6)"; ctx.lineWidth = j === k ? 3 : 1.5;
         ctx.beginPath(); ctx.arc(x, y, j === k ? 16 : 6, 0, 2 * Math.PI); ctx.stroke();
-        if (j === k) { ctx.fillStyle = "#ffb547"; ctx.font = "600 14px Inter, sans-serif"; ctx.fillText(`${target.name || "target"} in ${Math.floor(g.year)}`, x + 20, y + 5); }
+        if (j === k) { ctx.fillStyle = "#ffa31a"; ctx.font = "600 14px Inter, sans-serif"; ctx.fillText(`${target.name || "target"} in ${Math.floor(g.year)}`, x + 20, y + 5); }
       });
     } else {
       const [x, y] = toXY(target.ra, target.dec);
@@ -90,7 +90,7 @@ export default function TimeMachine({ qid, target, fov, disp, onTask }) {
     }
     if (f.coverage < 0.97) {
       ctx.fillStyle = "rgba(6,11,22,.75)"; ctx.fillRect(8, W - 34, 330, 26);
-      ctx.fillStyle = "#c4d0e6"; ctx.font = "12px Inter, sans-serif";
+      ctx.fillStyle = "#d4d4dc"; ctx.font = "12px Inter, sans-serif";
       ctx.fillText(`SPHEREx covers ${Math.round(f.coverage * 100)}% of this area (dark = not loaded yet)`, 14, W - 16);
     }
   }, [data, idx, lims, disp.contrast, disp.bright, disp.cmap, target, area]);

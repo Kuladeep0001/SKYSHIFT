@@ -135,7 +135,7 @@ export default function ImageViewer({ F, idx, disp, ov, target, cats, asteroids,
       ctx.fillText(c.candidate_id, x + 18, y - 14);
     }
     if (sel) {
-      ctx.strokeStyle = "#ffb547"; ctx.lineWidth = 2;
+      ctx.strokeStyle = "#ffa31a"; ctx.lineWidth = 2;
       const [x, y] = pixToCanvas(sel.x, sel.y, n, W);
       ctx.strokeRect(x - 1.5 * s, y - 1.5 * s, 3 * s, 3 * s);
     }

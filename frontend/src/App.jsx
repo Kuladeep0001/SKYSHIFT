@@ -39,10 +39,12 @@ export default function App() {
     <div className="app">
       <header className="top">
         <a className="brand" href="./" onClick={(e) => { if (page === "about") { e.preventDefault(); location.hash = ""; } }}>
-          <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#0b1426" stroke="#26385c" /><circle cx="11" cy="18" r="3" fill="#53d8c4" opacity=".45" /><circle cx="20" cy="13" r="4" fill="#ffb547" /></svg>
-          <span>Sky<b>Shift</b></span>
+          <img className="brandMark" src="/logo-mark.png" alt="" aria-hidden="true" />
+          <span className="brandText">
+            <img className="brandWord" src="/logo-word.png" alt="SkyShift" />
+            <span className="brandTag">Explore · Identify · Understand</span>
+          </span>
         </a>
-        <span className="tagline">Watch the infrared sky move · NASA SPHEREx</span>
         <nav>
           <a href="#" className={page === "explore" ? "on" : ""} onClick={(e) => { e.preventDefault(); location.hash = ""; }}>Explore</a>
           <a href="#board" className={page === "board" ? "on" : ""}>Discovery board</a>
