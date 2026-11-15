@@ -1,0 +1,11 @@
+/* Sky map and spectrum shown side by side, enlarged, directly under the search bar. */
+.visualRow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin: 18px 0 0; align-items: stretch; }
+.visualCell { min-width: 0; display: flex; }
+.visualCell > .card { flex: 1; min-width: 0; margin: 0; }
+.visualRow .aladin { height: 440px; }
+.visualRow .chartBox { height: 210px; }
+.visualRow .chartBox.tall { height: 400px; }
+@media (max-width: 1150px) {
+  .visualRow { grid-template-columns: 1fr; }
+  .visualRow .aladin { height: 360px; }
+}

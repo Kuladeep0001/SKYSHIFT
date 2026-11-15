@@ -6,6 +6,7 @@ import Board from "./pages/Board.jsx";
 import { setColourSafe } from "./lib/render.js";
 import Explorer from "./pages/Explorer.jsx";
 import TaskBar from "./components/TaskBar.jsx";
+import Intro from "./components/Intro.jsx";
 
 const params = new URLSearchParams(location.search);
 const embed = params.get("embed") === "1" || location.pathname.endsWith("/embed");
@@ -23,6 +24,7 @@ export default function App() {
   const [safe, setSafe] = useState(() => { try { return localStorage.getItem("skyshift-cvd") === "1"; } catch (_) { return false; } });
   setColourSafe(safe);
   const [listen, setListen] = useState(params.get("listen") === "1");
+  const [begun, setBegun] = useState(false);
 
   useEffect(() => {
     try { localStorage.setItem("skyshift-expert", expert ? "1" : "0"); } catch (_) { /* private mode */ }
@@ -35,6 +37,7 @@ export default function App() {
   }, []);
 
   if (embed) return <div className="app embed"><Explorer expert={expert} embed listenMode={listen} /></div>;
+  if (!begun) return <Intro onBegin={() => setBegun(true)} />;
   return (
     <div className="app">
       <header className="top">

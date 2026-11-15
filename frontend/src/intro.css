@@ -1,0 +1,35 @@
+.introPage {
+  position: fixed; inset: 0; z-index: 1000;
+  background-color: var(--bg); background-size: auto 130%; background-position: -60px center; background-repeat: no-repeat;
+  display: flex; align-items: center; justify-content: center; font-family: var(--ui-font);
+}
+.introShade { position: absolute; inset: 0; background: radial-gradient(ellipse at center, var(--intro-shade) 0%, var(--intro-shade-edge) 70%); }
+.introDialog {
+  position: relative; max-width: 420px; width: calc(100% - 40px); padding: 40px 32px; text-align: center;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: inset 0 1px 0 var(--panel-highlight), var(--panel-shadow); color: var(--text);
+}
+.introMark { width: 56px; height: 56px; margin-bottom: 12px; }
+.introDialog h1 { margin: 0 0 16px; font-size: 30px; font-weight: 700; color: var(--gold); }
+.introDialog p { margin: 0 0 24px; line-height: 1.6; font-size: 15px; }
+.introBtn {
+  cursor: pointer; padding: 13px 22px; font-size: 15px; font-weight: 600; color: var(--on-gold);
+  background: var(--gold); border: 0; border-radius: var(--radius); transition: background-color 150ms ease;
+}
+.introBtn:hover { background: var(--gold-hover); }
+.introBtn:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; }
+@media (max-width: 760px) {
+  .introPage { background-size: cover; background-position: center; }
+}
+
+/* Logo grows to its native size at the centre, then the whole page fades to reveal the Explore page. */
+.introFly {
+  position: fixed; margin: 0; pointer-events: none; transform-origin: center center;
+  animation-name: introFly; animation-timing-function: cubic-bezier(.4,0,.2,1); animation-fill-mode: forwards;
+}
+@keyframes introFly {
+  to { transform: translate(var(--dx), var(--dy)) scale(var(--s)); }
+}
+.introPage.leaving .introDialog { opacity: 0; transition: opacity 250ms ease-out; }
+.introPage.leaving { animation: introPageOut 500ms ease-in 900ms forwards; pointer-events: none; }
+@keyframes introPageOut { to { opacity: 0; } }
