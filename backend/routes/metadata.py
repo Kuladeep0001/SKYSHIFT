@@ -5,7 +5,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException, Query
 
 from ..services import image_processing as im
-from ..services import jobs, resolver, spherex, watcher
+from ..services import coords, jobs, resolver, spherex, watcher
 from .images import job_or_404, ready_or_409
 
 router = APIRouter(tags=["metadata"])
@@ -50,6 +50,20 @@ def resolve(q: str = Query(..., min_length=1, max_length=200)):
         raise HTTPException(404, {"status": "error", "error": "not_found", "message": str(e)})
     except Exception as e:
         raise HTTPException(502, {"status": "error", "error": "upstream", "message": f"Name lookup failed: {e}"})
+
+
+@router.get("/api/resolve/position")
+def resolve_position(a: str = Query("", max_length=80), b: str = Query("", max_length=80),
+                     frame: str = Query("icrs", pattern="^(icrs|galactic|earth)$")):
+    """Two boxes -> RA/Dec, reading whatever was typed forgivingly (see services/coords.py).
+    `frame`: `icrs` (a = RA, b = Dec), `galactic` (a = longitude l, b = latitude b) or `earth` (a = latitude,
+    b = longitude of a place on Earth: the sky straight above it right now). Both numbers pasted into `a`
+    are split (`split` gives the two halves). Returns `ra`, `dec` (ICRS degrees), `read_a`/`read_b` (how each
+    box was read), `read`, `label`. A box that can't be read: 400 with `field` ("a" or "b") and a plain message."""
+    try:
+        return coords.position(a, b, frame)
+    except coords.CoordError as e:
+        raise HTTPException(400, {"status": "error", "error": "bad_coordinates", "field": getattr(e, "field", "a"), "message": str(e)})
 
 
 @router.get("/api/metadata/{query_id}")

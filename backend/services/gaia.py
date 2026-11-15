@@ -133,29 +133,36 @@ async def query_gaia(ra, dec):
         )
     """
 
-    try:
-        async with httpx.AsyncClient() as client:
+    # ESA first, then a full mirror (AIP Potsdam): some networks can't reach ESA at all,
+    # so connecting gives up after 5 seconds instead of hanging for a minute and a half.
+    from .sky_catalogs import GAIA_MIRRORS, _votable_rows
 
-            response = await client.post(
-                GAIA_TAP,
-                data={
-                    "REQUEST": "doQuery",
-                    "LANG": "ADQL",
-                    "FORMAT": "csv",
-                    "QUERY": adql
-                },
-                timeout=90
-            )
+    for url, _name in GAIA_MIRRORS:
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(90, connect=5)) as client:
 
-            response.raise_for_status()
+                response = await client.post(
+                    url,
+                    data={
+                        "REQUEST": "doQuery",
+                        "LANG": "ADQL",
+                        "FORMAT": "csv",
+                        "QUERY": adql
+                    },
+                )
 
-            return list(
-                csv.DictReader(io.StringIO(response.text))
-            )
+                response.raise_for_status()
+                text = response.text
+                if text.lstrip().startswith("<"):          # the mirror answers in VOTable
+                    return _votable_rows(text)
 
-    except httpx.HTTPError as error:
-        print("Gaia query failed:", error)
-        return None
+                return list(
+                    csv.DictReader(io.StringIO(text))
+                )
+
+        except (httpx.HTTPError, OSError, ValueError) as error:
+            print("Gaia query failed at", url, ":", error)
+    return None
 
 
 def calculate_distance(source):

@@ -34,6 +34,15 @@ export const api = {
   mock: MOCK,
   releases: () => (MOCK ? mock("releases") : request("/api/releases")),
   resolve: (q) => (MOCK ? mock("resolve") : request(`/api/resolve?q=${encodeURIComponent(q)}`)),
+  // two coordinate boxes -> RA/Dec, read forgivingly (frame: icrs | earth | galactic). A box that can't be read
+  // throws an Error with .field = "a" | "b" and a plain message. No task-bar entry: it is instant and used while typing.
+  resolvePosition: async (a, b, frame = "icrs") => {
+    if (MOCK) return { ra: parseFloat(a) || 0, dec: parseFloat(b) || 0, read: `RA ${a}, Dec ${b}`, read_a: a, read_b: b, label: null, split: null };
+    const r = await fetch(`/api/resolve/position?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}&frame=${frame}`);
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { const e = new Error((j.detail && j.detail.message) || r.statusText); e.field = j.detail && j.detail.field; throw e; }
+    return j;
+  },
   queryImages: (body) => (MOCK ? mock("images_query") : post("/api/images/query", body)),
   imageStatus: (id) => (MOCK ? mock("images_query") : request(`/api/images/${id}`)),
   metadata: (id) => (MOCK ? mock("metadata") : request(`/api/metadata/${id}`)),

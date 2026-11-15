@@ -443,7 +443,7 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
   return (
     <div className="explorer">
       {!embed && (
-        <CoordinateInput initial={params.get("q") || ""} onGo={go} fov={fov} setFov={setFov} release={release}
+        <CoordinateInput initial={params.get("q") || ""} onGo={go} onGoCoords={goCoords} fov={fov} setFov={setFov} release={release}
           setRelease={setRelease} releases={releases} expert={expert} busy={load.phase === "loading"} />
       )}
 

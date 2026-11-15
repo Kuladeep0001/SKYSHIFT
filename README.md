@@ -54,6 +54,9 @@ It takes about 10 minutes the first time.
 - [x] **Ask about this object** (Qwen or any OpenAI-compatible model; built-in answers otherwise)
 - [x] **Technical report (PDF)** for researchers: data, processing, detections with motion fits, identification in 4 catalogues
   + exoplanets, spectrum, light curve, validation, references, and appendices (every channel, exposure and flag); view or download
+- [x] **Search three ways**: a star or planet name (spelling slips like "barnards star" or "vega star" are fixed), **RA and Dec**
+  in any form (269.45 · 17 57 48.5 · 17h57m48.5s · +04°41′36″ · decimal commas · both numbers pasted in one box), or a
+  **place on Earth (latitude, longitude)** to see the sky straight above it right now. What you typed is read back before it loads
 - [x] **Guided tour**
 - [x] **Listen mode** for blind and low-vision visitors: a **voice conversation**, no buttons. SkyShift says what you can
   say, then listens: *describe*, *play*, *motion*, *list*, *star 2*, *go to Vega*, *slower*, *stop*, *help*, or any

@@ -172,6 +172,15 @@ watermark and the website address. `x`, `y` = the object's pixel (default: field
 detections; `pmra`/`pmdec` (mas/yr) help the catalogue match for fast movers; `external=false` skips the
 outside archives. Takes 10–60 s. The website's **Technical report** card has View and Download buttons.
 
+### `GET /api/resolve/position?a=&b=&frame=icrs`
+Two coordinate boxes → RA/Dec, read **forgivingly**: decimal degrees or h m s / ° ′ ″ with any spacing, typographic
+signs, decimal commas, words (hours, arcmin), N/S/E/W letters, and both numbers pasted into `a` (split automatically,
+returned in `split`). `frame` = `icrs` (a = RA, b = Dec), `galactic` (l, b) or `earth` (latitude, longitude of a place:
+the sky straight overhead right now, via local sidereal time, precessed to ICRS). Returns `ra`, `dec`, `read_a`,
+`read_b` (how each box was understood), `read`, `label`. A box that can't be read → `400 bad_coordinates` with
+`field` (`a`/`b`) and a plain message. `/api/resolve?q=` also accepts these forms, tidies names (`vega star`,
+`barnards star`, `hd209458`) and explains Solar System names (Mars) can't be shown.
+
 ### `GET /api/voice?text=&v=butler`
 **Reading aloud** in a natural, human-sounding voice (MP3). Used by the Listen tab, the guided tour and Ask answers.
 `v` = `butler` (default: a calm, older British gentleman, Microsoft neural voice en-GB-Thomas, a little slower and

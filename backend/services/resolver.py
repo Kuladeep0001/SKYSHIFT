@@ -15,6 +15,7 @@ from urllib.parse import quote
 import astropy.units as u
 from astropy.coordinates import SkyCoord
 
+from . import coords
 from .spherex import SESSION
 
 # Middle of the SPHEREx data so far. Fast-moving stars are centred where they are *now*, not in 2000.
@@ -22,6 +23,9 @@ DATA_EPOCH = 2026.0
 
 
 def parse_coords(text: str) -> tuple[float, float] | None:
+    pair = coords.parse_pair(text, ("ra", "dec"))     # forgiving: stray spaces, signs, units, decimal commas, N/S
+    if pair:
+        return pair[0], pair[1]
     s = text.strip().replace(",", " ")
     if not s:
         return None
@@ -97,8 +101,24 @@ def resolve(text: str) -> dict:
     if key in PRESETS:
         name, ra, dec, pmra, pmde = PRESETS[key]
         source = "built-in (SIMBAD)"
+    elif key in coords.SOLAR_SYSTEM:
+        raise LookupError(f"{text.strip().title()} is in our own Solar System, so it moves across the sky from night to night "
+                          "and isn't at one fixed spot in SPHEREx's pictures. Try a star, a nebula, or a planet around another star, like 51 Peg b.")
     else:
-        name, ra, dec, pmra, pmde = _sesame(text)
+        try:
+            name, ra, dec, pmra, pmde = _sesame(text)
+        except LookupError:
+            for alt in coords.tidy_name(text):          # 'vega star', 'barnards star', 'hd209458'...
+                alt_key = ALIASES.get(alt.lower(), alt.lower())
+                if alt_key in PRESETS:
+                    return resolve(PRESETS[alt_key][0])
+                try:
+                    name, ra, dec, pmra, pmde = _sesame(alt)
+                    break
+                except LookupError:
+                    continue
+            else:
+                raise LookupError(f"I couldn't find '{text.strip()}'. Check the spelling, try another name (like Vega or 51 Peg b), or use RA and Dec.")
         name = re.sub(r"^(NAME|\*+)\s+", "", name)
         source = "Sesame/SIMBAD"
     moved = bool(pmra or pmde)
