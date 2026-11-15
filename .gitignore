@@ -9,3 +9,6 @@ node_modules/
 frontend/dist/
 scratch_old/
 *.db
+
+# teammates' upload zips: unpack them onto their base commit, don't keep them in the repo
+*.zip
