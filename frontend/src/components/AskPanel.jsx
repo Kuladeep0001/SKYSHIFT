@@ -1,6 +1,7 @@
 /* "Ask about this object": plain-language answers built only from the data SkyShift has loaded. */
 import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api.js";
+import { speak as speakAloud } from "../lib/voice.js";
 
 const SUGGESTIONS = ["What is this?", "How far away is it?", "Why does it move?", "What is it made of?", "Did it change brightness?", "Could it be something new?"];
 
@@ -23,7 +24,7 @@ export default function AskPanel({ context, speak }) {
     try {
       const r = await api.ask(q, context);
       setLog((l) => [...l, { who: "sky", text: r.answer, source: r.source }]);
-      if (speak && "speechSynthesis" in window) window.speechSynthesis.speak(new SpeechSynthesisUtterance(r.answer));
+      if (speak) speakAloud(r.answer);
     } catch (e) {
       setLog((l) => [...l, { who: "sky", text: `Sorry, I couldn't answer that (${e.message}).` }]);
     } finally { setBusy(false); }

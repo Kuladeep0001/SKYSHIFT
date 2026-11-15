@@ -172,6 +172,13 @@ watermark and the website address. `x`, `y` = the object's pixel (default: field
 detections; `pmra`/`pmdec` (mas/yr) help the catalogue match for fast movers; `external=false` skips the
 outside archives. Takes 10–60 s. The website's **Technical report** card has View and Download buttons.
 
+### `GET /api/voice?text=&v=butler`
+**Reading aloud** in a natural, human-sounding voice (MP3). Used by the Listen tab, the guided tour and Ask answers.
+`v` = `butler` (default: a calm, older British gentleman, Microsoft neural voice en-GB-Thomas, a little slower and
+lower) or `friendly` (en-GB-Ryan). `text` up to 3000 characters. The sound is streamed as it is made (speech starts in
+about a second) and each finished clip is cached in `data/voice`, so repeats play instantly. Needs the `edge-tts`
+package and internet; otherwise `503 voice_unavailable`, and the website uses the device's own voice instead.
+
 ### `GET /api/images/{query_id}/history?ra=&dec=&fov=`
 **Time machine**: the area in POSS-I (1950s plates), POSS-II (1990s), 2MASS Ks (~2000), WISE W1 (2010) and SPHEREx,
 all on one 240 x 240 north-up grid. `frames[]`: `{survey, label, band, date, year, mjd, coverage}`; `data`: base64 float32.

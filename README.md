@@ -58,6 +58,8 @@ It takes about 10 minutes the first time.
 - [x] **Listen tab** for blind and low-vision visitors: the brightness-vs-wavelength graph is shown big *and* played as sound
   (higher, louder note = brighter; left ear = short wavelength, right ear = long), arrow keys read it point by point,
   pick any star from a spoken list, hear how the object moves, everything keyboard and screen-reader friendly
+- [x] **Natural voice**: everything read aloud by a calm British "butler" neural voice (or a friendlier one, or the
+  device's own voice offline), with symbols spoken as words (µm → microns, ″ → arcseconds)
 - [x] Share as animated GIF, picture card, link or embed
 - [x] Stays up to date with new NASA releases automatically; download task bar with Cancel
 
