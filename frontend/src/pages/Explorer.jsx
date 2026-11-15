@@ -30,6 +30,8 @@ import { decodeFrames, mainVisitsOnly } from "../lib/frames.js";
 import { rgbByVisit } from "../lib/render.js";
 import { findTarget, TARGETS } from "../lib/targets.js";
 import "../visualRow.css";
+import "../accordion.css";
+import { AccordionHead, AccordionBody } from "../components/Accordion.jsx";
 
 const params = new URLSearchParams(location.search);
 const FACTS = [
@@ -38,6 +40,17 @@ const FACTS = [
   "Volunteers comparing images like these have discovered hundreds of brown dwarfs.",
   "Infrared light passes through dust, so SPHEREx sees things hidden from ordinary telescopes.",
   "Barnard's Star moves the width of the full Moon across the sky in about 180 years.",
+];
+
+const PANELS = [
+  { id: "explain", title: "What you're looking at" },
+  { id: "moved", title: "Find things that moved" },
+  { id: "ask", title: "Ask about this object" },
+  { id: "details", title: "Object details" },
+  { id: "known", title: "Is it already known?" },
+  { id: "spectrum", title: "Spectrum and light curve" },
+  { id: "skymap", title: "Sky map", subtitle: "show the spot at the centre" },
+  { id: "picture", title: "About this picture" },
 ];
 
 export default function Explorer({ expert, embed, listenMode, tourStep, setTourStep }) {
@@ -51,6 +64,9 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
   const [meta, setMeta] = useState(null);
   const VIEWS = ["blink", "timecolours", "compare", "timemachine", "wall", "planes", "asteroids", "listen"];
   const [view, setView] = useState(VIEWS.includes(params.get("view")) ? params.get("view") : "blink");
+  const [openPanel, setOpenPanel] = useState("explain");
+  const [tabSize, setTabSizeState] = useState(() => { try { return localStorage.getItem("skyshift.tabSize") || "m"; } catch (_) { return "m"; } });
+  const setTabSize = (v) => { setTabSizeState(v); try { localStorage.setItem("skyshift.tabSize", v); } catch (_) {} };
   const [mode, setMode] = useState(params.get("mode") || "visit");
   const [det, setDet] = useState(+params.get("det") || 0);
   const [ch, setCh] = useState(+params.get("ch") || 40);
@@ -441,9 +457,16 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
         <div className={`layout ${embed ? "embedLayout" : ""}`}>
           <section className="stage card">
             {!embed && (
-              <div className="tabs" role="tablist">
+              <div className="tabsBar">
+              <div className={`tabs tabs${tabSize.toUpperCase()}`} role="tablist">
                 {tabs.map(([k, label]) => <button key={k} role="tab" aria-selected={view === k} className={`${view === k ? "on" : ""} ${k === "listen" ? "listenTabBtn" : ""}`}
                   title={k === "listen" ? "For blind and low-vision visitors: hear the brightness graph and the motion" : undefined} onClick={() => setView(k)}>{label}</button>)}
+              </div>
+              <div className="seg tabSize" role="group" aria-label="Tab size">
+                {[["s", "S"], ["m", "M"], ["l", "L"]].map(([k, l]) => (
+                  <button key={k} title={`Tab size ${l}`} aria-label={`Tab size ${l}`} className={tabSize === k ? "on" : ""} onClick={() => setTabSize(k)}>{l}</button>
+                ))}
+              </div>
               </div>
             )}
 
@@ -514,31 +537,46 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
                 share={{ F, disp, target, story, facts: shareFacts, shareURL, say, rgb: useRGB ? rgbSets : null }} />
             )}
             {!embed && (
-              <div className="visualRow">
-                <div className="visualCell">
+              <div className="detailArea">
+                <AccordionBody id="explain" open={openPanel === "explain"}>
+                  <Explainer story={story} target={target} mode={view === "compare" ? "visit" : mode} math={disp.math} det={det}
+                    channel={ch} chWave={chWave} view={view} simple={simple} />
+                </AccordionBody>
+                <AccordionBody id="moved" open={openPanel === "moved"}>
+                  <CandidatesPanel qid={qid} band={det} candidates={candidates} setCandidates={setCandidates}
+                    focus={focus} setFocus={focusCand} expert={expert} autoRun={detectSignal} onChecks={setChecks}
+                    ctx={{ qid, fov, target: target?.name }} say={say} />
+                </AccordionBody>
+                <AccordionBody id="ask" open={openPanel === "ask"}>
+                  <AskPanel context={askContext} speak={listenMode} />
+                </AccordionBody>
+                <AccordionBody id="details" open={openPanel === "details"}>
+                  <ObjectCard pos={objPos} simple={simple} onLoaded={setDetails} />
+                </AccordionBody>
+                <AccordionBody id="known" open={openPanel === "known"}>
+                  <CatalogueCheck pos={objPos} pm={objPm} simple={simple}
+                    label={objPos?.name || details?.simbad?.name || (objPos && target && Math.hypot(objPos.ra - target.ra, objPos.dec - target.dec) < 2e-3 ? target.name : null)} />
+                </AccordionBody>
+                <AccordionBody id="spectrum" open={openPanel === "spectrum"}>
                   <SpectrumPanel spec={spec} visits={meta.visits} detectors={meta.detectors} loading={specLoading} simple={simple} />
-                </div>
-                <div className="visualCell">
+                </AccordionBody>
+                <AccordionBody id="skymap" open={openPanel === "skymap"} keepMounted={false}>
                   <SkyMap target={target} fov={fov} onLoadHere={goCoords} />
-                </div>
+                </AccordionBody>
+                <AccordionBody id="picture" open={openPanel === "picture"}>
+                  <MetadataPanel target={target} meta={meta} frame={view === "blink" ? frame : null}
+                    flags={view === "blink" && F ? F.flags[Math.min(idx, F.flags.length - 1)] : null} fov={fov}
+                    releases={meta.status?.releases || []} selFlags={selFlags} simple={simple} fresh={fresh} onCheckNow={checkNow} />
+                </AccordionBody>
               </div>
             )}
           </section>
 
           {!embed && (
             <aside className="side">
-              <Explainer story={story} target={target} mode={view === "compare" ? "visit" : mode} math={disp.math} det={det}
-                channel={ch} chWave={chWave} view={view} simple={simple} />
-              <CandidatesPanel qid={qid} band={det} candidates={candidates} setCandidates={setCandidates}
-                focus={focus} setFocus={focusCand} expert={expert} autoRun={detectSignal} onChecks={setChecks}
-                ctx={{ qid, fov, target: target?.name }} say={say} />
-              <AskPanel context={askContext} speak={listenMode} />
-              <MetadataPanel target={target} meta={meta} frame={view === "blink" ? frame : null}
-                flags={view === "blink" && F ? F.flags[Math.min(idx, F.flags.length - 1)] : null} fov={fov}
-                releases={meta.status?.releases || []} selFlags={selFlags} simple={simple} fresh={fresh} onCheckNow={checkNow} />
-              <ObjectCard pos={objPos} simple={simple} onLoaded={setDetails} />
-              <CatalogueCheck pos={objPos} pm={objPm} simple={simple}
-                label={objPos?.name || details?.simbad?.name || (objPos && target && Math.hypot(objPos.ra - target.ra, objPos.dec - target.dec) < 2e-3 ? target.name : null)} />
+              {PANELS.map((pn) => (
+                <AccordionHead key={pn.id} id={pn.id} title={pn.title} subtitle={pn.subtitle} open={openPanel === pn.id} onToggle={setOpenPanel} />
+              ))}
             </aside>
           )}
         </div>
