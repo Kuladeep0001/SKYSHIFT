@@ -48,7 +48,7 @@ export default function SkyHome({ onPick, fovDefault }) {
           showLayersControl: false, showGotoControl: true, showFrame: true, showCooGridControl: true,
           showProjectionControl: false, showSimbadPointerControl: false, showStatusBar: false,
         });
-        const cat = A.current.catalog({ name: "Challenge targets", sourceSize: 18, color: "#ffa31a", shape: "circle", displayLabel: true, labelColumn: "name", labelColor: "#ffa31a", labelFont: "13px Inter" });
+        const cat = A.current.catalog({ name: "Challenge targets", sourceSize: 18, color: "#53d8c4", shape: "circle", displayLabel: true, labelColumn: "name", labelColor: "#53d8c4", labelFont: "13px Inter" });
         al.current.addCatalog(cat);
         cat.addSources(TARGETS.map((t) => A.current.source(MARKS[t.id][0], MARKS[t.id][1], { name: t.label, q: t.q })));
         al.current.on("objectClicked", (o) => { if (o && o.data && o.data.q) onPick({ q: o.data.q }); });
@@ -121,7 +121,7 @@ export default function SkyHome({ onPick, fovDefault }) {
         {colour
           ? <>Infrared light is invisible, so SkyShift turns it into colours: <b style={{ color: "#ff9a6b" }}>orange-red</b> = glowing dust, <b style={{ color: "#7fe8ff" }}>cyan</b> = hot hydrogen gas, white/blue = stars. The Milky Way runs across the middle. </>
           : <>Use the menu to switch between infrared and visible-light pictures of the sky. </>}
-        {!failed && <>Orange circles are the challenge targets (click one). Zoom in, choose <b>Pick a spot</b> or <b>Draw a square</b>, and SkyShift will fetch every SPHEREx picture of that area.</>}
+        {!failed && <>Turquoise circles are the challenge targets (click one). Zoom in, choose <b>Pick a spot</b> or <b>Draw a square</b>, and SkyShift will fetch every SPHEREx picture of that area.</>}
       </p>
     </section>
   );

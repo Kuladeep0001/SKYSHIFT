@@ -29,6 +29,7 @@ import { api, loadImages } from "../lib/api.js";
 import { decodeFrames, mainVisitsOnly } from "../lib/frames.js";
 import { rgbByVisit } from "../lib/render.js";
 import { findTarget, TARGETS } from "../lib/targets.js";
+import "../visualRow.css";
 
 const params = new URLSearchParams(location.search);
 const FACTS = [
@@ -512,6 +513,16 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
               <DisplaySettings view={view} disp={disp} setDisp={setDisp} ov={ov} setOv={setOv} simple={simple}
                 share={{ F, disp, target, story, facts: shareFacts, shareURL, say, rgb: useRGB ? rgbSets : null }} />
             )}
+            {!embed && (
+              <div className="visualRow">
+                <div className="visualCell">
+                  <SpectrumPanel spec={spec} visits={meta.visits} detectors={meta.detectors} loading={specLoading} simple={simple} />
+                </div>
+                <div className="visualCell">
+                  <SkyMap target={target} fov={fov} onLoadHere={goCoords} />
+                </div>
+              </div>
+            )}
           </section>
 
           {!embed && (
@@ -528,8 +539,6 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
               <ObjectCard pos={objPos} simple={simple} onLoaded={setDetails} />
               <CatalogueCheck pos={objPos} pm={objPm} simple={simple}
                 label={objPos?.name || details?.simbad?.name || (objPos && target && Math.hypot(objPos.ra - target.ra, objPos.dec - target.dec) < 2e-3 ? target.name : null)} />
-              <SpectrumPanel spec={spec} visits={meta.visits} detectors={meta.detectors} loading={specLoading} simple={simple} />
-              <SkyMap target={target} fov={fov} onLoadHere={goCoords} />
             </aside>
           )}
         </div>
