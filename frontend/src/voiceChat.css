@@ -1,0 +1,15 @@
+/* Listen tab as a voice conversation */
+.voiceState { display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 600; padding: 14px 16px; margin: 10px 0;
+  border-radius: 12px; background: #08090e; border: 1px solid var(--line); }
+.voiceDot { width: 22px; height: 22px; border-radius: 50%; background: #555a66; flex: none; }
+.voiceState.listening { border-color: rgba(255, 207, 77, .7); }
+.voiceState.listening .voiceDot { background: var(--accent2, #ffcf4d); animation: voicePulse 1.2s ease-in-out infinite; }
+.voiceState.speaking .voiceDot { background: var(--accent, #ffa31a); animation: voicePulse .6s ease-in-out infinite; }
+.voiceState.thinking .voiceDot { background: #8ab4ff; animation: voicePulse 1.8s ease-in-out infinite; }
+@keyframes voicePulse { 0%, 100% { transform: scale(.75); opacity: .7; } 50% { transform: scale(1.15); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .voiceDot { animation: none !important; } }
+.voiceLog { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin: 8px 0 14px; padding-right: 4px; }
+.vmsg { margin: 0; padding: 8px 12px; border-radius: 10px; font-size: 15px; line-height: 1.45; max-width: 92%; }
+.vmsg b { display: block; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; opacity: .7; margin-bottom: 2px; }
+.vmsg.sky { background: #12141c; align-self: flex-start; }
+.vmsg.you { background: rgba(255, 163, 26, .14); align-self: flex-end; }
