@@ -70,15 +70,30 @@ ssh -i ssh-key-2026-11-15.key ubuntu@YOUR.SERVER.IP        # type yes the first 
 (Windows may complain the key is too open: right-click the key file → Properties → Security →
 Advanced → Disable inheritance → remove everyone but yourself.)
 
-On the server, paste **one line** (put your own DuckDNS name at the end):
+**If the GitHub repo is public** (Settings → General → Danger Zone → Change visibility; Space Apps
+judging wants a public repo anyway), paste **one line** on the server (your own DuckDNS name at the end):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Kuladeep0001/SKYSHIFT/main/deploy/install.sh | bash -s -- skyshift.duckdns.org
 ```
 
-It installs Docker, opens the firewall, downloads SkyShift, builds it (5–10 minutes the first
-time) and starts it. When it prints **Done**, open `https://skyshift.duckdns.org`. The very first
-https visit can take ~30 seconds while the certificate is made.
+**If the repo is private**, upload the code from your laptop instead (no token needed). On your laptop,
+in the SkyShift folder:
+
+```bash
+git archive --format=zip -o skyshift.zip main
+scp -i ssh-key-2026-11-15.key skyshift.zip ubuntu@YOUR.SERVER.IP:~
+```
+Then on the server:
+```bash
+sudo apt-get install -y unzip && mkdir -p ~/skyshift && unzip -oq ~/skyshift.zip -d ~/skyshift
+bash ~/skyshift/deploy/install.sh skyshift.duckdns.org
+```
+(To update later, repeat these three steps; `update.sh` needs the public-repo route.)
+
+Either way it installs Docker, opens the firewall, builds SkyShift (5–10 minutes the first time)
+and starts it. When it prints **Done**, open `https://skyshift.duckdns.org`. The very first https
+visit can take ~30 seconds while the certificate is made.
 
 ## 6. Prewarm the demo stars (do this once)
 

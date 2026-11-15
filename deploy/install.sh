@@ -8,8 +8,8 @@
 set -euo pipefail
 
 DOMAIN="${1:-}"
-REPO="https://github.com/Kuladeep0001/SKYSHIFT.git"
-DIR="$HOME/skyshift"
+REPO="${REPO:-https://github.com/Kuladeep0001/SKYSHIFT.git}"   # private repo? REPO=https://TOKEN@github.com/... bash install.sh
+DIR="${DIR:-$HOME/skyshift}"
 say() { printf '\n\033[1;33m==> %s\033[0m\n' "$*"; }
 
 say "1/5  Installing Docker and Git"
@@ -43,6 +43,8 @@ fi
 say "3/5  Getting SkyShift"
 if [ -d "$DIR/.git" ]; then
   git -C "$DIR" pull --ff-only
+elif [ -f "$DIR/deploy/docker-compose.yml" ]; then
+  echo "     using the copy already at $DIR (uploaded from your computer)"
 else
   git clone --depth 1 "$REPO" "$DIR"
 fi
