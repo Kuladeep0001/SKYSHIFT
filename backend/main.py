@@ -13,7 +13,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from .routes import analysis, ask, checks, crossmatch, finds, images, metadata, report, sky, validation, verification
+from .routes import analysis, ask, checks, crossmatch, finds, images, metadata, report, sky, validation, verification, voice
 from .services import watcher
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -24,7 +24,7 @@ app = FastAPI(title="SkyShift API", version="0.2",
 app.add_middleware(GZipMiddleware, minimum_size=2000)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET", "POST"], allow_headers=["*"])
 
-for r in (images.router, analysis.router, checks.router, verification.router, crossmatch.router, metadata.router, finds.router, ask.router, sky.router, validation.router, report.router):
+for r in (images.router, analysis.router, checks.router, verification.router, crossmatch.router, metadata.router, finds.router, ask.router, sky.router, validation.router, report.router, voice.router):
     app.include_router(r)
 
 

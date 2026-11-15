@@ -1,5 +1,6 @@
 /* Guided tour: "Show me something amazing". Each step loads a target and a view, with a short story. */
 import { useEffect } from "react";
+import { speak as speakAloud, stopSpeaking } from "../lib/voice.js";
 
 export const TOUR = [
   { q: "Barnard's Star", view: "blink", det: 0, math: "none", title: "The fastest star in the sky",
@@ -25,9 +26,8 @@ export const TOUR = [
 export default function Tour({ step, setStep, ready, auto, setAuto, speak }) {
   const s = TOUR[step];
   useEffect(() => {
-    if (!s || !speak || !ready || !("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(new SpeechSynthesisUtterance(`${s.title}. ${s.text}`));
+    if (!s || !speak || !ready) return;
+    speakAloud(`${s.title}. ${s.text}`);
   }, [step, ready]);
   useEffect(() => {
     if (!auto || !ready || !s || s.end) return;
@@ -38,7 +38,7 @@ export default function Tour({ step, setStep, ready, auto, setAuto, speak }) {
   return (
     <div className="tourCard" role="dialog" aria-label="Guided tour">
       <div className="tourTop"><span className="muted small">Tour · {step + 1} of {TOUR.length}</span>
-        <button className="linkBtn" onClick={() => { window.speechSynthesis && window.speechSynthesis.cancel(); setStep(null); }} aria-label="End tour">✕</button></div>
+        <button className="linkBtn" onClick={() => { stopSpeaking(); setStep(null); }} aria-label="End tour">✕</button></div>
       <h3>{s.title}</h3>
       <p>{ready ? s.text : "Loading…"}</p>
       <div className="row">

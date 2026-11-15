@@ -10,12 +10,14 @@
  * Arrow keys walk along the graph one colour at a time: each step plays that point and reads its value.
  * Motion: one note per visit; higher = moved north, right ear = moved west, louder = brighter.
  * Everything works from the keyboard. Captions are on screen, and are read by screen readers when the
- * built-in voice is switched off (so the two never talk over each other).
+ * voice is switched off (so the two never talk over each other).
+ * The voice is a natural British "butler" by default (lib/voice.js); visitors can pick another one.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import Chart from "chart.js/auto";
 import { monthYear, PIX } from "../lib/frames.js";
 import { bandsPlugin } from "./SpectrumPanel.jsx";
+import { getVoice, setVoice, speak, stopSpeaking, VOICES } from "../lib/voice.js";
 
 /* ------------------------------------------------------------------ sound */
 let audio = null;
@@ -212,7 +214,8 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
   const [cur, setCur] = useState(0);               // which point of the graph we are on
   const [style, setStyle] = useState("graph");
   const [speed, setSpeed] = useState("normal");
-  const [voice, setVoice] = useState(true);
+  const [voiceId, setVoiceId] = useState(getVoice());
+  const voice = voiceId !== "off";
   const gen = useRef(0);                           // bumped by every Stop: older sound sequences then end themselves
   const play = useRef(null);                       // {t0, times, from, raf}
   const graphRun = useRef(false);                  // true from pressing Play until the graph ends (intro included)
@@ -257,24 +260,21 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
     : "";
 
   /* ---------------------------------------------------------- speaking */
-  const say = (text) => new Promise((resolve) => {
+  const say = (text) => {            // caption on screen + spoken; resolves when the voice has finished
     setCaption(text);
-    if (!voice || !("speechSynthesis" in window)) return resolve();
-    const u = new SpeechSynthesisUtterance(text);
-    let done = false;
-    const finish = () => { if (!done) { done = true; resolve(); } };
-    u.onend = u.onerror = finish;
-    setTimeout(finish, 2500 + text.length * 85);   // some browsers never fire "end": don't get stuck
-    window.speechSynthesis.speak(u);
-  });
-  const sayNow = (text) => {          // for quick stepping: drop whatever was being said
-    window.speechSynthesis && window.speechSynthesis.cancel();
-    say(text);
+    return voice ? speak(text) : Promise.resolve();
+  };
+  const sayNow = (text) => { say(text); };   // for quick stepping (speak() drops whatever was being said)
+  const pickVoice = (id) => {
+    halt();
+    setVoiceId(id);
+    setVoice(id);
+    if (id !== "off") say("Very good. I shall read everything to you in this voice.");
   };
 
   const halt = () => {
     gen.current++;
-    window.speechSynthesis && window.speechSynthesis.cancel();
+    stopSpeaking();
     silence();
     if (play.current) cancelAnimationFrame(play.current.raf);
     play.current = null;
@@ -555,7 +555,11 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
             <option value="slow">Slow</option><option value="normal">Normal</option><option value="fast">Fast</option>
           </select>
         </label>
-        <label><input type="checkbox" checked={voice} onChange={() => { halt(); setVoice(!voice); }} /> Built-in voice (turn off if you use a screen reader)</label>
+        <label>Voice
+          <select value={voiceId} onChange={(e) => pickVoice(e.target.value)}>
+            {VOICES.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+          </select>
+        </label>
       </div>
 
       <ul className="keys" aria-label="Keyboard shortcuts">

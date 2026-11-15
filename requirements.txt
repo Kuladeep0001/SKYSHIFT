@@ -6,3 +6,4 @@ requests>=2.31
 pillow>=10
 httpx>=0.27
 reportlab>=4.0
+edge-tts>=7.0          # natural (neural) voice for reading aloud; optional, falls back to the device voice
