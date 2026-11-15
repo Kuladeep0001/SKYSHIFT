@@ -2,3 +2,4 @@
 pytest>=8
 httpx>=0.27
 astropy-healpix>=1.0   # only for scripts/render_allsky.py (re-draws the all-sky picture)
+pypdf>=4.0   # tests/test_report.py reads the generated PDF

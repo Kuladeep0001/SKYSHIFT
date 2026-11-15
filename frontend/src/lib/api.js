@@ -89,6 +89,22 @@ export async function loadImages({ ra, dec, fov, release }, onProgress, isCancel
   return st;
 }
 
+/* The technical report PDF (tracked in the task bar, with Cancel). Returns { blob, name }. */
+export function fetchReport(id, params = {}) {
+  const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null && v !== "").map(([k, v]) => [k, String(v)]));
+  const path = `/api/images/${id}/report.pdf?${q}`;
+  return trackRequest(path, {}, async (o) => {
+    const r = await fetch(path, o);
+    if (!r.ok) {
+      let msg = r.statusText;
+      try { const j = await r.json(); msg = (j.detail && (j.detail.message || j.detail)) || msg; } catch (_) { /* not JSON */ }
+      throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
+    }
+    const name = (r.headers.get("X-Report-Number") || "SkyShift-report") + ".pdf";
+    return { blob: await r.blob(), name };
+  });
+}
+
 export const objectDetails = (ra, dec, mjd, name) =>
   api.mock ? request("/mock/object.json")
     : request(`/api/object?ra=${ra}&dec=${dec}${mjd ? `&mjd=${mjd.toFixed(2)}` : ""}${name ? `&name=${encodeURIComponent(name)}` : ""}`);

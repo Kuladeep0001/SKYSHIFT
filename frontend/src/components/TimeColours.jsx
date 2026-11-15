@@ -2,21 +2,19 @@
  * things that moved split into separate coloured dots, showing where they were at each date. */
 import { useEffect, useMemo, useRef } from "react";
 import { monthYear, percentile } from "../lib/frames.js";
-import { colourSafe, timePalette } from "../lib/render.js";
+import { timePalette } from "../lib/render.js";
 
 // Colours that add up to white: 2 visits -> orange + blue; 3 visits -> red + green + blue.
-// Colour-blind-safe mode: first and last visit only, in orange + blue (easy to tell apart for everyone).
 export function pickVisits(F) {
   if (!F) return [];
   const n = F.data.length;
-  if (colourSafe && n >= 2) return [0, n - 1];
   if (n <= 3) return [...Array(n).keys()];
   return [0, Math.floor((n - 1) / 2), n - 1]; // first, middle, last
 }
 
 export default function TimeColours({ F, disp, onPixel, focusXY, source }) {
   const ref = useRef(null);
-  const use = useMemo(() => pickVisits(F), [F, colourSafe]);
+  const use = useMemo(() => pickVisits(F), [F]);
   const colours = timePalette(use.length);
 
   useEffect(() => {

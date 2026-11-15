@@ -29,7 +29,6 @@ const AUDIENCES = [
   ["Citizen scientists", "Find moving or changing things anywhere on the sky, check them against 4 catalogues, report them on the Discovery board.", "#board"],
   ["Astronomers", "Expert mode: single exposures, 102-colour cube, spectra with errors, light curves, flags, CSV export, REST API.", go("eps Ind B", "", "&expert=1")],
   ["Blind and low-vision visitors", "Listen tab: the brightness graph and the motion as sound, keyboard and screen-reader friendly.", go("Barnard's Star", "listen", "&listen=1")],
-  ["Colour-blind visitors", "Colour-safe switches every red/green to orange/blue.", "./"],
   ["Developers", "Open source, documented API, Docker, mock mode, embed code for any website.", "/docs"],
 ];
 

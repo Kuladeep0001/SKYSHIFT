@@ -2,7 +2,7 @@
  * each at its own observing date (stars move), via POST /api/verification/ (backend/routes/crossmatch.py).
  * Owner: Verification (Meenakshi K) + UI.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api.js";
 
 const CATS = [
@@ -116,22 +116,30 @@ function Extras({ res }) {
   );
 }
 
-export default function CatalogueCheck({ pos, pm, label, simple }) {
+export default function CatalogueCheck({ pos, pm, label, simple, auto }) {
   const [res, setRes] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  useEffect(() => { setRes(null); setErr(""); }, [pos && pos.ra, pos && pos.dec]);
+  const runId = useRef(0);
+  useEffect(() => {
+    setRes(null); setErr("");
+    runId.current++;
+    if (!pos || !auto) return;
+    const h = setTimeout(run, 400);   // a clicked object is looked up straight away (quick double clicks are skipped)
+    return () => clearTimeout(h);
+  }, [pos && pos.ra, pos && pos.dec, auto]);
   if (!pos) return null;
 
   async function run() {
+    const my = ++runId.current;
     setBusy(true); setErr(""); setRes(null);
     try {
       const when = pos.mjd ? new Date((pos.mjd - 40587) * 864e5) : new Date();
       const cand = { candidate_id: label || "selected", ra: pos.ra, dec: pos.dec, observation_time: when.toISOString() };
       if (pm && Number.isFinite(pm.pmra) && Number.isFinite(pm.pmdec)) { cand.pmra_mas_yr = pm.pmra; cand.pmdec_mas_yr = pm.pmdec; }
       const r = await api.crossCheck([cand]);
-      setRes(r.results[0]);
-    } catch (e) { setErr(e.message); } finally { setBusy(false); }
+      if (my === runId.current) setRes(r.results[0]);       // ignore answers for an object you've left
+    } catch (e) { if (my === runId.current) setErr(e.message); } finally { if (my === runId.current) setBusy(false); }
   }
 
   const ev = res?.evidence_summary?.catalogues || {};
@@ -142,7 +150,7 @@ export default function CatalogueCheck({ pos, pm, label, simple }) {
 
   return (
     <section className="card catCheck" aria-live="polite">
-      <h2>Is it already known? <small>Gaia · 2MASS · AllWISE · SIMBAD</small></h2>
+      <h2>Is it already known? <small>Gaia · 2MASS · AllWISE · SIMBAD · NASA Exoplanet Archive</small></h2>
       {!res && !busy && (
         <>
           <p className="small">{simple
@@ -152,7 +160,7 @@ export default function CatalogueCheck({ pos, pm, label, simple }) {
           {pm && <p className="small muted">Using its measured motion ({(Math.hypot(pm.pmra, pm.pmdec) / 1000).toFixed(2)}″/yr) to find it at older dates.</p>}
         </>
       )}
-      {busy && <p className="small"><span className="spin" aria-hidden="true" /> Asking Gaia, 2MASS, AllWISE and SIMBAD… (10–30 seconds)</p>}
+      {busy && <p className="small"><span className="spin" aria-hidden="true" /> Asking Gaia, 2MASS, AllWISE, SIMBAD and the NASA Exoplanet Archive… (10–30 seconds)</p>}
       {err && <p className="err">{err} <button className="small" onClick={run}>Try again</button></p>}
       {res && (
         <>
