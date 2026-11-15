@@ -236,6 +236,7 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
   const [heard, setHeard] = useState("");          // the words being heard right now
   const talking = useRef(0);                       // sentences being spoken now (never listen meanwhile)
   const lastSaid = useRef("");
+  const spoke = useRef(false);                     // said something since the last chime
   const convo = useRef(0);                         // conversation run id; bumped to end it
   const logEnd = useRef(null);
   const gen = useRef(0);                           // bumped by every Stop: older sound sequences then end themselves
@@ -285,6 +286,7 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
   const say = async (text) => {      // on screen + spoken; resolves when the voice has finished
     setCaption(text);
     lastSaid.current = text;
+    spoke.current = true;
     setLog((l) => [...l.slice(-40), { who: "sky", text }]);
     stopListening();                 // don't hear our own voice
     talking.current++;
@@ -508,20 +510,27 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
   /* ------------------------------------------------------ the conversation */
   const helpText = (keys = !canListen) => keys
     ? "Here are the keys. P or space: play or pause the graph. Left and right arrows: one point at a time. D: describe this place. " +
-      "M: hear how it moves. L: list the stars here, and N: the next star. R: repeat. H: help. Escape: stop."
-    : "Here's what you can say. Describe: I'll tell you about this place. Play: you'll hear its brightness graph, from your left ear to your right. " +
-      "Motion: you'll hear how it moves across the sky. List: I'll name the other stars here, and you can pick one by saying, for example, star two. " +
-      "Next, or back: one point of the graph at a time. Go to, and a star's name, to travel somewhere else, like go to Vega. " +
-      "Slower, or faster. Stop, at any time. Repeat, to hear me again. Or simply ask me a question, like, how far away is it? Say help to hear this again.";
+      "M: hear how it moves. L: list the stars here, and N: the next star. R: repeat. H: help. T: talk to me. Escape: stop."
+    : "Here is what you can say. " +
+      "Describe: I shall tell you about this place. " +
+      "Play: you will hear its brightness graph, from your left ear to your right. " +
+      "Motion: you will hear how it moves across the sky. " +
+      "List: I shall name the other stars here, and you may pick one by saying, for example, star two. " +
+      "Next, or back: one point of the graph at a time. " +
+      "Go to, and a star's name, to travel somewhere else, for example, go to Vega. " +
+      "Slower, or faster. Stop. Repeat. And help, to hear this list again. " +
+      "You may also simply ask me a question, such as, how far away is it? " +
+      "When I am talking, press Escape to stop me. After the soft chime, I am listening.";
   const listText = () => choices.length
     ? `There are ${choices.length} things to listen to here. ${choices.map((ch) => ch.label).join(". ")}. Say the one you want, like ${choices.length > 1 ? choices[1].short.toLowerCase() : "centre"}, or centre.`
     : "The pictures are still loading.";
+  // Opening: the commands first, then only where we are. Nothing about the place is read until you ask.
   const welcomeText = () => {
-    const where = `${name}.${story?.story ? ` ${story.story.split(/(?<=\.)\s/)[0]}` : ""}`;
-    if (welcomed) return `We're now at ${where} Say describe to hear about it, play for its graph, or motion to hear how it moves. Say help for everything else.`;
+    if (welcomed) return `We have arrived at ${name}. What would you like to do? Say help to hear the commands.`;
     welcomed = true;
-    return `Welcome to SkyShift's listening mode. I'll be your guide${canListen ? ", and you can simply talk to me" : ""}. We're looking at ${where} ${helpText()}` +
-      (canListen ? " I'm listening now." : " This browser can't hear voice commands, so please use the keys. Chrome or Edge can hear you.");
+    return canListen
+      ? `Good day, and welcome to SkyShift's listening mode. I shall be your guide, and you can simply talk to me. ${helpText(false)} We are at ${name}. What would you like to do?`
+      : `Good day, and welcome to SkyShift's listening mode. This browser can't hear voice commands, so please use the keys. Chrome or Edge can hear you. ${helpText(true)} We are at ${name}.`;
   };
   const pickChoice = (ch) => (ch ? choose(ch) : say("I couldn't find that one. Say list to hear what's here."));
   const askAbout = async (q) => {
@@ -530,19 +539,19 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
       const r = await api.ask(q, askContext || { name });
       await say(r.answer);
     } catch (_) {
-      await say("Sorry, I couldn't find an answer to that. Say help to hear what you can say.");
+      await say("I'm afraid I couldn't find an answer to that. Say help to hear what you can say.");
     }
   };
   const travel = async (where) => {
     halt();
-    await say(`Looking for ${where}.`);
+    await say(`Certainly. Looking for ${where}.`);
     try {
       const r = await api.resolve(where);
       const nm = (r.name || where).replace(/^NAME /, "");
-      await say(`Found it. Going to ${nm}. Fetching its pictures can take up to a minute. I'll tell you when we've arrived.`);
+      await say(`Found it. Off we go to ${nm}. Fetching its pictures can take up to a minute; I shall tell you when we have arrived.`);
       onGo && onGo(where);
     } catch (_) {
-      await say(`I couldn't find ${where}. Try another name, like Vega or Barnard's Star.`);
+      await say(`I'm afraid I couldn't find ${where}. Perhaps try another name, like Vega or Barnard's Star.`);
     }
   };
 
@@ -553,7 +562,7 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
     const curPick = choices.findIndex((ch) => ch === picked);
     const wasPlaying = !!play.current;
     halt();                                       // whatever you say ends what was going on
-    if (any("stop", "pause", "quiet", "silence", "enough", "shut up", "hold on", "wait")) return sayNow(wasPlaying ? "Paused. Say play to carry on." : "Stopped. What next?");
+    if (any("stop", "pause", "quiet", "silence", "enough", "shut up", "hold on", "wait")) return sayNow(wasPlaying ? "Very good, paused. Say play to carry on." : "Very good. What would you like next?");
     if (any("help", "commands", "what can i say", "what can i do", "options")) return say(helpText(false));
     if (any("repeat", "pardon", "say that again", "say it again", "come again", "what did you say") || t === " again ") return say(lastSaid.current || helpText(false));
     if (any("keys", "keyboard", "shortcuts")) return say(helpText(true));
@@ -561,12 +570,12 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
     if (any("slower", "slow down", "too fast", "more slowly")) {
       const k = SPEEDS.indexOf(speed);
       if (k <= 0) return say("This is already the slowest.");
-      halt(); setSpeed(SPEEDS[k - 1]); return say("Slower now. Say play to hear it.");
+      halt(); setSpeed(SPEEDS[k - 1]); return say("Certainly, a little slower. Say play to hear it.");
     }
     if (any("faster", "speed up", "too slow", "quicker")) {
       const k = SPEEDS.indexOf(speed);
       if (k >= SPEEDS.length - 1) return say("This is already the fastest.");
-      halt(); setSpeed(SPEEDS[k + 1]); return say("Faster now. Say play to hear it.");
+      halt(); setSpeed(SPEEDS[k + 1]); return say("Certainly, a little faster. Say play to hear it.");
     }
     if (any("colour sound", "color sound", "colours", "colors", "colour", "color")) { halt(); setStyle("colour"); setCur(0); return say("Colour sound: one note per colour, high notes for short wavelengths. Say play to hear it."); }
     if (any("graph sound", "normal sound", "line sound")) { halt(); setStyle("graph"); setCur(0); return say("Graph sound: one gliding note, higher means brighter. Say play to hear it."); }
@@ -596,8 +605,8 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
     if (any("last point", "the end")) return stepTo(pts.length - 1);
     if (any("next", "forward", "right")) return stepTo(cur + 1);
     if (any("back", "previous", "left")) return stepTo(cur - 1);
-    if (any("hello", "hi", "hey", "good morning", "good evening", "good afternoon")) return say(`Hello! We're at ${name}. Say help to hear what you can say.`);
-    if (any("thank you", "thanks")) return say("You're most welcome.");
+    if (any("hello", "hi", "hey", "good morning", "good evening", "good afternoon")) return say(`Hello. We are at ${name}. How may I help? Say help to hear the commands.`);
+    if (any("thank you", "thanks")) return say("You are most welcome.");
     return askAbout(raw);
   }
 
@@ -611,6 +620,12 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
     while (convo.current === my) {
       while (talking.current > 0 && convo.current === my) await wait(150);    // never listen while talking
       if (convo.current !== my) return;
+      if (spoke.current) {                                                      // your turn: a soft rising chime
+        spoke.current = false;
+        try { await ac().resume(); const t = ac().currentTime + 0.02; tone(t, { freq: 880, dur: 0.12, gain: 0.08 }); tone(t + 0.12, { freq: 1320, dur: 0.16, gain: 0.08 }); } catch (_) { /* no sound */ }
+        await wait(320);
+        if (convo.current !== my || talking.current) continue;
+      }
       setMic("listening"); setHeard("");
       const text = await listenOnce({ onHeard: (h) => setHeard(h) });
       if (convo.current !== my) return;
@@ -629,7 +644,7 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
       }
       if (!text) {
         if (busyRef.current || talking.current) { quiet = 0; continue; }          // sound playing or something running: just keep listening
-        if (++quiet === 4) await latest.current.say("I'm still listening. Say help to hear what you can say.");
+        if (++quiet === 4) await latest.current.say("I am still here, listening. Say help to hear the commands.");
         continue;
       }
       quiet = 0;

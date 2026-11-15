@@ -27,7 +27,7 @@ MAX_FILES = 4000
 
 # id -> (neural voice, speed, pitch)
 VOICES = {
-    "butler": ("en-GB-ThomasNeural", "-8%", "-4Hz"),   # a calm, unhurried older British gentleman
+    "butler": ("en-GB-ThomasNeural", "-12%", "-8Hz"),  # a calm, unhurried older English gentleman: deeper and slower
     "friendly": ("en-GB-RyanNeural", "-3%", "+0Hz"),   # a brighter, warmer British narrator
 }
 HEADERS = {"Cache-Control": "public, max-age=604800"}
@@ -57,13 +57,13 @@ async def voice(text: str = Query(..., min_length=1, max_length=3000), v: str = 
     text = " ".join(text.split())
     if not text:
         raise HTTPException(400, {"status": "error", "error": "bad_request", "message": "text is empty"})
-    path = CACHE / f"{hashlib.sha1(f'{v}|{text}'.encode()).hexdigest()}.mp3"
+    name, rate, pitch = VOICES[v]
+    path = CACHE / f"{hashlib.sha1(f'{name}|{rate}|{pitch}|{text}'.encode()).hexdigest()}.mp3"
     if path.exists():
         return FileResponse(path, media_type="audio/mpeg", headers=HEADERS)
     if edge_tts is None:
         raise _unavailable("edge-tts is not installed")
 
-    name, rate, pitch = VOICES[v]
     stream = edge_tts.Communicate(text, name, rate=rate, pitch=pitch).stream()
     # Wait for the first sound before answering, so a failure is a clean 503 (the page then uses the device voice).
     first = None

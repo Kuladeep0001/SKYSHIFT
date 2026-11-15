@@ -60,7 +60,7 @@ It takes about 10 minutes the first time.
   question (answered from SkyShift's data). The brightness graph plays slowly as **3D sound** (short wavelengths in the
   left ear, long in the right; higher, louder = brighter), and a moving star's sound travels from one ear to the other
   the way it moves in the picture. Keys work too (T, P, D, M, L, N, R, H, Esc)
-- [x] **Natural voice**: everything read aloud by a calm British "butler" neural voice (or a friendlier one, or the
+- [x] **Natural voice**: everything read aloud by a calm, deep English "butler" neural voice (or a friendlier one, or the
   device's own voice offline), with symbols spoken as words (µm → microns, ″ → arcseconds)
 - [x] Share as animated GIF, picture card, link or embed
 - [x] Stays up to date with new NASA releases automatically; download task bar with Cancel
@@ -234,8 +234,10 @@ Keep the terminal window open while you use the site. Press **Ctrl + C** in it t
 
 1. Put on headphones, then press **Listen mode** at the top of the page (or open the **Listen** tab).
 2. The first time, the browser asks to use your **microphone**: choose **Allow**.
-3. SkyShift says where you are and what you can say, then listens. Just talk: *describe*, *play*, *motion*,
-   *list*, *star 2*, *go to Vega*, *slower*, *stop*, *repeat*, *help*, or ask any question.
+3. SkyShift first reads out the commands you can give, then says which star you're at. A **soft chime** means
+   it's listening: just talk. *describe*, *play*, *motion*, *list*, *star 2*, *go to Vega*, *slower*, *stop*,
+   *repeat*, *help*, or ask any question. It reads nothing about the star until you ask, and after every answer
+   it chimes and listens again. Press **Esc** to stop it talking.
 4. No microphone, or using Firefox? Use the keys instead: **T** talk, **P** or **Space** play, **D** describe,
    **M** motion, **L** list, **N** next star, **R** repeat, **H** help, **Esc** stop.
 
