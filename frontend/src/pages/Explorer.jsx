@@ -308,8 +308,22 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
     onCancel: () => api.cancel(qid).then(() => say("Update cancelled.")).catch(() => {}) });
 
   /* ---------------------------------------------------------- spectrum */
-  const onPixel = async (x, y) => {
+  // A click lands near a star, not always on it: move to the brightest pixel close by, so the spectrum
+  // and the catalogue search are about that object (not the dark sky next to it).
+  const snapToStar = (x, y) => {
+    if (!F || !F.data.length) return [x, y];
+    const a = F.data[Math.min(idx, F.data.length - 1)], n = F.n;
+    let best = -Infinity, bx = x, by = y;
+    for (let yy = y - 2; yy <= y + 2; yy++) for (let xx = x - 2; xx <= x + 2; xx++) {
+      if (xx < 0 || yy < 0 || xx >= n || yy >= n) continue;
+      const v = a[yy * n + xx];
+      if (Number.isFinite(v) && v > best) { best = v; bx = xx; by = yy; }
+    }
+    return [bx, by];
+  };
+  const onPixel = async (x0, y0, opts = {}) => {
     if (!qid) return;
+    const [x, y] = opts.exact ? [x0, y0] : snapToStar(x0, y0);
     setSel({ x, y });
     setObjPm(null);
     setSpecLoading(true);
@@ -317,8 +331,17 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
       const sp = await api.spectrum(qid, x, y);
       setSpec(sp);
       const mid = meta?.exposures?.length ? meta.exposures[meta.exposures.length >> 1].mjd : 0;
-      setObjPos({ ra: sp.ra, dec: sp.dec, mjd: mid, name: null });
+      setObjPos({ ra: sp.ra, dec: sp.dec, mjd: mid, name: null, clicked: true });
     } catch (e) { say(e.message); } finally { setSpecLoading(false); }
+  };
+  const backToTarget = () => {
+    if (!target) return;
+    setSel(null);
+    const mid = meta?.exposures?.length ? meta.exposures[meta.exposures.length >> 1].mjd : 0;
+    setObjPos({ ra: target.ra, dec: target.dec, mjd: mid, name: story ? target.name : null });
+    setObjPm(Number.isFinite(target.pmra) && Number.isFinite(target.pmdec) ? { pmra: target.pmra, pmdec: target.pmdec } : null);
+    const c = (meta.n_pix - 1) >> 1;
+    api.spectrum(qid, c, c).then(setSpec).catch(() => {});
   };
   const frame = F && F.list[Math.min(idx, F.data.length - 1)];
   const selFlags = useMemo(() => {
@@ -340,7 +363,7 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
     setFocus(id);
     const c = (candidates || []).find((x) => x.candidate_id === id);
     if (c) {
-      onPixel(Math.round(c.x), Math.round(c.y));
+      onPixel(Math.round(c.x), Math.round(c.y), { exact: true });
       const m = c.kind === "mover" && c.motion;
       setObjPm(m && Number.isFinite(m.pmra_mas_yr) ? { pmra: m.pmra_mas_yr, pmdec: m.pmdec_mas_yr } : null);
     }
@@ -385,6 +408,15 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
   /* ------------------------------------------------------------ render */
   const ready = load.phase === "ready" && meta;
   const source = spherexCredit(fresh?.last_update?.releases || meta?.status?.releases);
+  // details card + catalogue/exoplanet check + spectrum, for the target or the clicked object
+  const objectPanels = meta && (
+    <>
+      <ObjectCard pos={objPos} simple={simple} onLoaded={setDetails} />
+      <CatalogueCheck pos={objPos} pm={objPm} simple={simple} auto={!!objPos?.clicked}
+        label={objPos?.name || details?.simbad?.name || (objPos && target && Math.hypot(objPos.ra - target.ra, objPos.dec - target.dec) < 2e-3 ? target.name : null)} />
+      <SpectrumPanel spec={spec} visits={meta.visits} detectors={meta.detectors} loading={specLoading} simple={simple} source={source} />
+    </>
+  );
   const chInfo = meta && meta.channels[ch - 1];
   const chWave = chInfo && chInfo.wave ? `${chInfo.wave[0].toFixed(2)}–${chInfo.wave[1].toFixed(2)} µm` : "";
   const tabs = simple
@@ -518,6 +550,16 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
 
           {!embed && (
             <aside className="side">
+              {objPos?.clicked && (
+                <section className="card selHead">
+                  <h2>The object you clicked</h2>
+                  <p className="small">Everything below is about this object: its details from <b>SIMBAD</b>, <b>Gaia DR3</b>, <b>AllWISE</b> and <b>Wikipedia</b>,
+                    a check in <b>4 star catalogues</b> plus the <b>NASA Exoplanet Archive</b>, and its <b>spectrum</b> from SPHEREx.
+                    Click another object in the picture to look it up.</p>
+                  <button className="small" onClick={backToTarget}>← Back to {target?.name || "the target"}</button>
+                </section>
+              )}
+              {objPos?.clicked && objectPanels}
               <Explainer story={story} target={target} mode={view === "compare" ? "visit" : mode} math={disp.math} det={det}
                 channel={ch} chWave={chWave} view={view} simple={simple} />
               <CandidatesPanel qid={qid} band={det} candidates={candidates} setCandidates={setCandidates}
@@ -527,10 +569,7 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
               <MetadataPanel target={target} meta={meta} frame={view === "blink" ? frame : null}
                 flags={view === "blink" && F ? F.flags[Math.min(idx, F.flags.length - 1)] : null} fov={fov}
                 releases={meta.status?.releases || []} selFlags={selFlags} simple={simple} fresh={fresh} onCheckNow={checkNow} />
-              <ObjectCard pos={objPos} simple={simple} onLoaded={setDetails} />
-              <CatalogueCheck pos={objPos} pm={objPm} simple={simple}
-                label={objPos?.name || details?.simbad?.name || (objPos && target && Math.hypot(objPos.ra - target.ra, objPos.dec - target.dec) < 2e-3 ? target.name : null)} />
-              <SpectrumPanel spec={spec} visits={meta.visits} detectors={meta.detectors} loading={specLoading} simple={simple} source={source} />
+              {!objPos?.clicked && objectPanels}
               <SkyMap target={target} fov={fov} onLoadHere={goCoords} />
             </aside>
           )}

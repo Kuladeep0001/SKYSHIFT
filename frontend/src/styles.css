@@ -346,6 +346,8 @@ h2.center { justify-content: center; margin-top: 8px; }
 @keyframes taskPulse { 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .taskDot.running { animation: none; } }
 .mathHelp { margin: 6px 0 2px; }
+.selHead { border-color: rgba(255, 207, 77, .6); background: linear-gradient(180deg, rgba(255, 163, 26, .08), transparent 70%), var(--panel); }
+.selHead h2 { color: var(--accent2); }
 /* How it works: challenge table, accuracy, audiences */
 .tableScroll { overflow-x: auto; }
 .reqTable td, .accTable td { vertical-align: top; font-size: 13.5px; }

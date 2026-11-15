@@ -20,21 +20,8 @@ export const DET_COLORS = ["#7a8cff", "#55c6ff", "#53d8c4", "#b6e35a", "#ffb547"
 export const VISIT_COLORS = ["#53d8c4", "#ffb547", "#ff6b8b", "#5ab0ff", "#c38bff", "#b6e35a"];
 const NORMAL = { det: [...DET_COLORS], visit: [...VISIT_COLORS] };
 // Okabe-Ito palette: tells colours apart for the common kinds of colour blindness.
-const SAFE = { det: ["#0072B2", "#56B4E9", "#009E73", "#F0E442", "#E69F00", "#D55E00"],
-  visit: ["#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#CC79A7"] };
-export let colourSafe = false;
-
-/* Switch every palette in the app to colour-blind-safe colours (arrays are updated in place). */
-export function setColourSafe(on) {
-  colourSafe = !!on;
-  const p = on ? SAFE : NORMAL;
-  DET_COLORS.splice(0, 6, ...p.det);
-  VISIT_COLORS.splice(0, 6, ...p.visit);
-}
-
-/* Colours for "colour by date" that add up to white. Colour-blind-safe mode uses orange + blue only. */
+/* Colours for "colour by date" that add up to white. */
 export function timePalette(n) {
-  if (colourSafe) return [[1, 0.55, 0], [0, 0.45, 1]];
   // light RGB tints; they still add up to white where a star stayed put
   if (n <= 2) return [[1, 0.32, 0.32], [0.32, 1, 1]];          // light red + light cyan
   return [[1, 0.3, 0.3], [0.3, 1, 0.36], [0.32, 0.5, 1]];        // light red, light green, light blue
