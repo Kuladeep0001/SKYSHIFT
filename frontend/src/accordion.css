@@ -1,0 +1,27 @@
+/* Side-panel headers (one open at a time) and the detail area under the Show row. Panel styling inside is unchanged. */
+.accordion { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); overflow: hidden; }
+.accordion + .accordion { margin-top: 8px; }
+.accHead {
+  width: 100%; display: flex; align-items: center; gap: 10px; text-align: left;
+  background: none; border: 0; border-radius: 0; padding: 14px 16px; color: var(--text); font-weight: 600; cursor: pointer;
+}
+.accHead:hover { background: var(--ui-selected); }
+.accHead:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.accTitle { flex: 1; min-width: 0; }
+.accSub { color: var(--muted); font-weight: 400; font-size: 12px; }
+.accChevron { font-style: normal; font-family: var(--mono); color: var(--gold); width: 16px; text-align: center; }
+.accordion.open { border-color: var(--gold); }
+.accordion.open .accHead { background: var(--ui-selected); }
+
+/* Detail area: the open panel shows here, directly under the Show row */
+.detailBody { margin-top: 16px; scroll-margin-top: 96px; }
+.detailBody[hidden] { display: none !important; }
+
+/* Tab size control */
+.tabsBar { display: flex; align-items: flex-end; gap: 12px; justify-content: space-between; }
+.tabsBar .tabs { flex: 1; min-width: 0; }
+.tabSize { margin-bottom: 8px; flex: none; }
+.tabs.tabsS button { padding: 6px 9px; font-size: 13px; }
+.tabs.tabsM button { padding: 8px 12px; font-size: 15px; }
+.tabs.tabsL button { padding: 12px 18px; font-size: 18px; }
+.detailArea { display: flex; flex-direction: column; gap: 12px; }

@@ -669,3 +669,5 @@ html[data-space-paused] .spaceDepth { animation-play-state: paused; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+/* Tab bar wrapper keeps the size control on the same line as the tabs */
+.selOpen { gap: 6px; margin: 4px 0 8px; flex-wrap: wrap; }
