@@ -397,8 +397,11 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
   const seenFeats = (spec?.features || []).filter((f) => f.status === "likely" || f.status === "possible");
   if (seenFeats.length) shareFacts.push(`Spectrum hints: ${[...new Set(seenFeats.map((f) => f.species))].slice(0, 3).join(", ")}`);
   const askContext = {
-    name: target?.name || "this spot", ra: target?.ra, dec: target?.dec, story: story?.story,
-    pm_arcsec_yr: target ? Math.hypot(target.pmra || 0, target.pmdec || 0) / 1000 || null : null,
+    // a clicked object is asked about by its own name and position (its details are the ones loaded below)
+    name: objPos?.clicked ? (details?.simbad?.name || "the object you picked") : (target?.name || "this spot"),
+    ra: objPos?.clicked ? objPos.ra : target?.ra, dec: objPos?.clicked ? objPos.dec : target?.dec,
+    story: objPos?.clicked ? null : story?.story,
+    pm_arcsec_yr: objPm ? Math.hypot(objPm.pmra || 0, objPm.pmdec || 0) / 1000 || null : null,
     details: details ? { summary: details.summary, distance_ly: distLy || null, type: details.simbad?.type,
       spectral_type: details.simbad?.spectral_type, wikipedia: details.wikipedia?.extract?.slice(0, 900) } : null,
     features: seenFeats.map((f) => ({ name: f.name, status: f.status, change_pct: f.change_pct, plain_english: f.plain_english })),
@@ -536,7 +539,8 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
             {view === "timemachine" && <TimeMachine qid={qid} target={target} fov={fov} disp={disp} onTask={setTmTask} />}
             {view === "asteroids" && <AsteroidHunter qid={qid} disp={disp} source={source} />}
             {view === "listen" && <Listen target={target} story={story} F={F && F.mode === "visit" ? F : null} sel={sel}
-              spec={spec} loading={specLoading} onPixel={onPixel} candidates={candidates} source={source} />}
+              spec={spec} loading={specLoading} onPixel={onPixel} candidates={candidates} source={source}
+              onGo={go} askContext={askContext} />}
 
             {!["planes", "compare", "timecolours", "timemachine", "asteroids", "listen"].includes(view) && (
               <Controls playing={playing} setPlaying={setPlaying} idx={idx} count={count} setIdx={setIdx} fps={fps} setFps={setFps} disabled={!count} />

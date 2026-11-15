@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { diffFrame, meanFrames, mjdToYear, monthYear, percentile, PIX } from "../lib/frames.js";
 import { arrow, bandTint, LUTS, makeDivScaler, makeScaler, paint, paintRGBLight, pixToCanvas, skyToCanvas, zoomView } from "../lib/render.js";
-import { trackStar } from "./Listen.jsx";
+import { frameNoise, motionCheck, trackStar } from "../lib/motion.js";
 import { overlayCredits } from "../lib/sources.js";
 
 const W = 720; // internal canvas resolution
@@ -49,56 +49,9 @@ export default function ImageViewer({ F, idx, disp, ov, target, cats, asteroids,
   // the object's measured position in every frame (for the path)
   const path = useMemo(() => (F && F.data.length > 1 && F.mode !== "exposure" ? trackStar(F, cx0, cy0) : null), [F, cx0, cy0]);
   // Is there really a star there, and does it really move? (Empty sky or a still star must not get a "was here" circle.)
-  const noise = useMemo(() => (F ? F.data.map((a) => {
-    const v = [];
-    for (let k = 0; k < a.length; k += 3) if (Number.isFinite(a[k])) v.push(a[k]);
-    v.sort((p, q) => p - q);
-    const med = v[v.length >> 1] || 0;
-    const dev = v.map((x) => Math.abs(x - med)).sort((p, q) => p - q);
-    return 1.4826 * (dev[dev.length >> 1] || 1e-6);
-  }) : []), [F]);
-  const track = useMemo(() => {
-    if (!path || path.length < 2 || !F) return { real: false, moving: false };
-    const snrs = path.map((p, k) => p.flux / (3 * (noise[k] || 1e-6))).sort((x, y) => x - y);
-    const snr = snrs[snrs.length >> 1];
-    // a star of its own: in every visit the brightest pixel close by sits on the measured spot. On the glow of a
-    // bright neighbour it sits at the edge, towards the neighbour (a slope, not a star), and the tracker slides uphill.
-    const n = F.n;
-    const isPeak = (a, x, y) => {
-      let best = -Infinity, bx = 0, by = 0;
-      for (let yy = Math.round(y) - 2; yy <= Math.round(y) + 2; yy++) for (let xx = Math.round(x) - 2; xx <= Math.round(x) + 2; xx++) {
-        if (xx < 0 || yy < 0 || xx >= n || yy >= n) continue;
-        const v = a[yy * n + xx], d = Math.hypot(xx - x, yy - y);
-        if (!Number.isFinite(v)) { if (d <= 1.5) return true; continue; }   // an overloaded (blank) core right here
-        if (v > best) { best = v; bx = xx; by = yy; }
-      }
-      return Math.hypot(bx - x, by - y) <= 1.2;
-    };
-    const real = snr >= 5 && path.every((p, k) => isPeak(F.data[k], p.x, p.y));
-    if (!real) return { real, moving: false };
-    const p0 = path[0], pl = path[path.length - 1];
-    const shift = Math.hypot(pl.x - p0.x, pl.y - p0.y);
-    if (shift > 3) return { real: false, moving: false };   // nothing SPHEREx can see moves 3 px in a year: the tracker slid onto something else
-    const years = ((F.list[F.list.length - 1].mjd || 0) - (F.list[0].mjd || 0)) / 365.25;
-    // 1) the target, when its motion is known from the catalogues: trust that (R Dra, RW Aur barely move;
-    //    a bright, overloaded star's centre can jitter by more than half a pixel without moving)
-    if (!sel && target && Number.isFinite(target.pmra) && Number.isFinite(target.pmdec) && (target.pmra || target.pmdec)) {
-      const expectedPx = (Math.hypot(target.pmra, target.pmdec) / 1000) * years / PIX;
-      return { real, moving: expectedPx >= 0.3 };
-    }
-    // 2) SkyShift's detector found a mover here: trust its multi-visit fit
-    if ((candidates || []).some((c) => c.kind === "mover" && Math.hypot(c.x - cx0, c.y - cy0) < 2.5)) return { real, moving: true };
-    // 3) otherwise: a steady shift in one direction, well above the position noise (stricter for overloaded stars)
-    const ux = (pl.x - p0.x) / (shift || 1), uy = (pl.y - p0.y) / (shift || 1);
-    let steady = true, prev = 0;
-    for (const p of path) {
-      const along = (p.x - p0.x) * ux + (p.y - p0.y) * uy, across = Math.abs(-(p.x - p0.x) * uy + (p.y - p0.y) * ux);
-      if (along < prev - 0.3 || across > 0.5) steady = false;
-      prev = Math.max(prev, along);
-    }
-    const sigma = Math.max(0.08, 1.2 / snr);
-    return { real, moving: steady && shift >= Math.max(snr > 200 ? 1.0 : 0.5, 4 * sigma) };
-  }, [path, noise, F, sel, target, candidates, cx0, cy0]);
+  const noise = useMemo(() => frameNoise(F), [F]);
+  const track = useMemo(() => motionCheck({ F, path, noise, isTarget: !sel, target, candidates, cx0, cy0 }),
+    [path, noise, F, sel, target, candidates, cx0, cy0]);
 
   useEffect(() => {
     const canvas = ref.current;

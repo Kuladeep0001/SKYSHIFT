@@ -1,41 +1,59 @@
-/* Listen tab: the data as sound, made for blind and low-vision visitors.
+/* Listen tab: a voice conversation about the sky, made for blind and low-vision visitors. No buttons.
  *
- * The main tool is the brightness-vs-wavelength graph (the spectrum). It is drawn big on screen AND played:
- *   Graph sound (default): one gliding note travels along the graph, from the shortest wavelength
- *                          (0.75 µm, left ear) to the longest (5 µm, right ear).
+ * When the tab opens, SkyShift's voice (lib/voice.js, a calm British "butler") says where we are and what you
+ * can say. Then it listens (lib/voiceInput.js) and you just talk: "describe", "play", "motion", "list",
+ * "star 2", "go to Vega", "slower", "stop", "repeat", "help"... Anything else is a question, answered from
+ * SkyShift's data by the Ask assistant. It never listens while it is talking, so it can't hear itself.
+ * Keys work too (P/Space, arrows, D, M, L, N, R, H, T, Esc) for browsers without speech recognition.
+ *
+ * Sound is 3D (HRTF, best with headphones):
+ *   Graph sound (default): one slow gliding note travels along the graph, from the shortest wavelength
+ *                          (0.75 µm, in your left ear) to the longest (5 µm, in your right ear).
  *                          Higher note = brighter. Louder = brighter too.
- *   Colour sound:          one note per colour. The note follows the light itself (short wavelength =
- *                          high note), louder = brighter, short wavelengths last a little longer.
+ *   Colour sound:          one note per colour; the note follows the light itself (short wavelength = high note).
  *   A soft "ding" marks a band where water, CO2, methane... may have been seen.
- * Arrow keys walk along the graph one colour at a time: each step plays that point and reads its value.
- * Motion: one note per visit; higher = moved north, right ear = moved west, louder = brighter.
- * Everything works from the keyboard. Captions are on screen, and are read by screen readers when the
- * voice is switched off (so the two never talk over each other).
- * The voice is a natural British "butler" by default (lib/voice.js); visitors can pick another one.
+ *   Motion:                one sound travels the way the star moved in the picture: moving left to right, it
+ *                          starts in your left ear and slowly crosses to your right; moving up (north), it rises.
+ *                          A tick marks each visit. A star that stays put stays in the middle.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import Chart from "chart.js/auto";
+import "../voiceChat.css";
 import { monthYear, PIX } from "../lib/frames.js";
+import { api } from "../lib/api.js";
+import { frameNoise, motionCheck, trackStar } from "../lib/motion.js";
+import { canListen, listenOnce, micProblem, stopListening } from "../lib/voiceInput.js";
 import { bandsPlugin } from "./SpectrumPanel.jsx";
-import { getVoice, setVoice, speak, stopSpeaking, VOICES } from "../lib/voice.js";
+import { getVoice, setVoice, speak, stopSpeaking } from "../lib/voice.js";
 
 /* ------------------------------------------------------------------ sound */
 let audio = null;
 const ac = () => (audio ||= new (window.AudioContext || window.webkitAudioContext)());
 const live = new Set();  // oscillators that are playing, so Stop can silence them
 
-function out(a, g, pan) {
-  if (a.createStereoPanner) {
-    const p = a.createStereoPanner();
-    if (pan != null) p.pan.value = Math.max(-1, Math.min(1, pan));
-    g.connect(p); p.connect(a.destination);
-    return p;
-  }
-  g.connect(a.destination);
-  return null;
+/* Put a sound around the listener's head (HRTF = how real ears hear direction; best with headphones).
+   pan: -1 = fully in the left ear, 0 = straight ahead, 1 = right ear. up: -1 below ... 1 above. */
+function place(p, pan, up = 0, t = 0, ramp = false) {
+  const th = (Math.max(-1, Math.min(1, pan || 0)) * Math.PI) / 2;
+  const x = Math.sin(th), y = Math.max(-1, Math.min(1, up || 0)) * 0.8, z = -Math.cos(th);
+  if (p.positionX) {
+    const f = ramp ? "linearRampToValueAtTime" : "setValueAtTime";
+    p.positionX[f](x, t); p.positionY[f](y, t); p.positionZ[f](z, t);
+  } else if (p.setPosition) p.setPosition(x, y, z);
 }
 
-function tone(t0, { freq, dur, gain, pan = 0, type = "sine" }) {
+function out(a, g, pan, up = 0) {
+  const p = a.createPanner();
+  p.panningModel = "HRTF";
+  p.distanceModel = "inverse";
+  p.refDistance = 1;
+  p.rolloffFactor = 0;          // same loudness wherever it is: only the direction changes
+  place(p, pan, up, a.currentTime);
+  g.connect(p); p.connect(a.destination);
+  return p;
+}
+
+function tone(t0, { freq, dur, gain, pan = 0, up = 0, type = "sine" }) {
   const a = ac(), o = a.createOscillator(), g = a.createGain();
   o.type = type;
   o.frequency.value = freq;
@@ -44,7 +62,7 @@ function tone(t0, { freq, dur, gain, pan = 0, type = "sine" }) {
   g.gain.exponentialRampToValueAtTime(peak, t0 + Math.min(0.03, dur / 3));
   g.gain.setValueAtTime(peak, t0 + dur * 0.75);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  o.connect(g); out(a, g, pan);
+  o.connect(g); out(a, g, pan, up);
   o.start(t0); o.stop(t0 + dur + 0.05);
   live.add(o); o.onended = () => live.delete(o);
 }
@@ -54,23 +72,47 @@ function glide(t0, notes, step) {
   const a = ac(), o = a.createOscillator(), g = a.createGain();
   o.type = "triangle";
   o.connect(g);
-  const p = out(a, g, null);
+  const p = out(a, g, notes[0].pan);
   g.gain.setValueAtTime(0, t0);
   notes.forEach((nt, k) => {
     const t = t0 + k * step;
     if (k === 0) {
       o.frequency.setValueAtTime(nt.freq, t);
       g.gain.linearRampToValueAtTime(nt.gain, t + 0.03);
-      p && p.pan.setValueAtTime(nt.pan, t);
+      place(p, nt.pan, 0, t);
     } else {
       o.frequency.linearRampToValueAtTime(nt.freq, t);
       g.gain.linearRampToValueAtTime(nt.gain, t);
-      p && p.pan.linearRampToValueAtTime(nt.pan, t);
+      place(p, nt.pan, 0, t, true);
     }
   });
   const end = t0 + notes.length * step;
   g.gain.linearRampToValueAtTime(0, end + 0.08);
   o.start(t0); o.stop(end + 0.1);
+  live.add(o); o.onended = () => live.delete(o);
+}
+
+/* One sound that travels through space over `dur` seconds, through each point { t, pan, up, freq, gain }. */
+function sweep(t0, notes, dur) {
+  const a = ac(), o = a.createOscillator(), g = a.createGain();
+  o.type = "triangle";
+  o.connect(g);
+  const p = out(a, g, notes[0].pan, notes[0].up);
+  g.gain.setValueAtTime(0.0001, t0);
+  notes.forEach((nt, k) => {
+    const t = t0 + nt.t;
+    if (k === 0) {
+      o.frequency.setValueAtTime(nt.freq, t);
+      g.gain.linearRampToValueAtTime(nt.gain, t + 0.3);
+      place(p, nt.pan, nt.up, t);
+    } else {
+      o.frequency.linearRampToValueAtTime(nt.freq, t);
+      g.gain.linearRampToValueAtTime(nt.gain, t);
+      place(p, nt.pan, nt.up, t, true);
+    }
+  });
+  g.gain.linearRampToValueAtTime(0.0001, t0 + dur + 0.6);
+  o.start(t0); o.stop(t0 + dur + 0.7);
   live.add(o); o.onended = () => live.delete(o);
 }
 
@@ -80,8 +122,11 @@ function silence() {
 }
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-const SPEED = { slow: 0.16, normal: 0.09, fast: 0.05 };          // seconds per point, graph sound
-const COLOUR_SPEED = { slow: 1.6, normal: 1, fast: 0.6 };        // note-length factor, colour sound
+const SPEED = { slow: 0.3, normal: 0.18, fast: 0.1 };            // seconds per point, graph sound (102 points: 18 s)
+const COLOUR_SPEED = { slow: 2.4, normal: 1.6, fast: 1 };        // note-length factor, colour sound
+const SPEEDS = ["slow", "normal", "fast"];
+const NUM = { one: 1, won: 1, two: 2, to: 2, too: 2, three: 3, tree: 3, four: 4, for: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+let welcomed = false;   // the full welcome (with everything you can say) plays once; later visits get a short one
 
 /* ------------------------------------------------------------ the numbers */
 const plainName = (s) => s.replace(/[₀-₉]/g, (c) => "0123456789"["₀₁₂₃₄₅₆₇₈₉".indexOf(c)]);
@@ -90,35 +135,7 @@ const COMPASS = ["north", "north-east", "east", "south-east", "south", "south-we
 const SCREEN = { north: "up", "north-east": "up and left", east: "left", "south-east": "down and left", south: "down",
   "south-west": "down and right", west: "right", "north-west": "up and right" };
 
-/* Find the star near (x, y) in each visit: position (centroid) and brightness. */
-export function trackStar(F, x0, y0) {
-  const n = F.n, res = [];
-  let cx = x0, cy = y0;
-  F.data.forEach((a, k) => {
-    const R = k === 0 ? 2 : 3;
-    let best = -Infinity, bx = Math.round(cx), by = Math.round(cy);
-    for (let y = Math.round(cy) - R; y <= Math.round(cy) + R; y++)
-      for (let x = Math.round(cx) - R; x <= Math.round(cx) + R; x++) {
-        if (x < 1 || y < 1 || x >= n - 1 || y >= n - 1) continue;
-        const v = a[y * n + x];
-        if (Number.isFinite(v) && v > best) { best = v; bx = x; by = y; }
-      }
-    const ring = [];
-    for (let y = by - 5; y <= by + 5; y++) for (let x = bx - 5; x <= bx + 5; x++) {
-      if (x < 0 || y < 0 || x >= n || y >= n || (Math.abs(x - bx) < 3 && Math.abs(y - by) < 3)) continue;
-      const v = a[y * n + x]; if (Number.isFinite(v)) ring.push(v);
-    }
-    ring.sort((p, q) => p - q);
-    const bg = ring.length ? ring[ring.length >> 1] : 0;
-    let s = 0, sx = 0, sy = 0;
-    for (let y = by - 1; y <= by + 1; y++) for (let x = bx - 1; x <= bx + 1; x++) {
-      const v = Math.max(0, (a[y * n + x] || 0) - bg); s += v; sx += v * x; sy += v * y;
-    }
-    cx = s > 0 ? sx / s : bx; cy = s > 0 ? sy / s : by;
-    res.push({ x: cx, y: cy, flux: s, date: (F.list[k].date_range?.[0] || F.list[k].date).slice(0, 10), mjd: F.list[k].mjd });
-  });
-  return res;
-}
+export { trackStar };   // moved to lib/motion.js (shared with the flipbook)
 
 function direction(dx, dy) {
   const parts = [];
@@ -207,15 +224,20 @@ const playhead = {
 };
 
 /* ================================================================ the tab */
-export default function Listen({ target, story, F, sel, spec, loading, onPixel, candidates, source }) {
+export default function Listen({ target, story, F, sel, spec, loading, onPixel, candidates, source, onGo, askContext }) {
   const [caption, setCaption] = useState("");
   const [busy, setBusy] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [cur, setCur] = useState(0);               // which point of the graph we are on
   const [style, setStyle] = useState("graph");
   const [speed, setSpeed] = useState("normal");
-  const [voiceId, setVoiceId] = useState(getVoice());
-  const voice = voiceId !== "off";
+  const [log, setLog] = useState([]);              // the conversation so far: { who: "sky" | "you", text }
+  const [mic, setMic] = useState("off");           // "listening" | "speaking" | "thinking" | "off"
+  const [heard, setHeard] = useState("");          // the words being heard right now
+  const talking = useRef(0);                       // sentences being spoken now (never listen meanwhile)
+  const lastSaid = useRef("");
+  const convo = useRef(0);                         // conversation run id; bumped to end it
+  const logEnd = useRef(null);
   const gen = useRef(0);                           // bumped by every Stop: older sound sequences then end themselves
   const play = useRef(null);                       // {t0, times, from, raf}
   const graphRun = useRef(false);                  // true from pressing Play until the graph ends (intro included)
@@ -260,17 +282,19 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
     : "";
 
   /* ---------------------------------------------------------- speaking */
-  const say = (text) => {            // caption on screen + spoken; resolves when the voice has finished
+  const say = async (text) => {      // on screen + spoken; resolves when the voice has finished
     setCaption(text);
-    return voice ? speak(text) : Promise.resolve();
+    lastSaid.current = text;
+    setLog((l) => [...l.slice(-40), { who: "sky", text }]);
+    stopListening();                 // don't hear our own voice
+    talking.current++;
+    setMic("speaking");
+    try { await speak(text, getVoice() === "off" ? { voice: "butler" } : {}); } finally {
+      talking.current--;
+      if (!talking.current) setMic((m) => (m === "speaking" ? "off" : m));
+    }
   };
   const sayNow = (text) => { say(text); };   // for quick stepping (speak() drops whatever was being said)
-  const pickVoice = (id) => {
-    halt();
-    setVoiceId(id);
-    setVoice(id);
-    if (id !== "off") say("Very good. I shall read everything to you in this voice.");
-  };
 
   const halt = () => {
     gen.current++;
@@ -281,7 +305,8 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
     graphRun.current = false;
     setPlaying(false); setBusy(false);
   };
-  useEffect(() => () => halt(), []);
+  useEffect(() => () => { convo.current++; stopListening(); halt(); }, []);
+  useEffect(() => { logEnd.current && logEnd.current.scrollIntoView({ block: "nearest" }); }, [log, heard]);
 
   async function run(fn) {
     halt();
@@ -339,7 +364,7 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
     if (!announce.current || loading || !spec) return;
     const what = announce.current;
     announce.current = "";
-    sayNow(pts.length >= 5 ? `${what}: the graph is ready. Press P to play it, or the arrow keys to walk along it.` : `${what}: there isn't enough data here to make a graph.`);
+    sayNow(pts.length >= 5 ? `${what} is ready. Say play to hear its graph, or motion to hear how it moves.` : `${what}: there isn't enough data here to make a graph. Say list to hear other stars.`);
   }, [spec, loading]);
 
   const noteOf = (p) => style === "graph"
@@ -370,7 +395,7 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
   }
 
   const playGraph = (from = cur >= pts.length - 1 ? 0 : cur) => run(async (dead) => {
-    if (pts.length < 5) return say("There isn't enough data at this spot to play a graph. Pick another object.");
+    if (pts.length < 5) return say("There isn't enough data at this spot to play a graph. Say list to hear other stars you can pick.");
     graphRun.current = true;
     if (from === 0 && !introDone.current[style]) {
       introDone.current[style] = true;
@@ -422,7 +447,7 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
   const pause = () => {
     const mid = !!play.current;
     halt();
-    sayNow(mid ? `Paused at ${pts[cur]?.wave.toFixed(2)} microns. Press P to carry on.` : "Stopped. Press P to play the graph.");
+    sayNow(mid ? `Paused at ${pts[cur]?.wave.toFixed(2)} microns. Say play to carry on.` : "Stopped. Say play to hear the graph.");
   };
 
   const describe = () => run(async () => {
@@ -430,57 +455,204 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
     const first = F.list[0], last = F.list[F.list.length - 1];
     await say(`${name}. ${story ? story.story : ""} SkyShift has ${F.data.length} infrared pictures of this small patch of sky, ` +
       `taken by NASA's SPHEREx telescope between ${monthYear(first.date_range?.[0] || first.date.slice(0, 10))} and ${monthYear(last.date_range?.[0] || last.date.slice(0, 10))}. ` +
-      `${choices.length > 1 ? `Besides the centre, there are ${choices.length - 1} other objects you can pick in the list. ` : ""}` +
-      `${summary ? summary + " " : ""}Press P to play the graph, the arrow keys to walk along it, or M to hear how the object moves.`);
+      `${choices.length > 1 ? `Besides the centre, there are ${choices.length - 1} other objects here; say list to hear them. ` : ""}` +
+      `${summary ? summary + " " : ""}Say play to hear the graph, or motion to hear how it moves.`);
   });
 
   const motion = () => run(async (dead) => {
     if (!F || F.data.length < 2) return say("This spot needs at least two visits to hear any motion.");
     const x0 = sel ? sel.x : c, y0 = sel ? sel.y : c;
     const tr = trackStar(F, x0, y0);
-    const f0 = tr[0].flux || 1;
-    await say(`Listening to how ${who} moves. You will hear one note for each visit, in date order. ` +
-      "If the note goes higher, it moved north; lower means south. If the sound moves to your right, it moved west; to your left, east. " +
-      "Louder means brighter, quieter means fainter. Headphones help.");
+    const chk = motionCheck({ F, path: tr, noise: frameNoise(F), isTarget: !sel, target, candidates, cx0: x0, cy0: y0 });
+    if (!chk.real) return say("There's no clear star at this spot to follow. Say list to hear the stars you can pick.");
+    const p0 = tr[0], pl = tr[tr.length - 1], f0 = p0.flux || 1;
+    const dx = pl.x - p0.x, dy = pl.y - p0.y, dd = Math.hypot(dx, dy) || 1;
+    const ux = chk.moving ? dx / dd : 0, uy = chk.moving ? dy / dd : 0;   // picture directions: right (west), up (north)
+    const d0 = monthYear(p0.date), d1 = monthYear(pl.date);
+    const lr = ux > 0.35 ? "from your left ear across to your right ear" : ux < -0.35 ? "from your right ear across to your left ear" : "";
+    const ud = uy > 0.35 ? "rising, because it moved up the picture, to the north" : uy < -0.35 ? "falling, because it moved down the picture, to the south" : "";
+    await say(chk.moving
+      ? `Listening to how ${who} moves. Headphones help. One sound starts where it was in ${d0} and slowly travels to where it was in ${d1}: ${[lr, ud].filter(Boolean).join(", and ")}. A soft tick marks each visit.`
+      : `Listening to ${who}. Headphones help. If it moved, the sound would travel from one ear to the other. A soft tick marks each visit.`);
+    if (dead()) return;
+    const DUR = 8, span = (pl.mjd - p0.mjd) || 1;
     const notes = tr.map((p) => {
-      const dx = p.x - tr[0].x, dy = p.y - tr[0].y;
-      return { freq: 440 * Math.pow(2, (dy * 6) / 12), pan: dx * 0.7, gain: Math.min(0.6, Math.max(0.04, 0.3 * Math.sqrt(Math.max(0.01, p.flux / f0)))), dx, dy, ratio: p.flux / f0, date: p.date };
+      const fr = Math.max(0, Math.min(1, (p.mjd - p0.mjd) / span));
+      return { t: fr * DUR, pan: ux * (-0.95 + 1.9 * fr), up: uy * (-0.8 + 1.6 * fr), freq: 330 * Math.pow(2, (uy * (fr - 0.5) * 7) / 12),
+        gain: Math.min(0.45, Math.max(0.05, 0.22 * Math.sqrt(Math.max(0.01, p.flux / f0)))) };
     });
-    for (let k = 0; k < notes.length && !dead(); k++) {
-      const p = notes[k];
-      const moved = Math.hypot(p.dx, p.dy) * PIX;
-      await say(k === 0 ? `Visit 1, ${monthYear(p.date)}. This is the starting note.`
-        : `Visit ${k + 1}, ${monthYear(p.date)}. ${moved < 2 ? "Same place as the start." : `Moved ${moved.toFixed(0)} arcseconds ${direction(p.dx, p.dy)} from the start.`} Brightness ${Math.round(p.ratio * 100)} percent of the first visit.`);
-      if (dead()) break;
-      tone(ac().currentTime + 0.05, { freq: p.freq, dur: 0.7, gain: p.gain, pan: p.pan, type: "triangle" });
-      await wait(1000);
-    }
+    const t0 = ac().currentTime + 0.15;
+    sweep(t0, notes, DUR);
+    notes.forEach((nt) => tone(t0 + nt.t, { freq: 1700, dur: 0.05, gain: 0.1, pan: nt.pan, up: nt.up }));
+    setPlaying(true);
+    await wait(DUR * 1000 + 800);
+    setPlaying(false);
     if (dead()) return;
-    await say("Now all visits quickly, one after another.");
-    if (dead()) return;
-    const t = ac().currentTime + 0.1;
-    notes.forEach((p, k) => tone(t + k * 0.45, { freq: p.freq, dur: 0.38, gain: p.gain, pan: p.pan, type: "triangle" }));
-    await wait(notes.length * 450 + 400);
-    if (dead()) return;
-    const lastN = notes[notes.length - 1];
-    const years = (tr[tr.length - 1].mjd - tr[0].mjd) / 365.25;
-    const total = Math.hypot(lastN.dx, lastN.dy) * PIX;
-    const bright = Math.max(...notes.map((p) => p.ratio)), dim = Math.min(...notes.map((p) => p.ratio));
-    let s = total > 2.5
-      ? `Summary: over ${years.toFixed(1)} years it moved about ${total.toFixed(0)} arcseconds toward the ${direction(lastN.dx, lastN.dy)}, about ${(total / years).toFixed(1)} arcseconds per year. That is fast: most stars barely move. `
-      : "Summary: it stayed in the same place. ";
-    s += bright / dim > 1.3 ? `Its brightness changed: the brightest visit was ${(bright / dim).toFixed(1)} times brighter than the faintest.` : "Its brightness stayed about the same.";
-    await say(s);
+    const years = (pl.mjd - p0.mjd) / 365.25;
+    const total = Math.hypot(dx, dy) * PIX;
+    const ratios = tr.map((p) => p.flux / f0), bright = Math.max(...ratios), dim = Math.max(1e-3, Math.min(...ratios));
+    let s = chk.moving
+      ? `It moved about ${total.toFixed(0)} arcseconds toward the ${direction(dx, dy)} in ${years.toFixed(1)} years. That shift is tiny in the picture, so the sound makes it bigger for your ears. Most stars barely move at all, so this one is fast. `
+      : "It stayed in the same place, so the sound stayed in front of you. ";
+    s += bright / dim > 1.3 ? `Its brightness changed: the brightest visit was ${(bright / dim).toFixed(1)} times brighter than the faintest, which is why the sound got louder or quieter.` : "Its brightness stayed about the same.";
+    await say(s + " Say motion to hear it again.");
   });
 
   const choose = (ch) => {
     halt();
     announce.current = ch.short;
     onPixel(ch.x, ch.y);
-    sayNow(`${ch.label}. Loading its graph.`);
+    sayNow(`${ch.label}. One moment.`);
   };
 
-  /* keyboard: P or Space play/pause, arrows step, Home/End, D describe, M motion, Escape stop */
+  /* ------------------------------------------------------ the conversation */
+  const helpText = (keys = !canListen) => keys
+    ? "Here are the keys. P or space: play or pause the graph. Left and right arrows: one point at a time. D: describe this place. " +
+      "M: hear how it moves. L: list the stars here, and N: the next star. R: repeat. H: help. Escape: stop."
+    : "Here's what you can say. Describe: I'll tell you about this place. Play: you'll hear its brightness graph, from your left ear to your right. " +
+      "Motion: you'll hear how it moves across the sky. List: I'll name the other stars here, and you can pick one by saying, for example, star two. " +
+      "Next, or back: one point of the graph at a time. Go to, and a star's name, to travel somewhere else, like go to Vega. " +
+      "Slower, or faster. Stop, at any time. Repeat, to hear me again. Or simply ask me a question, like, how far away is it? Say help to hear this again.";
+  const listText = () => choices.length
+    ? `There are ${choices.length} things to listen to here. ${choices.map((ch) => ch.label).join(". ")}. Say the one you want, like ${choices.length > 1 ? choices[1].short.toLowerCase() : "centre"}, or centre.`
+    : "The pictures are still loading.";
+  const welcomeText = () => {
+    const where = `${name}.${story?.story ? ` ${story.story.split(/(?<=\.)\s/)[0]}` : ""}`;
+    if (welcomed) return `We're now at ${where} Say describe to hear about it, play for its graph, or motion to hear how it moves. Say help for everything else.`;
+    welcomed = true;
+    return `Welcome to SkyShift's listening mode. I'll be your guide${canListen ? ", and you can simply talk to me" : ""}. We're looking at ${where} ${helpText()}` +
+      (canListen ? " I'm listening now." : " This browser can't hear voice commands, so please use the keys. Chrome or Edge can hear you.");
+  };
+  const pickChoice = (ch) => (ch ? choose(ch) : say("I couldn't find that one. Say list to hear what's here."));
+  const askAbout = async (q) => {
+    setMic("thinking");
+    try {
+      const r = await api.ask(q, askContext || { name });
+      await say(r.answer);
+    } catch (_) {
+      await say("Sorry, I couldn't find an answer to that. Say help to hear what you can say.");
+    }
+  };
+  const travel = async (where) => {
+    halt();
+    await say(`Looking for ${where}.`);
+    try {
+      const r = await api.resolve(where);
+      const nm = (r.name || where).replace(/^NAME /, "");
+      await say(`Found it. Going to ${nm}. Fetching its pictures can take up to a minute. I'll tell you when we've arrived.`);
+      onGo && onGo(where);
+    } catch (_) {
+      await say(`I couldn't find ${where}. Try another name, like Vega or Barnard's Star.`);
+    }
+  };
+
+  /* What did they say? Commands first, then anything else is a question for the Ask assistant. */
+  function handle(raw) {
+    const t = ` ${raw.toLowerCase().replace(/[^a-z0-9' ]/g, " ").replace(/\s+/g, " ").trim()} `;
+    const any = (...w) => w.some((x) => t.includes(` ${x} `));
+    const curPick = choices.findIndex((ch) => ch === picked);
+    const wasPlaying = !!play.current;
+    halt();                                       // whatever you say ends what was going on
+    if (any("stop", "pause", "quiet", "silence", "enough", "shut up", "hold on", "wait")) return sayNow(wasPlaying ? "Paused. Say play to carry on." : "Stopped. What next?");
+    if (any("help", "commands", "what can i say", "what can i do", "options")) return say(helpText(false));
+    if (any("repeat", "pardon", "say that again", "say it again", "come again", "what did you say") || t === " again ") return say(lastSaid.current || helpText(false));
+    if (any("keys", "keyboard", "shortcuts")) return say(helpText(true));
+    const goTo = t.match(/^ (?:please )?(?:go to|take me to|fly to|travel to|let's go to|lets go to|load|open|find|search for|show me) (.+) $/);
+    if (any("slower", "slow down", "too fast", "more slowly")) {
+      const k = SPEEDS.indexOf(speed);
+      if (k <= 0) return say("This is already the slowest.");
+      halt(); setSpeed(SPEEDS[k - 1]); return say("Slower now. Say play to hear it.");
+    }
+    if (any("faster", "speed up", "too slow", "quicker")) {
+      const k = SPEEDS.indexOf(speed);
+      if (k >= SPEEDS.length - 1) return say("This is already the fastest.");
+      halt(); setSpeed(SPEEDS[k + 1]); return say("Faster now. Say play to hear it.");
+    }
+    if (any("colour sound", "color sound", "colours", "colors", "colour", "color")) { halt(); setStyle("colour"); setCur(0); return say("Colour sound: one note per colour, high notes for short wavelengths. Say play to hear it."); }
+    if (any("graph sound", "normal sound", "line sound")) { halt(); setStyle("graph"); setCur(0); return say("Graph sound: one gliding note, higher means brighter. Say play to hear it."); }
+    if (any("change voice", "change the voice", "other voice", "another voice", "different voice", "new voice")) {
+      const v = getVoice() === "friendly" ? "butler" : "friendly";
+      setVoice(v);
+      return say(v === "butler" ? "Very good. I shall carry on in this voice." : "Okay! I'll talk to you in this voice from now on.");
+    }
+    const num = t.match(/ (?:star|number|object|option) (\d+|one|won|two|to|too|three|tree|four|for|five|six|seven|eight|nine|ten) /);
+    if (num) { const k = +num[1] || NUM[num[1]]; return pickChoice(choices.find((ch) => ch.short === `Star ${k}`)); }
+    const strong = any("what is this", "what's this", "whats this", "what am i looking at", "what am i hearing", "where am i", "which stars", "what stars",
+      "what else", "what's here", "whats here", "how does it move", "is it moving", "does it move", "did it move");
+    if (/^ (what|why|how|who|when|where|which|is|are|does|do|did|can|could|would|will|should|tell me about) /.test(t) && !strong) return askAbout(raw);
+    if (any("centre", "center", "middle", "main star", "the target", "go back")) return pickChoice(choices[0]);
+    if (any("moving object", "changing object", "the mover", "new object")) return pickChoice(choices.find((ch) => ch.key.startsWith("cand-")));
+    if (any("next star", "next object", "another star", "next one", "other star")) return pickChoice(choices[(curPick + 1) % Math.max(1, choices.length)]);
+    if (any("previous star", "previous object", "last star")) return pickChoice(choices[(curPick - 1 + choices.length) % Math.max(1, choices.length)]);
+    if (any("list", "which stars", "what stars", "what else", "what's here", "whats here", "objects", "stars")) return say(listText());
+    if (goTo && !any("motion", "move", "moves", "moving", "graph", "spectrum", "list", "stars")) {
+      const m = raw.trim().replace(/[.!?]+$/, "").match(/(?:go to|take me to|fly to|travel to|let's go to|lets go to|load|open|find|search for|show me)\s+(.+)$/i);
+      return travel((m ? m[1] : goTo[1]).replace(/^the star\s+/i, ""));
+    }
+    if (any("motion", "move", "moves", "moving", "moved", "movement", "shift", "how does it move")) return motion();
+    if (any("describe", "what is this", "what's this", "whats this", "what am i looking at", "where am i", "about this", "about it", "tell me")) return describe();
+    if (any("play", "graph", "spectrum", "brightness", "continue", "carry on", "resume", "start", "listen")) return playGraph();
+    if (any("first point", "beginning", "the start")) return stepTo(0);
+    if (any("last point", "the end")) return stepTo(pts.length - 1);
+    if (any("next", "forward", "right")) return stepTo(cur + 1);
+    if (any("back", "previous", "left")) return stepTo(cur - 1);
+    if (any("hello", "hi", "hey", "good morning", "good evening", "good afternoon")) return say(`Hello! We're at ${name}. Say help to hear what you can say.`);
+    if (any("thank you", "thanks")) return say("You're most welcome.");
+    return askAbout(raw);
+  }
+
+  const busyRef = useRef(false);
+  busyRef.current = busy || playing;
+  const latest = useRef({});
+  latest.current = { handle, say, welcomeText };
+  async function conversation() {
+    const my = ++convo.current;
+    let quiet = 0;
+    while (convo.current === my) {
+      while (talking.current > 0 && convo.current === my) await wait(150);    // never listen while talking
+      if (convo.current !== my) return;
+      setMic("listening"); setHeard("");
+      const text = await listenOnce({ onHeard: (h) => setHeard(h) });
+      if (convo.current !== my) return;
+      setHeard("");
+      if (text === null) {
+        if (micProblem) {
+          convo.current++;
+          setMic("off");
+          await latest.current.say(micProblem === "blocked"
+            ? "I can't use the microphone because it's blocked for this site. Allow the microphone and press T, or use the keys. Press H to hear them."
+            : "I can't find a microphone. You can use the keys instead. Press H to hear them.");
+          return;
+        }
+        await wait(300);                                                        // interrupted by our own speech: listen again after
+        continue;
+      }
+      if (!text) {
+        if (busyRef.current || talking.current) { quiet = 0; continue; }          // sound playing or something running: just keep listening
+        if (++quiet === 4) await latest.current.say("I'm still listening. Say help to hear what you can say.");
+        continue;
+      }
+      quiet = 0;
+      setLog((l) => [...l.slice(-40), { who: "you", text }]);
+      latest.current.handle(text);                                              // not awaited: you can say "stop" while sound plays
+      await wait(400);
+    }
+  }
+  const startTalking = () => { if (canListen) conversation(); };
+
+  // Opening the tab: say where we are and what you can say, then listen.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      await wait(400);
+      if (!alive) return;
+      await latest.current.say(latest.current.welcomeText());
+      if (alive) startTalking();
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  /* keyboard: P or Space play/pause, arrows step, Home/End, D describe, M motion, L list, N next star, R repeat, H help, T talk, Escape stop */
   useEffect(() => {
     const k = (e) => {
       const tag = e.target.tagName, type = e.target.type;
@@ -495,6 +667,11 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
       else if (key === "End") { e.preventDefault(); stepTo(pts.length - 1); }
       else if (key === "d" || key === "D") describe();
       else if (key === "m" || key === "M") motion();
+      else if (key === "l" || key === "L") say(listText());
+      else if (key === "n" || key === "N") pickChoice(choices[(choices.findIndex((ch) => ch === picked) + 1) % Math.max(1, choices.length)]);
+      else if (key === "r" || key === "R") say(lastSaid.current || helpText());
+      else if (key === "h" || key === "H") say(helpText(true));
+      else if (key === "t" || key === "T") { halt(); startTalking(); }
       else if (key === "Escape") { halt(); setCaption("Stopped."); }
     };
     window.addEventListener("keydown", k);
@@ -505,23 +682,25 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
   return (
     <section className="listenTab" aria-labelledby="listenTitle">
       <h2 id="listenTitle">Listen to the sky</h2>
-      <p className="lead">Made for blind and low-vision visitors. Everything here works with the keyboard and a screen reader. Headphones help: short wavelengths play in your left ear and long ones in your right.</p>
+      <p className="lead">Made for blind and low-vision visitors: just talk. SkyShift tells you what you can say, then listens.
+        Say <i>describe</i>, <i>play</i>, <i>motion</i>, <i>list</i>, <i>go to</i> a star, <i>stop</i> or <i>help</i>, or ask any question.
+        Use headphones: the sound moves around your head.</p>
 
-      <div className="listenBtns" role="group" aria-label="Play the brightness graph">
-        <button className="primary" onClick={() => (graphRun.current ? pause() : playGraph())} disabled={pts.length < 5} aria-keyshortcuts="P">
-          {playing || graphRun.current ? "Pause" : cur > 0 && cur < pts.length - 1 ? "Carry on" : "Play the graph"} <kbd>P</kbd>
-        </button>
-        <button onClick={() => stepTo(0)} disabled={!pts.length} aria-label="Go to the first point" aria-keyshortcuts="Home">Start</button>
-        <button onClick={() => stepTo(cur - 1)} disabled={!pts.length} aria-label="Previous point" aria-keyshortcuts="ArrowLeft">Step</button>
-        <button onClick={() => stepTo(cur + 1)} disabled={!pts.length} aria-label="Next point" aria-keyshortcuts="ArrowRight">Step</button>
-        <button onClick={describe} aria-keyshortcuts="D">Describe <kbd>D</kbd></button>
-        <button onClick={motion} disabled={!F} aria-keyshortcuts="M">Hear the motion <kbd>M</kbd></button>
-        {(busy || playing) && <button onClick={() => { halt(); setCaption("Stopped."); }} className="stopBtn" aria-keyshortcuts="Escape">Stop <kbd>Esc</kbd></button>}
+      <div className={`voiceState ${mic}`} role="status" aria-live="off">
+        <span className="voiceDot" aria-hidden="true" />
+        <span>{mic === "listening" ? (heard ? `Hearing: "${heard}"` : "Listening… speak now")
+          : mic === "speaking" ? "Speaking…" : mic === "thinking" ? "Thinking…"
+            : canListen ? (playing ? "Playing sound…" : "Press T to talk") : "Voice commands need Chrome or Edge: use the keys below"}</span>
       </div>
 
-      <p className="caption big" role="status" aria-live={voice ? "off" : "polite"}>
-        {caption || (loading ? "Loading the graph…" : "Pick an object, then press P to hear its brightness graph.")}
+      <p className="caption big" aria-live="off">
+        {caption || (loading ? "Loading the graph…" : "One moment…")}
       </p>
+
+      <div className="voiceLog" aria-label="Conversation">
+        {log.map((m, k) => <p key={k} className={`vmsg ${m.who}`}><b>{m.who === "you" ? "You" : "SkyShift"}</b>{m.text}</p>)}
+        <span ref={logEnd} />
+      </div>
 
       <figure className="listenGraph">
         <figcaption>Brightness (flux) of <b>{who}</b> at each infrared wavelength</figcaption>
@@ -533,42 +712,12 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
         {pts[cur] && <p className="readout" aria-hidden="true">{pts[cur].wave.toFixed(2)} µm · {num(pts[cur].flux)} µJy{featureAt(pts[cur].wave) ? ` · ${featureAt(pts[cur].wave).name} band` : ""}</p>}
       </figure>
 
-      <fieldset className="pick">
-        <legend>Choose what to listen to</legend>
-        {choices.length ? choices.map((ch) => (
-          <label key={ch.key} className={picked?.key === ch.key ? "on" : ""}>
-            <input type="radio" name="listenObj" checked={picked?.key === ch.key} onChange={() => choose(ch)} /> {ch.label}
-          </label>
-        )) : <p className="muted">The pictures are still loading…</p>}
-        {sel && !picked && <p className="muted">Now listening to the spot you clicked in the picture.</p>}
-      </fieldset>
-
-      <div className="row listenOpts">
-        <label>Sound
-          <select value={style} onChange={(e) => { halt(); setStyle(e.target.value); setCur(0); }}>
-            <option value="graph">Graph: higher note = brighter</option>
-            <option value="colour">Colours: note follows the wavelength, louder = brighter</option>
-          </select>
-        </label>
-        <label>Speed
-          <select value={speed} onChange={(e) => { halt(); setSpeed(e.target.value); }}>
-            <option value="slow">Slow</option><option value="normal">Normal</option><option value="fast">Fast</option>
-          </select>
-        </label>
-        <label>Voice
-          <select value={voiceId} onChange={(e) => pickVoice(e.target.value)}>
-            {VOICES.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
-          </select>
-        </label>
-      </div>
-
       <ul className="keys" aria-label="Keyboard shortcuts">
+        <li><kbd>T</kbd> talk to SkyShift (it listens after every answer)</li>
         <li><kbd>P</kbd> or <kbd>Space</kbd> play or pause the graph</li>
         <li><kbd>←</kbd> <kbd>→</kbd> one point at a time</li>
-        <li><kbd>Home</kbd> <kbd>End</kbd> first or last point</li>
-        <li><kbd>D</kbd> describe this spot</li>
-        <li><kbd>M</kbd> hear how it moves</li>
-        <li><kbd>Esc</kbd> stop</li>
+        <li><kbd>D</kbd> describe · <kbd>M</kbd> motion · <kbd>L</kbd> list the stars · <kbd>N</kbd> next star</li>
+        <li><kbd>R</kbd> repeat · <kbd>H</kbd> help · <kbd>Esc</kbd> stop</li>
       </ul>
 
       <details>
@@ -599,10 +748,11 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
       <details>
         <summary>How the sounds work</summary>
         <ul>
-          <li><b>Graph sound:</b> one note slides along the graph from left (short wavelength, left ear) to right (long wavelength, right ear). Higher and louder = brighter. Dips sound like the note dropping.</li>
+          <li><b>Graph sound:</b> one slow note slides along the graph from left (short wavelength, left ear) to right (long wavelength, right ear). Higher and louder = brighter. Dips sound like the note dropping.</li>
           <li><b>Colour sound:</b> one note per colour. High notes are short wavelengths and low notes are long ones, like the light itself. Louder = brighter. Short-wavelength notes last a little longer.</li>
           <li><b>Ding:</b> a possible water, CO₂, methane, CO or hydrogen band.</li>
-          <li><b>Motion:</b> one note per visit. Higher note = moved north, lower = south. Sound to the right = moved west, left = east. Louder = brighter.</li>
+          <li><b>Motion:</b> one sound travels the way the star moved in the picture. Moving left to right, it starts in your left ear and slowly crosses to your right; moving up (north), it rises. A tick marks each visit. Louder = brighter. A star that stays put stays in front of you.</li>
+          <li><b>3D sound:</b> the sounds are placed around your head the way real ears hear direction (HRTF). Use headphones.</li>
         </ul>
       </details>
     </section>

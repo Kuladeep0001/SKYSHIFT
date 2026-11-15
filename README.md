@@ -55,9 +55,11 @@ It takes about 10 minutes the first time.
 - [x] **Technical report (PDF)** for researchers: data, processing, detections with motion fits, identification in 4 catalogues
   + exoplanets, spectrum, light curve, validation, references, and appendices (every channel, exposure and flag); view or download
 - [x] **Guided tour**
-- [x] **Listen tab** for blind and low-vision visitors: the brightness-vs-wavelength graph is shown big *and* played as sound
-  (higher, louder note = brighter; left ear = short wavelength, right ear = long), arrow keys read it point by point,
-  pick any star from a spoken list, hear how the object moves, everything keyboard and screen-reader friendly
+- [x] **Listen mode** for blind and low-vision visitors: a **voice conversation**, no buttons. SkyShift says what you can
+  say, then listens: *describe*, *play*, *motion*, *list*, *star 2*, *go to Vega*, *slower*, *stop*, *help*, or any
+  question (answered from SkyShift's data). The brightness graph plays slowly as **3D sound** (short wavelengths in the
+  left ear, long in the right; higher, louder = brighter), and a moving star's sound travels from one ear to the other
+  the way it moves in the picture. Keys work too (T, P, D, M, L, N, R, H, Esc)
 - [x] **Natural voice**: everything read aloud by a calm British "butler" neural voice (or a friendlier one, or the
   device's own voice offline), with symbols spoken as words (µm → microns, ″ → arcseconds)
 - [x] Share as animated GIF, picture card, link or embed
@@ -119,18 +121,75 @@ Without either, "Ask about this object" uses built-in answers from SkyShift's ow
 ## Run SkyShift on your own computer
 
 Anyone can run the whole website on their own laptop. Nothing has to be running anywhere else: your
-computer downloads the pictures straight from NASA.
+computer downloads the pictures straight from NASA. No accounts, keys or passwords are needed.
 
-### 1. Install these once
+### What you need
 
-| Program | Where to get it | Notes |
+**Your computer**
+
+| | Minimum | Notes |
 |---|---|---|
-| **Git** | https://git-scm.com/downloads | To download the code |
-| **Python 3.12 or newer** | https://www.python.org/downloads | Windows: tick **"Add python.exe to PATH"** in the installer |
-| **Node.js 18 or newer** (LTS) | https://nodejs.org | Builds the website |
+| Operating system | Windows 10/11, macOS 12+, or Linux | |
+| Memory (RAM) | 4 GB (8 GB recommended) | A star's pictures are held in memory while you look at them |
+| Free disk space | about 1 GB to start, plus about 250 MB per star you open | Pictures are saved in `data/cache/` so they open instantly next time |
+| Internet | Needed | Pictures, catalogues and the natural voice all come from online archives |
+| Browser | **Chrome or Edge** (recommended), Firefox or Safari | Voice commands in Listen mode need Chrome, Edge or Safari. The colour sky map needs WebGL 2 |
+| For Listen mode | Headphones and a microphone | Headphones give the 3D sound (left ear to right ear); the microphone lets you talk to SkyShift |
 
-You also need an **internet connection**, because the pictures come live from NASA's archive.
-Close and reopen your terminal after installing so it finds the new programs.
+**Programs to install once**
+
+| Program | Version | Where to get it | Notes |
+|---|---|---|---|
+| **Git** | any recent | https://git-scm.com/downloads | Downloads the code |
+| **Python** | **3.12, 3.13 or 3.14** | https://www.python.org/downloads | Windows: tick **"Add python.exe to PATH"** in the installer |
+| **Node.js** | **20 LTS** recommended (18 or newer works) | https://nodejs.org | Builds the website (comes with `npm`) |
+
+**Installed for you in step 2** (you don't download these yourself)
+
+Python packages, from `requirements.txt`:
+
+| Package | Version | What SkyShift uses it for |
+|---|---|---|
+| `fastapi` | 0.115+ | The web server and its API |
+| `uvicorn[standard]` | 0.30+ | Runs the web server |
+| `astropy` | 6.1+ | Sky coordinates, FITS images and the archive searches |
+| `numpy` | 1.26+ | All the picture maths |
+| `requests`, `httpx` | 2.31+, 0.27+ | Talking to NASA and the catalogues |
+| `pillow` | 10+ | Making PNG pictures and the share cards |
+| `reportlab` | 4.0+ | The technical report (PDF) |
+| `edge-tts` | 7.0+ | The natural "butler" reading voice (without it, the browser's own voice is used) |
+
+Extra packages for developers and tests, from `requirements-dev.txt`: `pytest` 8+, `pypdf` 4+ (reads the
+report in the tests), `astropy-healpix` 1+ (only for `scripts/render_allsky.py`).
+
+Website packages, from `frontend/package.json`: `react` and `react-dom` 18.3, `chart.js` 4.4 (graphs),
+`gifenc` (animated GIFs), and `vite` 5.4 with `@vitejs/plugin-react` (builds the site). The sky map
+(Aladin Lite) loads from CDS in the browser, so it needs no install.
+
+**Online services SkyShift talks to** (all free, no sign-up)
+
+| Service | Used for |
+|---|---|
+| NASA/IPAC IRSA (SIA and cutouts) | The SPHEREx pictures, DR1 and Quick Releases; also 2MASS and AllWISE |
+| ESA Gaia archive | Star positions, motions and distances (Gaia DR3) |
+| CDS Sesame and SIMBAD | Finding stars by name; what an object is |
+| NASA Exoplanet Archive | Known planets around a star |
+| IMCCE SkyBoT | Asteroids and comets in the picture |
+| Wikipedia | The plain-English summary of an object |
+| Microsoft neural voices (through `edge-tts`) | The reading voice. Only the sentence being spoken is sent |
+| Your browser's speech recognition (Google in Chrome, Microsoft in Edge) | Hearing your voice commands in Listen mode |
+| Hugging Face or Ollama (optional) | Full AI answers in "Ask" (see [Optional: AI answers with Qwen](#optional-ai-answers-with-qwen)) |
+
+### 1. Install the programs, then check them
+
+Install Git, Python and Node.js from the table above. Close and reopen your terminal, then check that it finds them:
+
+```bash
+git --version
+python --version      # macOS/Linux: python3 --version   (needs 3.12 or newer)
+node --version        # needs v18 or newer (v20 recommended)
+npm --version
+```
 
 ### 2. Download and set up (first time only, about 5 minutes)
 
@@ -139,6 +198,7 @@ Close and reopen your terminal after installing so it finds the new programs.
 git clone https://github.com/Kuladeep0001/SKYSHIFT.git
 cd SKYSHIFT
 python -m venv .venv
+.venv\Scripts\python -m pip install --upgrade pip
 .venv\Scripts\python -m pip install -r requirements.txt
 cd frontend
 npm install
@@ -151,9 +211,13 @@ cd ..
 git clone https://github.com/Kuladeep0001/SKYSHIFT.git
 cd SKYSHIFT
 python3 -m venv .venv
+.venv/bin/python -m pip install --upgrade pip
 .venv/bin/python -m pip install -r requirements.txt
 cd frontend && npm install && npm run build && cd ..
 ```
+
+Want a different branch (for example the `uiv` design)? Run `git checkout uiv` right after `cd SKYSHIFT`,
+then carry on with the other lines.
 
 ### 3. Start the website (every time)
 
@@ -163,8 +227,32 @@ From inside the `SKYSHIFT` folder:
 |---|---|
 | `.venv\Scripts\python -m uvicorn backend.main:app --port 8000` | `.venv/bin/python -m uvicorn backend.main:app --port 8000` |
 
-Wait until it prints `Application startup complete`, then open **http://localhost:8000** in Chrome, Edge or Firefox.
+Wait until it prints `Application startup complete`, then open **http://localhost:8000** in Chrome or Edge.
 Keep the terminal window open while you use the site. Press **Ctrl + C** in it to stop the website.
+
+### 4. Using Listen mode (for blind and low-vision visitors)
+
+1. Put on headphones, then press **Listen mode** at the top of the page (or open the **Listen** tab).
+2. The first time, the browser asks to use your **microphone**: choose **Allow**.
+3. SkyShift says where you are and what you can say, then listens. Just talk: *describe*, *play*, *motion*,
+   *list*, *star 2*, *go to Vega*, *slower*, *stop*, *repeat*, *help*, or ask any question.
+4. No microphone, or using Firefox? Use the keys instead: **T** talk, **P** or **Space** play, **D** describe,
+   **M** motion, **L** list, **N** next star, **R** repeat, **H** help, **Esc** stop.
+
+### Settings (optional)
+
+Set these before starting the website (Windows PowerShell: `$env:NAME="value"`; Command Prompt:
+`set NAME=value`; macOS/Linux: `export NAME=value`).
+
+| Setting | Default | What it does |
+|---|---|---|
+| `SKYSHIFT_CACHE` | `data/cache` | Where downloaded pictures are kept |
+| `SKYSHIFT_VOICE_CACHE` | `data/voice` | Where spoken sentences are kept (so repeats play instantly) |
+| `SKYSHIFT_WATCH_HOURS` | `6` | How often to check NASA for new releases (`0` = never) |
+| `SKYSHIFT_CHECK_MINUTES` | `60` | Re-check a spot for new pictures when it was opened longer ago than this |
+| `HF_TOKEN` | not set | A free Hugging Face token: full AI answers in "Ask" (Qwen) |
+| `SKYSHIFT_LLM_URL`, `SKYSHIFT_LLM_MODEL`, `SKYSHIFT_LLM_KEY` | not set | Use another AI model instead (for example a local Ollama) |
+| `PORT` | `7860` | Only for Docker: the port the container listens on |
 
 ### Good to know
 
@@ -173,11 +261,11 @@ Keep the terminal window open while you use the site. Press **Ctrl + C** in it t
   star is saved on your computer in `data/cache/` and opens instantly.
 - **Want the 5 challenge stars ready before a demo?** Run this once and let it finish (about 20–30 minutes):
   `.venv\Scripts\python -m scripts.prewarm` (macOS/Linux: `.venv/bin/python -m scripts.prewarm`).
-- **Disk space:** about 250 MB per star.
 - **Each computer keeps its own copy.** Your friends' laptops download their own pictures. Discovery board
   reports are saved only on the computer that made them.
-- **Get the newest version:** run `git pull`, then `cd frontend`, `npm run build`, `cd ..`, then start the
-  website again. If `requirements.txt` changed, also run the `pip install` line from step 2 again.
+- **Get the newest version:** run `git pull`, then the `pip install -r requirements.txt` line from step 2
+  (new packages are sometimes added), then `cd frontend`, `npm install`, `npm run build`, `cd ..`, and start
+  the website again.
 
 ### If something goes wrong
 
@@ -189,6 +277,11 @@ Keep the terminal window open while you use the site. Press **Ctrl + C** in it t
 | `address already in use` / `error while attempting to bind` | SkyShift is already running in another window. Use that one, or start with `--port 8001` and open http://localhost:8001 |
 | "IRSA may be busy, please try again" | NASA's archive is overloaded. Wait a minute and search again; pictures already downloaded are kept |
 | The sky map on the home page stays black | Wait a few seconds the first time (the colour sky is built from NASA's tiles), or pick another sky in the map's menu. If it never appears, your browser needs WebGL 2: update Chrome, Edge or Firefox, or turn on hardware acceleration (you then get a still picture instead) |
+| The reading voice sounds robotic | The natural voice needs the `edge-tts` package and internet. Run the `pip install -r requirements.txt` line from step 2 again, then restart the website |
+| Listen mode doesn't hear me | Use **Chrome or Edge** (Firefox can't hear voice commands). Allow the microphone: click the lock icon left of the address, set **Microphone** to **Allow**, reload, and press **T**. Check that the right microphone is chosen in your computer's sound settings |
+| No 3D sound, or it's in both ears | Use headphones (speakers mix both sides) and make sure mono audio is turned off in your computer's accessibility settings |
+| `npm install` fails with `EACCES` or `permission denied` | Don't use `sudo`. Make sure you're inside the `SKYSHIFT/frontend` folder you cloned, which you own |
+| `pip install` fails building `astropy` or `numpy` | Your Python is too old or too new for the ready-made packages. Install Python 3.12 or 3.13 and repeat step 2 |
 | The assistant (Ask) gives short answers | That's the built-in helper. For full answers, connect Qwen (see [Optional: AI answers with Qwen](#optional-ai-answers-with-qwen)) |
 
 ### For developers
