@@ -1,0 +1,51 @@
+# SkyShift on one server: the app (API + website) behind Caddy, which gives automatic HTTPS.
+#   cd deploy && cp .env.example .env   (set SKYSHIFT_DOMAIN)   && sudo docker compose up -d --build
+# Downloaded pictures and spoken sentences live in ./data on the server's disk, so they survive updates and restarts.
+services:
+  skyshift:
+    build: ..
+    image: skyshift:latest
+    restart: unless-stopped
+    environment:
+      - SKYSHIFT_CACHE=/app/data/cache
+      - SKYSHIFT_VOICE_CACHE=/app/data/voice
+      - SKYSHIFT_WATCH_HOURS=${SKYSHIFT_WATCH_HOURS:-6}
+      - HF_TOKEN=${HF_TOKEN:-}
+      - SKYSHIFT_LLM_URL=${SKYSHIFT_LLM_URL:-}
+      - SKYSHIFT_LLM_MODEL=${SKYSHIFT_LLM_MODEL:-Qwen/Qwen2.5-7B-Instruct}
+    volumes:
+      - ./data:/app/data
+    expose:
+      - "7860"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:7860/', timeout=5).status == 200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "5" }
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      - SKYSHIFT_DOMAIN=${SKYSHIFT_DOMAIN:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - skyshift
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  caddy_data:
+  caddy_config:

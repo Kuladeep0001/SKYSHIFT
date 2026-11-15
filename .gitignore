@@ -12,3 +12,7 @@ scratch_old/
 
 # teammates' upload zips: unpack them onto their base commit, don't keep them in the repo
 *.zip
+
+# server-side files (deploy/): the picture cache and your settings never go to GitHub
+deploy/data/
+deploy/.env

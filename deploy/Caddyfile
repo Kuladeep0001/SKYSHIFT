@@ -1,0 +1,12 @@
+# Caddy in front of SkyShift. With SKYSHIFT_DOMAIN set (e.g. skyshift.duckdns.org) it gets and renews the
+# HTTPS certificate by itself. Without a domain it serves plain http on port 80 (the microphone then won't work).
+{$SKYSHIFT_DOMAIN::80} {
+	encode zstd gzip
+	reverse_proxy skyshift:7860 {
+		# the technical report and big picture downloads can take a while
+		transport http {
+			read_timeout 300s
+			write_timeout 300s
+		}
+	}
+}

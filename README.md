@@ -121,6 +121,14 @@ Without either, "Ask about this object" uses built-in answers from SkyShift's ow
 | Data | NASA IRSA SIA + cutout service (SPHEREx), ESA Gaia TAP, IRSA Gator (AllWISE), IMCCE SkyBoT, CDS Sesame |
 | Deploy | Docker (one container serves the API and the built website) |
 
+## Put SkyShift on the internet (free)
+
+One always-on server on **Oracle Cloud's Always Free tier** (4 CPUs, 24 GB, 150 GB disk, costs nothing) runs the
+whole site with HTTPS at a free `yourname.duckdns.org` address. It's one pasted command on the server after
+about 30 minutes of clicking in Oracle's console. The step-by-step guide, the installer and the Docker/Caddy
+setup are in [`deploy/`](deploy/README.md). Good for up to a few thousand visitors a day once the demo stars are
+prewarmed.
+
 ## Run SkyShift on your own computer
 
 Anyone can run the whole website on their own laptop. Nothing has to be running anywhere else: your
