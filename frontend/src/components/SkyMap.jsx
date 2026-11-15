@@ -58,7 +58,8 @@ export default function SkyMap({ target, fov, onLoadHere }) {
           <option value="P/DSS2/color">Visible light (DSS)</option>
         </select>
       </h2>
-      {failed ? <p className="hint">Sky map unavailable (needs WebGL2).</p> : <div ref={div} className="aladin" />}
+      {failed ? <p className="hint">Sky map unavailable (needs WebGL2).</p> : <div className="aladinWrap"><div ref={div} className="aladin" />
+        <div className="imgFoot skyFoot"><span className="src">Data: {/spherex-colour/.test(survey) ? "NASA SPHEREx DR1 (IRSA HiPS), colours by SkyShift" : survey.split("/")[1] + " (CDS Strasbourg)"}</span></div></div>}
       <p className="small muted">The orange box is the area SkyShift is showing. Drag to explore, then:</p>
       <button className="full" onClick={() => { if (al.current) { const [ra, dec] = al.current.getRaDec(); onLoadHere(ra, dec); } }}>
         Show the spot at the centre of this map

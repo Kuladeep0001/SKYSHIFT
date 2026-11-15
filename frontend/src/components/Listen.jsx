@@ -205,7 +205,7 @@ const playhead = {
 };
 
 /* ================================================================ the tab */
-export default function Listen({ target, story, F, sel, spec, loading, onPixel, candidates }) {
+export default function Listen({ target, story, F, sel, spec, loading, onPixel, candidates, source }) {
   const [caption, setCaption] = useState("");
   const [busy, setBusy] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -528,6 +528,7 @@ export default function Listen({ target, story, F, sel, spec, loading, onPixel, 
         <div className="chartBox listenChart">
           <canvas ref={canvas} role="img" aria-label={summary || "The graph is loading."} />
         </div>
+        <p className="srcLine">Data: {source || "NASA SPHEREx via IRSA"}</p>
         {sat && <p className="note warn">This star is so bright it overloads SPHEREx's camera, so these values are lower limits. Pick a fainter star for a clean graph.</p>}
         {pts[cur] && <p className="readout" aria-hidden="true">{pts[cur].wave.toFixed(2)} µm · {num(pts[cur].flux)} µJy{featureAt(pts[cur].wave) ? ` · ${featureAt(pts[cur].wave).name} band` : ""}</p>}
       </figure>

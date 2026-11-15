@@ -66,8 +66,9 @@ export function paintRGBLight(canvas, r, g, b, n, lims, contrast = 0.55, bright 
   for (let row = 0; row < n; row++) {
     const src = (n - 1 - row) * n;
     for (let c = 0; c < n; c++) {
-      const i = src + c, o = (row * n + c) * 4;
-      let R = st(r[i], lims[0]), G = st(g[i], lims[1]), B = st(b[i], lims[2]);
+      const i = src + c, o = (row * n + c) * 4, y = n - 1 - row;
+      const val = (a) => (Number.isFinite(a[i]) ? a[i] : holeValue(a, n, y, c));
+      let R = st(val(r), lims[0]), G = st(val(g), lims[1]), B = st(val(b), lims[2]);
       const M = Math.max(R, G, B), L = (R + G + B) / 3;
       // vivid colours for normal stars; very bright (overloaded) centres fade to white like in a real photo
       const sat = M > 0.8 ? 1.35 * (1 - (M - 0.8) / 0.2) : 1.35;
@@ -131,17 +132,30 @@ export function makeDivScaler(L, contrast = 0.55, bright = 0.5) {
 const off = document.createElement("canvas");
 
 /* Copy the n x n picture onto the canvas: all of it, or only a square window when zoomed.
- * view = { sx, sy, sw } in picture pixels (top-left origin, as drawn). Smoothing is on when zoomed,
- * so a star that moves by a pixel slides instead of jumping between blocks. */
+ * view = { sx, sy, sw } in picture pixels (top-left origin, as drawn). Always crisp: every SPHEREx
+ * pixel stays a clear square, so nothing is blurred or invented. */
 function blit(ctx, canvas, n, view) {
+  ctx.imageSmoothingEnabled = false;
   if (!view || view.sw >= n) {
-    ctx.imageSmoothingEnabled = false;
     ctx.drawImage(off, 0, 0, canvas.width, canvas.height);
     return;
   }
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = "high";
   ctx.drawImage(off, view.sx, view.sy, view.sw, view.sw, 0, 0, canvas.width, canvas.height);
+}
+
+/* A blank (NaN) pixel in the middle of a star: the camera overloaded there in every snapshot.
+ * For display, use its brightest neighbour (needs 3+ real neighbours), like the server does for
+ * single snapshots, so the star shows as a bright blob instead of a dark mask. */
+function holeValue(arr, n, y, x) {
+  let best = -Infinity, cnt = 0;
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    if (!dx && !dy) continue;
+    const yy = y + dy, xx = x + dx;
+    if (yy < 0 || xx < 0 || yy >= n || xx >= n) continue;
+    const v = arr[yy * n + xx];
+    if (Number.isFinite(v)) { cnt++; if (v > best) best = v; }
+  }
+  return cnt >= 3 ? best : NaN;
 }
 
 /* The zoom window around grid pixel (x, y) (y up), kept inside the picture. */
@@ -160,7 +174,9 @@ export function paint(canvas, arr, n, scaler, lut, flags, view = null) {
   for (let r = 0; r < n; r++) {
     const src = (n - 1 - r) * n;
     for (let c = 0; c < n; c++) {
-      const v = arr[src + c], o = (r * n + c) * 4;
+      let v = arr[src + c];
+      const o = (r * n + c) * 4;
+      if (!Number.isFinite(v)) v = holeValue(arr, n, n - 1 - r, c);
       if (!Number.isFinite(v)) { d[o] = 18; d[o + 1] = 22; d[o + 2] = 34; d[o + 3] = 255; continue; }
       const k = scaler(v) * 3;
       d[o] = lut[k]; d[o + 1] = lut[k + 1]; d[o + 2] = lut[k + 2]; d[o + 3] = 255;

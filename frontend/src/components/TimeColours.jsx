@@ -14,7 +14,7 @@ export function pickVisits(F) {
   return [0, Math.floor((n - 1) / 2), n - 1]; // first, middle, last
 }
 
-export default function TimeColours({ F, disp, onPixel, focusXY }) {
+export default function TimeColours({ F, disp, onPixel, focusXY, source }) {
   const ref = useRef(null);
   const use = useMemo(() => pickVisits(F), [F, colourSafe]);
   const colours = timePalette(use.length);
@@ -64,6 +64,7 @@ export default function TimeColours({ F, disp, onPixel, focusXY }) {
     <div className="viewer">
       <div className="canvasWrap">
         <canvas ref={ref} width="720" height="720" onClick={click} aria-label="Pictures from different dates in different colours" />
+        <div className="imgFoot"><span className="src">Data: {source || "NASA SPHEREx via IRSA"}</span></div>
         <div className="legend timeLegend">
           {use.map((k, j) => (
             <span key={k}><i style={{ background: css(colours[j]) }} /> {monthYear((F.list[k].date_range?.[0] || F.list[k].date).slice(0, 10))}</span>

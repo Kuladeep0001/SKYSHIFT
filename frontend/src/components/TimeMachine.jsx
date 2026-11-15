@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, loadImages } from "../lib/api.js";
 import { percentile } from "../lib/frames.js";
+import { SURVEY_CREDIT } from "../lib/sources.js";
 import { LUTS, makeScaler, paint } from "../lib/render.js";
 
 const W = 640;
@@ -122,7 +123,7 @@ export default function TimeMachine({ qid, target, fov, disp, onTask }) {
         <div className="canvasWrap">
           <canvas ref={canvas} width={W} height={W} aria-label={`Sky in ${years}`} />
           <div className="stamp"><b className="year">{years}</b><span>{f.label} · {f.band}</span><span>{f.date}</span></div>
-          <div className="scaleNote">{area.fov}′ wide</div>
+          <div className="imgFoot"><span>{area.fov}′ wide</span><span className="src">Data: {SURVEY_CREDIT[f.survey] || f.label}</span></div>
         </div>
       </div>
       <div className="player">

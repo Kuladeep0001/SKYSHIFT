@@ -16,7 +16,7 @@ export function wallVisitCount(F) {
   return F ? visitsOf(F).length : 0;
 }
 
-export default function DetectorWall({ F, idx, disp, detectors, onPixel }) {
+export default function DetectorWall({ F, idx, disp, detectors, onPixel, source }) {
   const refs = useRef([]);
   const visits = useMemo(() => (F ? visitsOf(F) : []), [F]);
   const v = visits.length ? visits[idx % visits.length] : 0;
@@ -65,6 +65,7 @@ export default function DetectorWall({ F, idx, disp, detectors, onPixel }) {
           <figcaption><b style={{ color: DET_COLORS[d - 1] }}>D{d}</b> {detectors?.[d] ? `${detectors[d][0].toFixed(2)}–${detectors[d][1].toFixed(2)} µm` : ""}</figcaption>
         </figure>
       ))}
+      <p className="srcLine">Data: {source || "NASA SPHEREx via IRSA"}</p>
       <p className="hint wallNote">{disp.math === "sum" ? "All visits added together" : when}: each panel is one of SPHEREx's 6 detectors, from bluest (D1) to reddest (D6). Cold brown dwarfs only show up in the red ones.
         {(disp.math === "first" || disp.math === "prev") && v === visits[0] && <> <b>This is the first visit: the others are compared with it.</b></>}
         {(disp.math === "first" || disp.math === "prev") && v !== visits[0] && <> <b className="orange">Orange</b> = brighter now, <b className="blue">blue</b> = was brighter {disp.math === "first" ? "in the first visit" : "in the visit before"}.</>}</p>

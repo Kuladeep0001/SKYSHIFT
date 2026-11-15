@@ -47,7 +47,7 @@ function axis(title, log, min, max) {
     grid: { color: "#1f2029" }, border: { color: "#3a3b47" }, ticks: { color: "#a2a3b2", font: { family: "JetBrains Mono", size: 10 } } };
 }
 
-export default function SpectrumPanel({ spec, visits, detectors, loading, simple }) {
+export default function SpectrumPanel({ spec, visits, detectors, loading, simple, source }) {
   const a = useRef(null), b = useRef(null), charts = useRef([]);
   const [log, setLog] = useState(false);
   const [byVisit, setByVisit] = useState(true);
@@ -145,6 +145,7 @@ export default function SpectrumPanel({ spec, visits, detectors, loading, simple
         </>
       )}
       <div className="chartBox tall"><canvas ref={a} aria-label="Spectrum chart" /></div>
+      <p className="srcLine">Data: {source || "NASA SPHEREx via IRSA"}</p>
       {spec && spec.saturated_fraction > 0.5 && <p className="note warn">This star is so bright it overloads (saturates) SPHEREx's camera, so these values are lower limits and band depths can't be measured. Click a fainter star.</p>}
       {spec && spec.features?.length > 0 && (
         <table className="features">

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { diffFrame, meanFrames, mjdToYear, monthYear, percentile, PIX } from "../lib/frames.js";
 import { arrow, bandTint, LUTS, makeDivScaler, makeScaler, paint, paintRGBLight, pixToCanvas, skyToCanvas, zoomView } from "../lib/render.js";
 import { trackStar } from "./Listen.jsx";
+import { overlayCredits } from "../lib/sources.js";
 
 const W = 720; // internal canvas resolution
 
@@ -30,7 +31,7 @@ export function useLimits(F, math) {
 }
 
 export default function ImageViewer({ F, idx, disp, ov, target, cats, asteroids, onNeedAsteroids, sel, candidates,
-  focus, onPixel, simple, fov, rgb, zoom = 1 }) {
+  focus, onPixel, simple, fov, rgb, zoom = 1, source }) {
   const ref = useRef(null);
   const lim = useLimits(F, disp.math);
   // RGB colour grading: one brightness range per colour channel, shared by all visits (so colours compare fairly)
@@ -71,29 +72,28 @@ export default function ImageViewer({ F, idx, disp, ov, target, cats, asteroids,
     const Z = ([x, y]) => (view ? [(x - view.sx * (W / n)) * z, (y - view.sy * (W / n)) * z] : [x, y]);
     ctx.lineWidth = 1.6;
     ctx.font = "600 14px Inter, sans-serif";
-    // the object's path through the visits: ring = first visit, dots = later visits, bright = this picture
+    // the shift, drawn so anyone can see it: dashed circle = where the star was at the first visit,
+    // gold circle = where it is in this picture, arrow = the shift, small dots = the visits in between
     if (ov.path !== false && path && disp.math !== "sum") {
       const pts = path.map((p) => Z(pixToCanvas(p.x, p.y, n, W)));
-      ctx.save();
-      ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
-      ctx.beginPath(); pts.slice(0, i + 1).forEach(([x, y], k) => (k ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke();
-      ctx.setLineDash([]);
-      pts.forEach(([x, y], k) => {
-        if (k > i) return;
-        ctx.fillStyle = k === i ? "#ffffff" : "rgba(255,207,77,.9)";
-        ctx.beginPath(); ctx.arc(x, y, k === i ? 5 : 3.5, 0, 2 * Math.PI); ctx.fill();
-      });
-      const [x0, y0] = pts[0];
-      ctx.strokeStyle = "#ffcf4d"; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(x0, y0, 9, 0, 2 * Math.PI); ctx.stroke();
-      ctx.font = "600 13px Inter, sans-serif"; ctx.fillStyle = "#ffcf4d";
+      const R = Math.max(14, Math.min(110, 2.4 * s));        // about the size of the star
+      const [x0, y0] = pts[0], [xi, yi] = pts[i];
       const first = F.list[0], d0 = first.date_range ? monthYear(first.date_range[0]) : first.date.slice(0, 7);
-      ctx.fillText(`start: ${d0}`, x0 + 13, y0 + 18);
+      ctx.save();
+      ctx.fillStyle = "rgba(255,207,77,.95)";
+      pts.forEach(([x, y], k) => { if (k > 0 && k < i) { ctx.beginPath(); ctx.arc(x, y, 3.5, 0, 2 * Math.PI); ctx.fill(); } });
+      ctx.lineWidth = 2.5; ctx.strokeStyle = "rgba(255,255,255,.95)"; ctx.setLineDash([9, 7]);
+      ctx.beginPath(); ctx.arc(x0, y0, R, 0, 2 * Math.PI); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = "700 13px Inter, sans-serif"; ctx.fillStyle = "#ffffff";
+      ctx.shadowColor = "#000"; ctx.shadowBlur = 4;
+      ctx.fillText(`was here in ${d0}`, x0 - R, y0 + R + 18);
       if (i > 0) {
-        const moved = Math.hypot(path[i].x - path[0].x, path[i].y - path[0].y) * PIX;
-        const [xi, yi] = pts[i];
-        ctx.fillStyle = "#ffffff";
-        ctx.fillText(`now: moved ${moved.toFixed(1)}″`, xi + 26, yi - 14);
+        ctx.strokeStyle = "#ffcf4d"; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(xi, yi, R, 0, 2 * Math.PI); ctx.stroke();
+        if (Math.hypot(xi - x0, yi - y0) > 6) { ctx.lineWidth = 3; arrow(ctx, x0, y0, xi, yi, 12); }
+        ctx.fillStyle = "#ffcf4d";
+        ctx.fillText("is here now", xi - R, yi - R - 8);
       }
       ctx.restore();
       ctx.font = "600 14px Inter, sans-serif"; ctx.lineWidth = 1.6;
@@ -131,10 +131,12 @@ export default function ImageViewer({ F, idx, disp, ov, target, cats, asteroids,
         const [x, y] = Z(skyToCanvas(ra, dec, target.ra, target.dec, n, W));
         if (x < -10 || y < -10 || x > W + 10 || y > W + 10) continue;
         const rad = Math.max(5, Math.min(15, (18 - (st.mag ?? 15)) * 1.2)) * Math.max(1, (W / n) / 10) * Math.min(z, 2.5);
-        ctx.globalAlpha = fast ? 1 : 0.55;
+        ctx.globalAlpha = fast ? (z > 1 ? 0.8 : 1) : 0.55;
         ctx.strokeStyle = fast ? "#5ab0ff" : color;
-        ctx.lineWidth = fast ? 2.2 : 1.3;
+        ctx.lineWidth = fast ? (z > 1 ? 1.4 : 2.2) : 1.3;
+        if (z > 1) ctx.setLineDash([6, 5]);
         ctx.beginPath(); ctx.arc(x, y, rad, 0, 2 * Math.PI); ctx.stroke();
+        ctx.setLineDash([]);
         if (fast && !simple) { ctx.fillStyle = "#5ab0ff"; ctx.fillText(`${(pm / 1000).toFixed(2)}″/yr`, x + rad + 4, y + rad + 12); }
       }
       ctx.globalAlpha = 1;
@@ -187,6 +189,20 @@ export default function ImageViewer({ F, idx, disp, ov, target, cats, asteroids,
 
   if (!F) return null;
   const { diverge, ref: isRef } = F.data.length ? displayed(F, i, disp.math) : {};
+  let motion = null;
+  if (ov.path !== false && path && disp.math !== "sum" && F.list[0]) {
+    const f0 = F.list[0], d0 = f0.date_range ? monthYear(f0.date_range[0]) : f0.date.slice(0, 7);
+    if (i === 0) motion = `Starting point (${d0}): press play and watch the star leave the dashed circle.`;
+    else {
+      const dx = path[i].x - path[0].x, dy = path[i].y - path[0].y, px = Math.hypot(dx, dy), arcsec = px * PIX;
+      const yrs = ((F.list[i].mjd || 0) - (f0.mjd || 0)) / 365.25;
+      const dir = [dy > 0.15 ? "north" : dy < -0.15 ? "south" : "", dx > 0.15 ? "west" : dx < -0.15 ? "east" : ""].filter(Boolean).join("-");
+      motion = arcsec >= 2
+        ? `Moved ${arcsec.toFixed(1)}″ ${dir || ""} since ${d0}${yrs > 0.1 ? ` (in ${yrs.toFixed(1)} years)` : ""}: ${px.toFixed(1)} SPHEREx pixels.`
+        : `No clear shift since ${d0} (under 2″): it stays in place.`;
+    }
+  }
+  const credits = [source || "NASA SPHEREx via IRSA", ...overlayCredits(ov)];
   const moonFrac = Math.round(31 / fov);
   return (
     <div className="viewer">
@@ -204,7 +220,11 @@ export default function ImageViewer({ F, idx, disp, ov, target, cats, asteroids,
             )}
           </div>
         )}
-        <div className="scaleNote">{view ? `zoomed ${zoom}× · ${(fov / zoom).toFixed(1)}′ wide` : `${fov}′ wide${moonFrac >= 2 ? ` ≈ 1/${moonFrac} of the full Moon` : ""}`}</div>
+        {motion && <div className="motionNote">{motion}</div>}
+        <div className="imgFoot">
+          <span>{view ? `zoomed ${zoom}× · ${(fov / zoom).toFixed(1)}′ wide` : `${fov}′ wide${moonFrac >= 2 ? ` ≈ 1/${moonFrac} of the full Moon` : ""}`}</span>
+          <span className="src">Data: {credits.join(" · ")}</span>
+        </div>
         {rgb && disp.math === "none" && (
           <div className="legend rgbLegend">
             <span><i style={{ background: "#ff7b7b" }} /> longest infrared (3.8–5 µm)</span>
@@ -219,6 +239,9 @@ export default function ImageViewer({ F, idx, disp, ov, target, cats, asteroids,
           </div>
         )}
       </div>
+      {simple && motion && ov.path !== false && (
+        <p className="hint">Dashed white circle = where the star was at the first visit. Gold circle = where it is in this picture. The arrow is the shift.</p>
+      )}
     </div>
   );
 }

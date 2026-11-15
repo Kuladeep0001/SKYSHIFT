@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { monthYear, percentile } from "../lib/frames.js";
 import { LUTS, makeScaler, paint, paintRGBLight } from "../lib/render.js";
 
-export default function BeforeAfter({ F, disp, rgb }) {
+export default function BeforeAfter({ F, disp, rgb, source }) {
   const a = useRef(null), b = useRef(null);
   const [pos, setPos] = useState(50);
   const first = 0, last = F ? F.data.length - 1 : 0;
@@ -32,6 +32,7 @@ export default function BeforeAfter({ F, disp, rgb }) {
         <div className="baLine" style={{ left: `${pos}%` }}><span></span></div>
         <div className="baTag left">{monthYear(da)}</div>
         <div className="baTag right">{monthYear(db)}</div>
+        <div className="imgFoot"><span className="src">Data: {source || "NASA SPHEREx via IRSA"}</span></div>
         <input className="baRange" type="range" min="0" max="100" value={pos} onChange={(e) => setPos(+e.target.value)}
           aria-label="Compare before and after" />
       </div>

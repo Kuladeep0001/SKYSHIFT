@@ -69,7 +69,7 @@ function smooth(pts, half = 6) {
   });
 }
 
-export default function SpectralCube({ qid, visits, disp, version }) {
+export default function SpectralCube({ qid, visits, disp, version , source }) {
   const [visit, setVisit] = useState(-1);
   const [cubes, setCubes] = useState({});       // visit -> decoded cube
   const [k, setK] = useState(40);                // current plane (0-based)
@@ -213,6 +213,7 @@ export default function SpectralCube({ qid, visits, disp, version }) {
           <div>
             <div className="canvasWrap cubeCanvas">
               <canvas ref={canvas} width={W} height={W} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={() => setDrag(null)} aria-label={`Plane ${k + 1}`} />
+              <div className="imgFoot"><span className="src">Data: {source || "NASA SPHEREx via IRSA"}</span></div>
               <div className="stamp"><b style={{ color: DET_COLORS[c.det - 1] }}>{c.wave?.toFixed(2)} µm</b><span>plane {k + 1} of 102 · detector D{c.det} · ≈{c.snapshots_per_pixel} snapshots per pixel</span></div>
             </div>
             <div className="player">
@@ -239,6 +240,7 @@ export default function SpectralCube({ qid, visits, disp, version }) {
           {mainVisits.length > 1 && <label className="tog"><input type="checkbox" checked={compare} onChange={() => setCompare(!compare)} /> compare dates</label>}
         </div>
         <div className="chartBox tall"><canvas ref={chartEl} aria-label="Spectrum from the cube" /></div>
+        <p className="srcLine">Data: {source || "NASA SPHEREx via IRSA"}</p>
         <p className="note">
           Read straight down through all 102 planes. A star's light makes a <b>smooth curve</b> (dashed). Places where the real spectrum
           <b> dips below</b> or <b>bumps above</b> it are where molecules absorb or glow.

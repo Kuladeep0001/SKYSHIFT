@@ -28,6 +28,7 @@ import Timeline from "../components/Timeline.jsx";
 import { api, loadImages } from "../lib/api.js";
 import { decodeFrames, mainVisitsOnly } from "../lib/frames.js";
 import { rgbByVisit } from "../lib/render.js";
+import { spherexCredit } from "../lib/sources.js";
 import { findTarget, TARGETS } from "../lib/targets.js";
 
 const params = new URLSearchParams(location.search);
@@ -383,6 +384,7 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
 
   /* ------------------------------------------------------------ render */
   const ready = load.phase === "ready" && meta;
+  const source = spherexCredit(fresh?.last_update?.releases || meta?.status?.releases);
   const chInfo = meta && meta.channels[ch - 1];
   const chWave = chInfo && chInfo.wave ? `${chInfo.wave[0].toFixed(2)}–${chInfo.wave[1].toFixed(2)} µm` : "";
   const tabs = simple
@@ -493,15 +495,15 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
 
             {view === "blink" && <ImageViewer F={F} idx={idx} disp={disp} ov={ov} target={target} cats={cats}
               asteroids={asteroids} onNeedAsteroids={needAsteroids} sel={sel} candidates={candidates} focus={focus}
-              onPixel={onPixel} simple={simple} fov={fov} rgb={useRGB ? rgbSets : null} zoom={zoom} />}
-            {view === "compare" && <BeforeAfter F={F} disp={disp} rgb={useRGB ? rgbSets : null} />}
-            {view === "timecolours" && <TimeColours F={F} disp={disp} onPixel={onPixel} focusXY={sel} />}
-            {view === "wall" && <DetectorWall F={wallF} idx={idx} disp={disp} detectors={meta.detectors} onPixel={onPixel} />}
-            {view === "planes" && <SpectralCube qid={qid} visits={meta.visits} disp={disp} version={dataVersion} />}
+              onPixel={onPixel} simple={simple} fov={fov} rgb={useRGB ? rgbSets : null} zoom={zoom} source={source} />}
+            {view === "compare" && <BeforeAfter F={F} disp={disp} rgb={useRGB ? rgbSets : null} source={source} />}
+            {view === "timecolours" && <TimeColours F={F} disp={disp} onPixel={onPixel} focusXY={sel} source={source} />}
+            {view === "wall" && <DetectorWall F={wallF} idx={idx} disp={disp} detectors={meta.detectors} onPixel={onPixel} source={source} />}
+            {view === "planes" && <SpectralCube qid={qid} visits={meta.visits} disp={disp} version={dataVersion} source={source} />}
             {view === "timemachine" && <TimeMachine qid={qid} target={target} fov={fov} disp={disp} onTask={setTmTask} />}
-            {view === "asteroids" && <AsteroidHunter qid={qid} disp={disp} />}
+            {view === "asteroids" && <AsteroidHunter qid={qid} disp={disp} source={source} />}
             {view === "listen" && <Listen target={target} story={story} F={F && F.mode === "visit" ? F : null} sel={sel}
-              spec={spec} loading={specLoading} onPixel={onPixel} candidates={candidates} />}
+              spec={spec} loading={specLoading} onPixel={onPixel} candidates={candidates} source={source} />}
 
             {!["planes", "compare", "timecolours", "timemachine", "asteroids", "listen"].includes(view) && (
               <Controls playing={playing} setPlaying={setPlaying} idx={idx} count={count} setIdx={setIdx} fps={fps} setFps={setFps} disabled={!count} />
@@ -528,7 +530,7 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
               <ObjectCard pos={objPos} simple={simple} onLoaded={setDetails} />
               <CatalogueCheck pos={objPos} pm={objPm} simple={simple}
                 label={objPos?.name || details?.simbad?.name || (objPos && target && Math.hypot(objPos.ra - target.ra, objPos.dec - target.dec) < 2e-3 ? target.name : null)} />
-              <SpectrumPanel spec={spec} visits={meta.visits} detectors={meta.detectors} loading={specLoading} simple={simple} />
+              <SpectrumPanel spec={spec} visits={meta.visits} detectors={meta.detectors} loading={specLoading} simple={simple} source={source} />
               <SkyMap target={target} fov={fov} onLoadHere={goCoords} />
             </aside>
           )}

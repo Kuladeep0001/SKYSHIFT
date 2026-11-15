@@ -8,7 +8,7 @@ import { LUTS, makeScaler, paint, pixToCanvas } from "../lib/render.js";
 
 const W = 640;
 
-export default function AsteroidHunter({ qid, disp, onReport }) {
+export default function AsteroidHunter({ qid, disp, onReport , source }) {
   const [ast, setAst] = useState(null);
   const [frames, setFrames] = useState(null);
   const [pick, setPick] = useState(null);   // asteroid name
@@ -71,6 +71,7 @@ export default function AsteroidHunter({ qid, disp, onReport }) {
           {seq.length ? (
             <div className="canvasWrap">
               <canvas ref={canvas} width={W} height={W} aria-label={`Snapshot with asteroid ${obj.name}`} />
+              <div className="imgFoot"><span className="src">Data: {source || "NASA SPHEREx via IRSA"} · asteroid positions: IMCCE SkyBoT</span></div>
               <div className="stamp"><b>{a.date.slice(0, 16)} UT</b><span>snapshot {k + 1} of {seq.length} where {obj.name} should be · detector D{a.det}</span></div>
             </div>
           ) : <p className="hint">This asteroid falls in snapshots that aren't loaded.</p>}

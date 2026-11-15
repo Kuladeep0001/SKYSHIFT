@@ -71,11 +71,14 @@ def sia(collection: str, ra: float, dec: float, radius: float = 0.0001, maxrec: 
     return list(csv.DictReader(io.StringIO(r.text)))
 
 
-def _exists(name: str) -> bool:
-    try:
-        return len(sia(name, PROBE_RA, PROBE_DEC, maxrec=1, timeout=45)) > 0
-    except Exception:
-        return False
+def _exists(name: str) -> bool | None:
+    """True = the release exists, False = IRSA answered 'no data', None = couldn't tell (busy, timeout)."""
+    for attempt in range(2):
+        try:
+            return len(sia(name, PROBE_RA, PROBE_DEC, maxrec=1, timeout=45)) > 0
+        except Exception:
+            time.sleep(2 + 3 * attempt)
+    return None
 
 
 def releases(force: bool = False) -> dict:
@@ -92,11 +95,29 @@ def releases(force: bool = False) -> dict:
         if now - data.get("checked", 0) < 6 * 3600:
             _rel_mem.update(t=now, data=data)
             return data
-    with ThreadPoolExecutor(max_workers=len(CANDIDATES)) as ex:
-        found = [n for n, ok in zip(CANDIDATES, ex.map(_exists, CANDIDATES)) if ok]
+    prev = {}
+    if _REL_FILE.exists():
+        try:
+            prev = json.loads(_REL_FILE.read_text())
+        except (OSError, ValueError):
+            prev = {}
+    known = {r["id"] for r in prev.get("releases", [])}
+    suspect_before = set(prev.get("suspect", []))
+    with ThreadPoolExecutor(max_workers=6) as ex:   # gentle on IRSA: a burst of 19 probes made some time out
+        result = dict(zip(CANDIDATES, ex.map(_exists, CANDIDATES)))
+    found = [n for n, ok in result.items() if ok]
+    # A release we already knew is kept unless IRSA clearly said "no data" on two checks in a row;
+    # an error or timeout never removes it (this once dropped the Quick Release from every spot).
+    suspect = []
+    for n in known - set(found):
+        if result.get(n) is False and n in suspect_before:
+            continue                      # confirmed gone twice: drop it
+        found.append(n)
+        if result.get(n) is False:
+            suspect.append(n)
     if not found:  # IRSA unreachable: use what we knew last time
-        if _REL_FILE.exists():
-            return json.loads(_REL_FILE.read_text())
+        if prev:
+            return prev
         found = FALLBACK_RELEASES
     names = sorted(found, key=_rank, reverse=True)
     drs = [n for n in names if "_dr" in n]
@@ -106,6 +127,7 @@ def releases(force: bool = False) -> dict:
         # Best = newest full data release + newest quick release (which has the most recent weeks)
         "best": drs[:1] + qrs[:1],
         "checked": now,
+        "suspect": suspect,
     }
     _rel_mem.update(t=now, data=data)
     try:

@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import { fmtDec, fmtRA } from "../lib/frames.js";
 import { TARGETS } from "../lib/targets.js";
+import { skyCredit } from "../lib/sources.js";
 
 export function hasWebGL2() {
   try { return !!document.createElement("canvas").getContext("webgl2"); } catch (_) { return false; }
@@ -108,6 +109,7 @@ export default function SkyHome({ onPick, fovDefault }) {
         {failed
           ? <img className="skyStill" src="/spherex_allsky.jpg" alt="The whole sky in infrared as seen by NASA's SPHEREx, in false colour" />
           : <div ref={div} className="skyMap" />}
+        {!failed && <div className="imgFoot skyFoot"><span className="src">Data: {skyCredit(survey)}</span></div>}
         {mode !== "pan" && !failed && (
           <div className="skyCatcher" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={() => setDrag(null)}
             style={{ cursor: "crosshair" }} aria-label="Click or drag to choose an area" />

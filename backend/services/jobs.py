@@ -313,6 +313,13 @@ def check(job: Job, min_age: float = MIN_MANUAL_GAP) -> dict:
     old_ids = {(m["obs_id"], m["det"]) for m in job.meta}
     new_ids = {(it["obs_id"], it["det"]) for it in items}
     n_new = len(new_ids - old_ids)
+    lost = len(old_ids - new_ids)
+    # Never swap in a version with clearly fewer pictures: NASA's archive was probably busy or a
+    # release was missing from the search for a moment. Keep what we have and look again later.
+    if lost > max(5, 0.05 * len(old_ids)):
+        _save_meta(job)
+        return {"checked": True, "changed": False, "releases": rels,
+                "reason": f"the archive returned {lost} fewer pictures than we have; kept the existing ones"}
     info = {"new_exposures": n_new,
             "reprocessed": max(0, len(set(it["url"] for it in items) - set(job.urls)) - n_new),
             "new_releases": sorted(set(rels) - set(job.releases)), "releases": rels}

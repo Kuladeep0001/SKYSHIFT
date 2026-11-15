@@ -13,7 +13,7 @@ function stamp(ctx, w, lines) {
   ctx.fillStyle = "#fff"; ctx.font = "700 22px Inter, sans-serif"; ctx.fillText(lines[0], 12, 26);
   ctx.fillStyle = "#d4d4dc"; ctx.font = "13px Inter, sans-serif"; ctx.fillText(lines[1] || "", 12, 45);
   ctx.fillStyle = "rgba(4,5,10,.74)"; ctx.fillRect(0, w - 24, w, 24);
-  ctx.fillStyle = "#ffa31a"; ctx.font = "600 12px Inter, sans-serif"; ctx.fillText("SkyShift · NASA SPHEREx", 10, w - 8);
+  ctx.fillStyle = "#ffa31a"; ctx.font = "600 12px Inter, sans-serif"; ctx.fillText("Data: NASA SPHEREx via IRSA · SkyShift", 10, w - 8);
 }
 
 function download(blob, name) {
