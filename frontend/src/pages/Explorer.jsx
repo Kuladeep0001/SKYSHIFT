@@ -13,6 +13,7 @@ import ImageViewer from "../components/ImageViewer.jsx";
 import Listen from "../components/Listen.jsx";
 import ObjectCard from "../components/ObjectCard.jsx";
 import CatalogueCheck from "../components/CatalogueCheck.jsx";
+import ReportCard from "../components/ReportCard.jsx";
 import SkyHome from "../components/SkyHome.jsx";
 import TimeColours from "../components/TimeColours.jsx";
 import MetadataPanel from "../components/MetadataPanel.jsx";
@@ -565,6 +566,8 @@ export default function Explorer({ expert, embed, listenMode, tourStep, setTourS
               <CandidatesPanel qid={qid} band={det} candidates={candidates} setCandidates={setCandidates}
                 focus={focus} setFocus={focusCand} expert={expert} autoRun={detectSignal} onChecks={setChecks}
                 ctx={{ qid, fov, target: target?.name }} say={say} />
+              <ReportCard qid={qid} sel={sel} band={det} pm={objPm} say={say}
+                label={objPos?.clicked ? (details?.simbad?.name || null) : (target?.name || null)} />
               <AskPanel context={askContext} speak={listenMode} />
               <MetadataPanel target={target} meta={meta} frame={view === "blink" ? frame : null}
                 flags={view === "blink" && F ? F.flags[Math.min(idx, F.flags.length - 1)] : null} fov={fov}

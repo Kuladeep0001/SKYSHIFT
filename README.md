@@ -52,6 +52,8 @@ It takes about 10 minutes the first time.
 - [x] **Asteroid hunter**: where each known asteroid was in every snapshot
 - [x] **Discovery board**: report finds, vote (citizen science)
 - [x] **Ask about this object** (Qwen or any OpenAI-compatible model; built-in answers otherwise)
+- [x] **Technical report (PDF)** for researchers: data, processing, detections with motion fits, identification in 4 catalogues
+  + exoplanets, spectrum, light curve, validation, references, and appendices (every channel, exposure and flag); view or download
 - [x] **Guided tour**
 - [x] **Listen tab** for blind and low-vision visitors: the brightness-vs-wavelength graph is shown big *and* played as sound
   (higher, louder note = brighter; left ear = short wavelength, right ear = long), arrow keys read it point by point,

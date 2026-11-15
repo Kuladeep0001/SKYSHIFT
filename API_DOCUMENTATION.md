@@ -160,6 +160,18 @@ Pick a pixel or box and read it through all 102 planes to get its spectrum (done
 Find water/CO2/CO/CH4/hydrogen/mineral bands in any spectrum (e.g. an area from the cube).
 Body `{ "spectrum": [ { "wave": 1.40, "flux": 812.4, "err": 35.1 }, ... ] }` → `{ "features": [ ...same format as above... ] }`
 
+### `GET /api/images/{query_id}/report.pdf?x=&y=&band=0&label=&pmra=&pmdec=&download=false`
+**Technical report** (PDF) for researchers, in a standard technical-report format with a report number,
+abstract, numbered sections and appendices: field and data summary, detector bandpasses, visits, processing
+steps and quality-flag handling, first/last/difference images, detections with multi-visit motion fits and
+errors, identification of the object of interest (Gaia DR3, 2MASS, AllWISE, SIMBAD, NASA Exoplanet Archive,
+colours, other identifiers, known planets), its spectrum (figure + all 102 channels), light curve, method
+validation on the challenge targets, reproducibility links, references and acknowledgements, and appendices
+listing every exposure and the SPHEREx quality flags. No author names; every page carries a SkyShift
+watermark and the website address. `x`, `y` = the object's pixel (default: field centre); `band` as in
+detections; `pmra`/`pmdec` (mas/yr) help the catalogue match for fast movers; `external=false` skips the
+outside archives. Takes 10–60 s. The website's **Technical report** card has View and Download buttons.
+
 ### `GET /api/images/{query_id}/history?ra=&dec=&fov=`
 **Time machine**: the area in POSS-I (1950s plates), POSS-II (1990s), 2MASS Ks (~2000), WISE W1 (2010) and SPHEREx,
 all on one 240 x 240 north-up grid. `frames[]`: `{survey, label, band, date, year, mjd, coverage}`; `data`: base64 float32.

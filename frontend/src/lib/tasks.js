@@ -82,6 +82,7 @@ const LABELS = [
   [/^\/api\/metadata\//, ["Picture details (metadata)", "download"]],
   [/^\/api\/resolve/, ["Looking up the name", "download"]],
   [/^\/api\/finds/, ["Discovery board", "download"]],
+  [/^\/api\/images\/[^/]+\/report\.pdf/, ["Building the technical report (PDF)", "download"]],
   [/^\/api\/validation/, ["Checking SkyShift's accuracy on the 5 challenge targets", "download"]],
 ];
 
